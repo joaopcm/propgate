@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.next/
+.turbo/
+.env
+.env.local
+.vscode/
+*.tsbuildinfo
+
+# DNSSEC signing scratch. The *signed* zones and their keys ARE committed
+# (see packages/dns-fixtures/zones/signed/keys/README.md) — only the
+# intermediate artifacts dnssec-signzone drops next to them are ignored.
+packages/dns-fixtures/zones/signed/dsset-*
+packages/dns-fixtures/zones/signed/keyset-*
+packages/dns-fixtures/zones/signed/*.jnl

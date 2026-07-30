@@ -1,0 +1,20 @@
+; DNSSEC_INSECURE_ISLAND.
+;
+; This zone is unsigned and test.zone delegates to it with no DS record. The
+; parent is signed, so a validating resolver proves the *absence* of a DS via
+; NSEC/NSEC3 and correctly treats this subtree as insecure: AD=0, resolves fine,
+; NOT bogus.
+;
+; The distinction matters commercially. "Insecure" is a warning a customer can
+; ignore; "bogus" means validating resolvers see nothing and their mail is
+; already broken. Reporting one as the other is exactly the false alarm that
+; makes a monitoring product worse than not existing.
+$ORIGIN insecure-island.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+@       IN TXT  "unsigned-but-valid"
+_dmarc  IN TXT  "v=DMARC1; p=none; rua=mailto:dmarc@insecure-island.test"

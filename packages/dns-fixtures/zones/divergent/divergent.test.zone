@@ -1,0 +1,26 @@
+; ANSWER_DIVERGES_BY_VANTAGE_POINT, as far as it can be reproduced locally.
+;
+; Real GeoDNS and anycast are not reproducible on one host. Divergent *answers*
+; are, and divergent answers are what the consensus logic actually consumes:
+; query dns-auth and dns-divergent for the same name and get different results.
+;
+; This exists to test the property the README calls non-negotiable — that one
+; disagreeing vantage point must produce `degraded`, never `failed`. Without a
+; fixture, the hysteresis logic would be the least-tested and highest-stakes
+; code in the product.
+;
+; The counterpart records live on dns-auth (zones/unsigned/divergent-peer.test.zone
+; is not used; the peer name here is wildcard.test's _propgate-verify). Keep the
+; two in step when either changes.
+$ORIGIN divergent.test.
+$TTL 60
+
+@       IN SOA  ns-divergent.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 60 )
+@       IN NS   ns-divergent.test.
+
+; dns-auth would serve the expected value for this name; this server does not.
+_propgate-verify    IN TXT  "propgate-site-verification=STALE-VALUE"
+
+; Present here, absent elsewhere: divergence in the other direction.
+only-here           IN TXT  "visible-from-one-vantage-point-only"

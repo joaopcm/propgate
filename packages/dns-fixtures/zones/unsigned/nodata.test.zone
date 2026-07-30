@@ -1,0 +1,19 @@
+; NODATA_NOT_NXDOMAIN.
+;
+; NODATA is RCODE 0 with an empty answer section and a SOA in authority: the name
+; exists, just not with the type asked for. NXDOMAIN is RCODE 3: the name does
+; not exist at all. Providers and support tickets conflate these constantly, and
+; the remedies are different — NODATA usually means something else is already
+; configured at that name and will need removing first.
+$ORIGIN nodata.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+; Has an address but no TXT: a TXT query gets NODATA, not NXDOMAIN.
+_propgate-verify    IN A    198.51.100.75
+
+; Has a TXT but no address, for the mirror-image assertion.
+onlytxt             IN TXT  "present"

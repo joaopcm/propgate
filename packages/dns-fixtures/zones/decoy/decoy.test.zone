@@ -1,0 +1,13 @@
+; The only zone dns-decoy serves.
+;
+; Its existence is what makes NS_DELEGATION_LAME real: dns-decoy is genuinely
+; authoritative for *something*, so when test.zone delegates lame.test to it, it
+; answers REFUSED immediately rather than timing out or returning SERVFAIL for a
+; different reason. An empty server would not reproduce the same condition.
+$ORIGIN decoy.test.
+$TTL 300
+
+@       IN SOA  ns-decoy.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns-decoy.test.
+@       IN TXT  "i am authoritative for decoy.test and nothing else"

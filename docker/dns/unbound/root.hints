@@ -1,0 +1,8 @@
+; Root hints for the fake fixture root.
+;
+; @ROOT_ADDRESS@ is substituted by entrypoint.sh (default 127.0.0.2, the
+; dns-root container). Unbound needs an address here, never a container
+; hostname — Docker's embedded resolver at 127.0.0.11 would otherwise sit in
+; the path, which is precisely the interference this topology avoids.
+.                        3600000  NS    ns0.test.
+ns0.test.                3600000  A     @ROOT_ADDRESS@

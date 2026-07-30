@@ -1,0 +1,26 @@
+# dns-root — authoritative for the fake root (.) and for test.
+#
+# The root is signed and its KSK is the only trust anchor the validating
+# resolver has. That is what makes DNSSEC_INSECURE_ISLAND ("signed parent,
+# delegation with no DS") reproducible: an explicit trust-anchor for a fake TLD
+# plus domain-insecure interacts differently across Unbound versions, whereas a
+# real signed root behaves exactly like production.
+server:
+  ip-address: @BIND_ADDRESS@
+  port: @DNS_PORT@
+  do-ip6: no
+  server-count: 1
+  zonesdir: "/"
+  username: ""
+  verbosity: 2
+  hide-version: yes
+  # Pinned so truncation behaviour does not drift between NSD releases. The
+  # primary TC test is driven from the client instead (a query with no OPT
+  # record is capped at 512 bytes by protocol).
+  ipv4-edns-size: 1232
+
+remote-control:
+  # Reloads are signalled with SIGHUP (see `pnpm dns:reload`), so nsd-control is
+  # never used. Disabling it explicitly matters: some NSD builds default it on and
+  # then fail at startup trying to load a TLS cert that was never generated.
+  control-enable: no

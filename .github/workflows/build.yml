@@ -1,0 +1,48 @@
+name: Build
+
+on:
+  pull_request:
+    branches: [main]
+
+# Builds only compile and bundle — they need placeholder values to satisfy
+# build-time env validation, not real secrets. apps/web and apps/docs both
+# side-effect import ./src/env, so a missing var fails the build rather than the
+# first request; that is the behaviour we want, and this is how CI satisfies it.
+env:
+  NEXT_PUBLIC_API_URL: "http://localhost:3001"
+  API_URL: "http://localhost:3001"
+  PORT: "3001"
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: API
+            filter: "@propgate/api"
+          - name: Web
+            filter: "@propgate/web"
+          - name: Docs
+            filter: "@propgate/docs"
+          - name: DNS
+            filter: "@propgate/dns"
+          - name: CLI
+            filter: "@propgate/cli"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter ${{ matrix.filter }} build

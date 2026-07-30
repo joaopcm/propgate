@@ -1,0 +1,60 @@
+name: Lint
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  biome:
+    name: Biome
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Biome check + lint
+        run: pnpm dlx ultracite check
+
+  types:
+    name: Types
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Each package's `lint` script is `tsc --noEmit`.
+      - run: pnpm lint
+
+  zones:
+    name: Zone files
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install BIND tools
+        run: sudo apt-get update && sudo apt-get install -y bind9-dnsutils bind9utils
+
+      # Catches a malformed fixture before the DNS tier is even built. Cheap, and
+      # it turns "NSD failed to load a zone and now everything SERVFAILs" into a
+      # named file and line number.
+      - name: named-checkzone every fixture
+        run: ./packages/dns-fixtures/scripts/check-zones.sh

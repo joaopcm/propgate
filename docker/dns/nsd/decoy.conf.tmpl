@@ -1,0 +1,23 @@
+# dns-decoy — authoritative for decoy.test and nothing else.
+#
+# This is what makes lame delegation real. test.zone delegates lame.test here;
+# because this server is authoritative for *something* but not for lame.test, it
+# answers REFUSED immediately. Prefer that over a blackhole address: REFUSED is
+# instant, whereas a timeout-bound fixture is where wall-clock time and
+# flakiness enter a suite.
+server:
+  ip-address: @BIND_ADDRESS@
+  port: @DNS_PORT@
+  do-ip6: no
+  server-count: 1
+  zonesdir: "/"
+  username: ""
+  verbosity: 3
+  hide-version: yes
+  ipv4-edns-size: 1232
+
+remote-control:
+  # Reloads are signalled with SIGHUP (see `pnpm dns:reload`), so nsd-control is
+  # never used. Disabling it explicitly matters: some NSD builds default it on and
+  # then fail at startup trying to load a TLS cert that was never generated.
+  control-enable: no

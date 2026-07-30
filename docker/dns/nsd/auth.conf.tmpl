@@ -1,0 +1,19 @@
+# dns-auth — authoritative for every *.test child fixture zone, plus the
+# realistic multi-label PSL zones (example.co.uk, user.github.io) which cannot
+# live under .test because .test gets the PSL's implicit "*" rule.
+server:
+  ip-address: @BIND_ADDRESS@
+  port: @DNS_PORT@
+  do-ip6: no
+  server-count: 1
+  zonesdir: "/"
+  username: ""
+  verbosity: 2
+  hide-version: yes
+  ipv4-edns-size: 1232
+
+remote-control:
+  # Reloads are signalled with SIGHUP (see `pnpm dns:reload`), so nsd-control is
+  # never used. Disabling it explicitly matters: some NSD builds default it on and
+  # then fail at startup trying to load a TLS cert that was never generated.
+  control-enable: no

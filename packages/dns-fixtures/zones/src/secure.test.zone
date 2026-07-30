@@ -1,0 +1,16 @@
+; The control: correctly signed, valid DS in the signed parent. A validating
+; resolver must return AD=1 here.
+;
+; Every bogus fixture needs this alongside it, otherwise "SERVFAIL" proves only
+; that something is broken, not that the *signature* is what broke it.
+$ORIGIN secure.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+@                   IN TXT  "v=spf1 include:spf.propgate-fixture.test -all"
+_dmarc              IN TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@secure.test"
+sel._domainkey      IN TXT  "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTURESECURE"
+@                   IN A    198.51.100.100

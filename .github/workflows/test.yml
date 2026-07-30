@@ -1,0 +1,70 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit:
+    name: Unit
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # No containers needed: the coverage guard, the fixture-integrity specs,
+      # and the API's route specs are all static.
+      - run: pnpm test
+
+  fixtures:
+    name: DNS fixtures
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A `docker compose up` step rather than GitHub service containers, for one
+      # decisive reason: service containers cannot easily mount config, so they
+      # would have to use a prebuilt image — and a PR that adds a fixture zone
+      # would then run against the *previously published* image. For a repo whose
+      # core activity is "add another ugly-case fixture", that is disqualifying.
+      #
+      # A prebuilt image is still worth adding later as a pure cache, keyed on
+      # sha256(docker/dns + zones), with compose falling back to `image:` on a hit.
+      - name: Start DNS fixtures
+        run: docker compose up -d --build --wait
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run fixture-backed tests
+        env:
+          # Gates the projects that query the live tier. Set here so every PR
+          # exercises them; a suite that silently skips when the servers are down
+          # is worse than one that fails, because the skip looks like a pass.
+          PROPGATE_FIXTURES: "1"
+        run: pnpm test
+
+      # Turns a mystery DNS timeout into a 30-second diagnosis. Worth the six
+      # lines every single time it fires.
+      - name: DNS fixture logs
+        if: ${{ failure() }}
+        run: |
+          docker compose ps
+          docker compose logs --no-color \
+            dns-root dns-auth dns-decoy dns-resolver dns-permissive dns-divergent

@@ -1,0 +1,23 @@
+; WILDCARD_FALSE_POSITIVE, authoritative-signal path.
+;
+; The unsigned fixture (zones/unsigned/wildcard.test.zone) covers behavioural
+; detection: probe a random label and see whether it also answers. That works
+; everywhere but costs an extra query and is inferential.
+;
+; On a signed zone there is a definitive signal instead. RRSIG carries a `Labels`
+; field holding the label count of the *original* owner name, so a wildcard-
+; synthesized answer has Labels smaller than the queried name's label count.
+; Two detection paths need two fixtures, or one of them ships untested.
+$ORIGIN wildcard-signed.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+; Signed wildcard. A query for anything.wildcard-signed.test returns an RRSIG
+; with Labels=2 while the queried name has 3 labels.
+*       IN TXT  "signed-wildcard-synthesized"
+
+; Explicitly present, so Labels matches the query and no false positive is raised.
+real    IN TXT  "signed-and-genuinely-present"

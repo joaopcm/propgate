@@ -1,0 +1,25 @@
+; WILDCARD_FALSE_POSITIVE — the fixture that stops us shipping a verifier which
+; marks unconfigured domains as verified.
+;
+; A wildcard answers for every name, so a naive "did the lookup return
+; something?" check passes for a customer who added nothing at all. Detection
+; here is behavioural: probe a random label, and if that answers too, the
+; specific record was never added.
+;
+; The signed counterpart (zones/src/wildcard-signed.test.zone) covers the other
+; detection path — RRSIG Labels being smaller than the answer owner's label
+; count, which is an authoritative signal rather than a probe. Both paths need
+; their own fixture or one of them ships untested.
+$ORIGIN wildcard.test.
+$TTL 60
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 60 )
+@       IN NS   ns1.test.
+
+*       IN TXT  "wildcard-synthesized-do-not-trust"
+*       IN A    198.51.100.30
+
+; A genuinely configured name alongside the wildcard, so wildcard detection can
+; be shown not to produce a false *negative* when the real record also exists.
+_propgate-verify    IN TXT  "propgate-site-verification=fixture-abc123"

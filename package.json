@@ -1,0 +1,42 @@
+{
+  "name": "propgate",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "check": "ultracite check",
+    "fix": "ultracite fix",
+    "dns:up": "docker compose up -d --build --wait",
+    "dns:down": "docker compose down",
+    "dns:reload": "node packages/dns-fixtures/scripts/revision.mjs --write && docker compose kill -s HUP dns-root dns-auth dns-decoy dns-divergent && docker compose restart dns-auth",
+    "dns:logs": "docker compose logs -f",
+    "dns:sign": "packages/dns-fixtures/scripts/sign.sh",
+    "dns:revision": "node packages/dns-fixtures/scripts/revision.mjs --write",
+    "release": "turbo run build --filter=@propgate/dns --filter=@propgate/cli && changeset publish"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.9",
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.30.0",
+    "turbo": "^2",
+    "typescript": "^5.7",
+    "ultracite": "^7.4.2",
+    "vitest": "^4"
+  },
+  "packageManager": "pnpm@10.33.3",
+  "engines": {
+    "node": ">=24"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "19.2.6",
+      "react-dom": "19.2.6"
+    },
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ]
+  }
+}

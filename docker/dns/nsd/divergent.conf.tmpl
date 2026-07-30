@@ -1,0 +1,24 @@
+# dns-divergent — serves a second, deliberately different copy of a subset of
+# zones.
+#
+# Real GeoDNS and anycast are not reproducible locally, but divergent *answers*
+# are, and divergent answers are what the consensus and hysteresis logic
+# actually consumes. Without this there is no way to test the property the
+# README calls non-negotiable: that a single disagreeing vantage point must not
+# produce domain.failed.
+server:
+  ip-address: @BIND_ADDRESS@
+  port: @DNS_PORT@
+  do-ip6: no
+  server-count: 1
+  zonesdir: "/"
+  username: ""
+  verbosity: 2
+  hide-version: yes
+  ipv4-edns-size: 1232
+
+remote-control:
+  # Reloads are signalled with SIGHUP (see `pnpm dns:reload`), so nsd-control is
+  # never used. Disabling it explicitly matters: some NSD builds default it on and
+  # then fail at startup trying to load a TLS cert that was never generated.
+  control-enable: no
