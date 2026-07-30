@@ -63,7 +63,7 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
   {
     codes: ["TRUNCATED_FELL_BACK_TO_TCP"],
     reason:
-      "A real 2048-bit DKIM key (410 bytes) truncates without EDNS; a 4.4 KB TXT truncates even at an advertised 4096.",
+      "Both sides of the boundary, measured rather than assumed: a real 2048-bit key is a 483-byte response and must NOT be reported as truncated, while a 4096-bit key exceeds 512 and must be. A 4.4 KB TXT truncates even at an advertised 4096.",
     role: "auth",
     zone: "tcp.test",
   },

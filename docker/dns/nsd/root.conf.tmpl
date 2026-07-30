@@ -12,10 +12,15 @@ server:
   server-count: 1
   zonesdir: "/"
   username: ""
-  logfile: ""
   verbosity: 2
   hide-version: yes
   # Pinned so truncation behaviour does not drift between NSD releases. The
   # primary TC test is driven from the client instead (a query with no OPT
   # record is capped at 512 bytes by protocol).
   ipv4-edns-size: 1232
+
+remote-control:
+  # Reloads are signalled with SIGHUP (see `pnpm dns:reload`), so nsd-control is
+  # never used. Disabling it explicitly matters: some NSD builds default it on and
+  # then fail at startup trying to load a TLS cert that was never generated.
+  control-enable: no

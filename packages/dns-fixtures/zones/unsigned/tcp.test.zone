@@ -1,14 +1,22 @@
-; TRUNCATED_FELL_BACK_TO_TCP.
+; TRUNCATED_FELL_BACK_TO_TCP, with both sides of the boundary pinned.
 ;
 ; A response is truncated when it exceeds min(client-advertised EDNS buffer,
-; server maximum). The reliable lever is therefore the *client*: a query with no
-; OPT record is capped at 512 bytes by protocol, independent of any server
-; tuning. So the primary test is "no EDNS, ~410-byte answer" and the secondary
-; is "EDNS 4096, ~4.4 KB answer".
+; server maximum). The reliable lever is the *client*: a query carrying no OPT
+; record is capped at 512 bytes by protocol, independent of server tuning.
 ;
-; Payload sizes deliberately avoid the ~1200-4096 byte band, where IP
-; fragmentation kicks in. Fragmented UDP is a known flakiness source, which is
-; a second reason this topology uses host networking and skips docker-proxy.
+; Measured, not assumed — the first draft of this fixture was wrong. A 2048-bit
+; DKIM key is ~410 bytes of rdata, which makes a 483-byte response: under 512,
+; so it does NOT truncate. Both records below are kept deliberately, because a
+; verifier that reports truncation for the 2048-bit case is as broken as one
+; that misses it for the 4096-bit case.
+;
+; Debugging gotcha worth knowing: `dig` silently retries over TCP when it sees
+; TC and prints the *retried* answer, so the tc flag never appears. Use
+; `dig +ignore` to observe the real UDP response.
+;
+; Payload sizes avoid the ~1200-4096 byte band where IP fragmentation kicks in.
+; Fragmented UDP is a known flakiness source, and a second reason this topology
+; uses host networking and skips docker-proxy.
 $ORIGIN tcp.test.
 $TTL 300
 
@@ -16,10 +24,17 @@ $TTL 300
                 1 7200 3600 1209600 300 )
 @       IN NS   ns1.test.
 
-; A real 2048-bit RSA public key, so Phase 1's DKIM evaluator parses something
-; genuine rather than placeholder base64. 410 bytes total, split at 255.
+; Real 2048-bit RSA key. 483-byte response — fits in 512, must NOT be
+; reported as truncated. The control for this fixture.
 big._domainkey  IN TXT ( "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3jIqphyDocBm/6nl5TsUuK2MzHeCN2MqzSFiqlpSI3J07LJtyeDn2oPw0h9XTur+ivk2HK653fzYDPRWZX4tP6N1U5huKFnH/1YJSK0lkogPfuwiKxMpIIUtChT1dJBgHhlCa4l2gTABjB3cEZ/YinDEeWlMBRpEgank1uVDMNo4CIZoR6qU8fl1mJ7Wsx/oa"
                          "/PiD0gqDcduF5B4hhw6GpwMj5eWQ8WwFuN4GHnQz0JiMJPRhwwlG0jESt4ktEdNoG0LfaIcWp7r3uGxePo7cpVS0EscmCyyKBlArMyt1jdKssvXOUWDWX0kCSDX/K0Bw1JA87eAQeSU7ZvM331j6wIDAQAB" )
+
+; Real 4096-bit RSA key, ~740 bytes of rdata. Exceeds 512, so a query with
+; no OPT record gets TC and the resolver must retry over TCP. This is the
+; realistic DKIM truncation case.
+big4096._domainkey IN TXT ( "v=DKIM1; k=rsa; p=MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA5Pln849AOgM0f+Vqy07IdlBguqIwQ/Dfh/NGnjx7QyamNhlXvoi1328DR4iI2YVgduzHZ/O1G+NyLbVAtJh/7D3VoSxFGHPw7WabBP29ozUmEmBNF7bBn75EpQAfZHPPNj5+ZDdXBUPXhV2644r0h8CH/0d58o/ItyRO+qNtuBvz0zixkl64ia5TzHZlrto7l"
+                            "j49xSBmL9wvOqhmMhQ4yB34a+uuilZ7UlVVzwyip7k6VInkDepl01kVYoOtUZB1Ck/XDt/Q5qRRN+Hlt11qC7K4GKtbxcoXMTiQfyZxERJ03H8DlMHHAAjAuXc/DcMZMyvdea3ra5ajov7C175012H0jXNdduJ6dFov+S5Y3WqntG/7PvRL8iv9na8hB0WHtaQOgir1JbDpAfjR1WDFQ535/aUHXeOcifrTIU1fGSec2AD2ke8Q79pn3Aq/Rc9Y"
+                            "nJIukw5g7B7HVv4puL2/GeA2kCl8Isr82wojlVnudmAaJAgEY0lgvhkzzlHTUdmn8LOLbWkjEpvJ1fGVsWWD1AxiWj+sxxy7OycoFbwsNie6XXqG16oG44ihJ2+h6J8KpHW7T9haMTbbRXQLht/ut7FLR2oLfG3PLH/nWRwRULoYM/vXd0PhSHl4G1hrrkiiyXh9BoENShi+HhJOO0riGJ2hy3E4RY/rlf+RSHdn9RECAwEAAQ==" )
 
 ; 17 x 255 bytes in a single rdata: truncated even at an advertised 4096.
 huge            IN TXT ( "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

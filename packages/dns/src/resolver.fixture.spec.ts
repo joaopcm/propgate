@@ -41,8 +41,9 @@ describe("fixture tier — DNSSEC differential", () => {
       DNSSEC_CONTROL_ZONE
     );
 
-    expect(validating.nsname).toBe("ns0.test.");
-    expect(permissive.nsname).toBe("ns0.test.");
+    // node:dns strips the trailing dot from nsname.
+    expect(validating.nsname).toBe("ns1.test");
+    expect(permissive.nsname).toBe("ns1.test");
   });
 });
 
@@ -76,7 +77,7 @@ describe("fixture tier — authoritative servers", () => {
 
     await expect(decoy.resolve4("lame.test")).rejects.toThrow();
     await expect(decoy.resolveSoa("decoy.test")).resolves.toMatchObject({
-      nsname: "ns-decoy.test.",
+      nsname: "ns-decoy.test",
     });
   });
 

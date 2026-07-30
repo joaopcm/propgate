@@ -91,6 +91,24 @@ project:
 `zones.spec.ts` will fail if you skip step 2 or 3, and `coverage.spec.ts` will
 fail if you add a diagnosis code without either a fixture or a written reason.
 
+## Gotchas that cost real time
+
+- **`dig` hides truncation.** It silently retries over TCP when it sees TC and
+  prints the *retried* answer, so the `tc` flag never appears. Use `dig +ignore`
+  to see the real UDP response.
+- **A 2048-bit DKIM key does not truncate.** It makes a 483-byte response, under
+  the 512-byte cap. `tcp.test` therefore pins both sides: `big._domainkey`
+  (2048-bit, must not be reported truncated) and `big4096._domainkey` (4096-bit,
+  must be). Reporting truncation for the first is as wrong as missing it for the
+  second.
+- **Unbound refuses to resolve `.test` out of the box.** RFC 6761 reserves it, so
+  Unbound ships `local-zone: "test." static` and answers NXDOMAIN
+  *authoritatively* — `aa` set, no query ever sent. Both resolver configs set
+  `local-zone: "test." nodefault`. The reservation that makes `.test` safe to
+  build fixtures in is the same thing that stops a resolver resolving it.
+- **`do-not-query-localhost: no` is mandatory.** Unbound will not query
+  `127.0.0.0/8` by default and the entire fixture namespace lives there.
+
 ## The staleness canary
 
 `dns-auth` publishes the content hash of `zones/` as `_rev.canary.test TXT`, and
