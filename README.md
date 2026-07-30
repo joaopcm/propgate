@@ -142,28 +142,49 @@ Three product decisions that *are* the infra bill:
 
 Phase 1 exists to be **cheaply falsifiable**. If two months of a live public checker produces no traffic and no inbound, we've spent about $40 and learned something important before committing eight months.
 
-## Planned architecture
+## Architecture
+
+Scaffolded now (Phase 0), covering everything Phase 1 needs:
 
 ```
 propgate/
 ├── apps/
-│   ├── api/          # Hono /v1 + BullMQ worker (sweeper) + webhook sender
-│   ├── web/          # Next.js dashboard + marketing + public checker
-│   └── docs/         # Next MDX — the diagnosis taxonomy lives here
+│   ├── api/          # Hono resolver service. Long-running by design.
+│   ├── web/          # Next.js — marketing + the public checker
+│   └── docs/         # Next MDX — the taxonomy, rendered from the registry
 ├── packages/
-│   ├── dns/          # @propgate/dns — resolver, evaluators, diagnosis codes (published, MIT)
-│   ├── sdk/          # @propgate/sdk (published)
-│   ├── webhooks/     # standard-webhooks signer + retrying sender
-│   ├── db/           # Drizzle schema + migrations
-│   ├── auth/         # Better Auth (orgs, scoped API keys, Stripe)
-│   ├── shared/       # Zod schemas, domain profiles, plan limits
-│   ├── jobs/         # BullMQ queues + JOB/QUEUE maps
-│   ├── ui/           # shadcn + Base UI
-│   └── emails/       # React Email
-└── docker-compose.yml   # postgres + redis + coredns (fixture zones)
+│   ├── dns/           # @propgate/dns — resolver, evaluators, taxonomy (MIT, published)
+│   ├── dns-fixtures/  # zone files, DNSSEC signing pipeline, test harness (private)
+│   └── cli/           # @propgate/cli (MIT, published)
+├── docker/dns/       # NSD + Unbound image, one per role
+└── docker-compose.yml
+```
+
+Arriving in Phase 2, deliberately not before — issue [#3](https://github.com/joaopcm/propgate/issues/3)'s gate may end the project, and the point of the phasing is not to pre-build a control plane that may never ship:
+
+```
+packages/{db,auth,shared,jobs,webhooks,sdk,ui,emails}
 ```
 
 `packages/dns` is the engine for the public checker, the API, and the CLI — one implementation, three surfaces.
+
+## Getting started
+
+```sh
+pnpm install
+pnpm dns:up                      # NSD + Unbound fixture tier, six roles
+pnpm lint                        # tsc --noEmit across the workspace
+pnpm test                        # static + unit specs, no containers needed
+PROPGATE_FIXTURES=1 pnpm test    # adds the fixture-backed projects
+```
+
+macOS needs the override, since only `127.0.0.1` is up on Darwin:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.darwin.yml up -d --wait
+```
+
+See [`TESTING.md`](./TESTING.md) for how the DNS fixture harness works, what it can and cannot reproduce, and why `fileParallelism` stays on here.
 
 ## Planned stack
 
@@ -178,7 +199,7 @@ propgate/
 | Env validation | `@t3-oss/env-core` + Zod |
 | Secrets | Infisical |
 | Lint / Format | Biome via Ultracite |
-| Testing | Vitest, real Postgres + Redis + CoreDNS |
+| Testing | Vitest, real NSD + Unbound fixture tier (Postgres + Redis from Phase 2) |
 | Observability | evlog → Axiom, Sentry, PostHog |
 | Releases | Changesets (publishes `@propgate/dns` and `@propgate/sdk`) |
 

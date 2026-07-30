@@ -1,0 +1,18 @@
+# dns-decoy — authoritative for decoy.test and nothing else.
+#
+# This is what makes lame delegation real. test.zone delegates lame.test here;
+# because this server is authoritative for *something* but not for lame.test, it
+# answers REFUSED immediately. Prefer that over a blackhole address: REFUSED is
+# instant, whereas a timeout-bound fixture is where wall-clock time and
+# flakiness enter a suite.
+server:
+  ip-address: @BIND_ADDRESS@
+  port: @DNS_PORT@
+  do-ip6: no
+  server-count: 1
+  zonesdir: "/"
+  username: ""
+  logfile: ""
+  verbosity: 3
+  hide-version: yes
+  ipv4-edns-size: 1232

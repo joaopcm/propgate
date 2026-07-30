@@ -1,0 +1,149 @@
+# macOS override.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.darwin.yml up -d --wait
+#
+# On Linux the whole of 127.0.0.0/8 routes to lo with no aliasing, so each
+# fixture server gets its own loopback address on real port 53 and everything is
+# realistic. On macOS only 127.0.0.1 is up and Docker Desktop cannot route to
+# container IPs, so this override switches to a bridged network with **pinned**
+# container addresses and publishes high ports on 127.0.0.1.
+#
+# The important part: inside the compose network the servers still listen on real
+# port 53 at fixed addresses, so glue records (which carry an address but no
+# port) still point somewhere reachable. Delegation-following, lame delegation,
+# and the whole DNSSEC chain therefore behave identically to Linux for anything
+# that goes *through* dns-resolver or dns-permissive.
+#
+# What does differ: a host-side test that queries an authoritative server
+# directly and then follows a delegation itself will get a 172.28.x address it
+# cannot reach. Those tests need the `addressRewrite` hook in ResolverOptions,
+# driven by PROPGATE_FIXTURE_PORT_OFFSET. That hook exists for this and nothing
+# else.
+#
+# Devs who want the fully realistic topology on macOS can bring up loopback
+# aliases and use the plain compose file instead:
+#
+#   for n in 2 3 4 6 7 8; do sudo ifconfig lo0 alias 127.0.0.$n up; done
+#
+# CI is Linux, so CI always exercises the realistic path.
+
+networks:
+  dns:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.53.0/24
+
+x-darwin-common: &darwin-common
+  network_mode: ""
+  healthcheck:
+    test: ["CMD", "dig", "+short", "+time=2", "+tries=1", "@127.0.0.1", "test.", "SOA"]
+    interval: 3s
+    timeout: 4s
+    retries: 10
+    start_period: 2s
+
+services:
+  dns-root:
+    <<: *darwin-common
+    environment:
+      ROLE: root
+      BIND_ADDRESS: 0.0.0.0
+    networks:
+      dns:
+        ipv4_address: 172.28.53.2
+    ports:
+      - "127.0.0.1:5302:53/udp"
+      - "127.0.0.1:5302:53/tcp"
+
+  dns-auth:
+    <<: *darwin-common
+    environment:
+      ROLE: auth
+      BIND_ADDRESS: 0.0.0.0
+    networks:
+      dns:
+        ipv4_address: 172.28.53.3
+    ports:
+      - "127.0.0.1:5303:53/udp"
+      - "127.0.0.1:5303:53/tcp"
+    healthcheck:
+      test: ["CMD", "dig", "+short", "+time=2", "+tries=1", "@127.0.0.1", "_rev.canary.test.", "TXT"]
+      interval: 3s
+      timeout: 4s
+      retries: 10
+      start_period: 2s
+
+  dns-decoy:
+    <<: *darwin-common
+    environment:
+      ROLE: decoy
+      BIND_ADDRESS: 0.0.0.0
+    networks:
+      dns:
+        ipv4_address: 172.28.53.4
+    ports:
+      - "127.0.0.1:5304:53/udp"
+      - "127.0.0.1:5304:53/tcp"
+    healthcheck:
+      test: ["CMD", "dig", "+short", "+time=2", "+tries=1", "@127.0.0.1", "decoy.test.", "SOA"]
+      interval: 3s
+      timeout: 4s
+      retries: 10
+      start_period: 2s
+
+  dns-divergent:
+    <<: *darwin-common
+    environment:
+      ROLE: divergent
+      BIND_ADDRESS: 0.0.0.0
+    networks:
+      dns:
+        ipv4_address: 172.28.53.8
+    ports:
+      - "127.0.0.1:5308:53/udp"
+      - "127.0.0.1:5308:53/tcp"
+    healthcheck:
+      test: ["CMD", "dig", "+short", "+time=2", "+tries=1", "@127.0.0.1", "divergent.test.", "SOA"]
+      interval: 3s
+      timeout: 4s
+      retries: 10
+      start_period: 2s
+
+  dns-resolver:
+    <<: *darwin-common
+    environment:
+      ROLE: resolver
+      BIND_ADDRESS: 0.0.0.0
+      ROOT_ADDRESS: 172.28.53.2
+    networks:
+      dns:
+        ipv4_address: 172.28.53.6
+    ports:
+      - "127.0.0.1:5306:53/udp"
+      - "127.0.0.1:5306:53/tcp"
+    healthcheck:
+      test: ["CMD", "sh", "-c", "dig +time=2 +tries=1 @127.0.0.1 secure.test. SOA +dnssec | grep -q 'flags:.* ad'"]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+      start_period: 3s
+
+  dns-permissive:
+    <<: *darwin-common
+    environment:
+      ROLE: permissive
+      BIND_ADDRESS: 0.0.0.0
+      ROOT_ADDRESS: 172.28.53.2
+    networks:
+      dns:
+        ipv4_address: 172.28.53.7
+    ports:
+      - "127.0.0.1:5307:53/udp"
+      - "127.0.0.1:5307:53/tcp"
+    healthcheck:
+      test: ["CMD", "sh", "-c", "test -n \"$$(dig +short +time=2 +tries=1 @127.0.0.1 bogus-zone.test. TXT)\""]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+      start_period: 3s

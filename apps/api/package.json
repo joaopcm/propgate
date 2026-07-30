@@ -1,0 +1,28 @@
+{
+  "name": "@propgate/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1",
+    "@propgate/dns": "workspace:*",
+    "@sentry/node": "^10.47.0",
+    "@t3-oss/env-core": "^0.13.11",
+    "hono": "^4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "tsup": "^8.5.1",
+    "tsx": "^4",
+    "typescript": "^5.7",
+    "vitest": "^4"
+  }
+}

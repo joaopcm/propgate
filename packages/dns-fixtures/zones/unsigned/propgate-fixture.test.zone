@@ -1,0 +1,14 @@
+; The "correct target" zone. Stands in for propgate's own infrastructure so the
+; appended-name and flattened-CNAME fixtures can prove the *intended* target
+; resolves while the mangled one does not.
+$ORIGIN propgate-fixture.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+track   IN A    198.51.100.20
+bounce  IN A    198.51.100.21
+bounce  IN MX   10 mx.propgate-fixture.test.
+mx      IN A    198.51.100.22

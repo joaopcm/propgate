@@ -1,0 +1,25 @@
+; DNSSEC_BOGUS.
+;
+; Signed normally, then scripts/corrupt-rrsig.mjs rotates a few base64
+; characters inside the RRSIG covering the DNSKEY RRset. Length and charset are
+; preserved so NSD still loads the zone happily — an authoritative server has no
+; opinion about whether signatures verify.
+;
+; That last point is the whole reason the harness needs a resolver tier. This
+; zone answers normally from dns-auth and from dns-permissive; it is SERVFAIL
+; only through dns-resolver. The differential between those two is what proves
+; validation, and a fixture set with no validator could not express it at all.
+;
+; Corrupting the DNSKEY RRSIG (rather than one record's) makes the entire zone
+; bogus, which is the more common real-world failure: a botched key rollover.
+$ORIGIN bogus-zone.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+@                   IN TXT  "this resolves via a non-validating resolver only"
+_dmarc              IN TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@bogus-zone.test"
+sel._domainkey      IN TXT  "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTUREBOGUS"
+@                   IN A    198.51.100.110

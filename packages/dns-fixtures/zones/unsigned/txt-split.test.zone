@@ -1,0 +1,39 @@
+; TXT_VALUE_SPLIT_MANGLED and MULTIPLE_DKIM_RECORDS.
+;
+; A single TXT rdata is a *sequence* of strings, each at most 255 bytes. A
+; 2048-bit DKIM key exceeds that, so every provider splits it — and a good few
+; rejoin it wrongly. The zone-file parser enforces the 255-byte limit, so these
+; splits are structural rather than aspirational.
+;
+; Note the case trap at the bottom: DNS *names* fold case, DKIM base64 does not.
+$ORIGIN txt-split.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+; Correct: chunks concatenate with no separator into one valid value.
+s1._domainkey   IN TXT ( "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTUREAAA"
+                         "BBBCCCDDDEEEFFFGGGHHHIIIJJJKKKLLLMMMNNNOOOPPPQQQRRRSSSTTTUUU"
+                         "VVVWWWXXXYYYZZZ0123456789abcdefghijklmnopqrstuvwxyzIDAQAB" )
+
+; Provider inserted whitespace at the chunk boundary, so the key no longer parses.
+s2._domainkey   IN TXT ( "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTUREAAA "
+                         " BBBCCCDDDEEEFFFGGGIDAQAB" )
+
+; Provider re-emitted the tag prefix on every chunk.
+s3._domainkey   IN TXT ( "v=DKIM1; k=rsa; p=AAAABBBBCCCC"
+                         "v=DKIM1; k=rsa; p=DDDDEEEEFFFF" )
+
+; Two separate TXT RRs at one name. Ambiguous — MULTIPLE_DKIM_RECORDS.
+s4._domainkey   IN TXT  "v=DKIM1; k=rsa; p=AAAABBBBCCCCFIXTURE"
+s4._domainkey   IN TXT  "v=DKIM1; k=rsa; p=DDDDEEEEFFFFFIXTURE"
+
+; Differs from the expected value only in case. Names are case-insensitive;
+; base64 payloads are not, so this must NOT be treated as a match.
+s5._domainkey   IN TXT  "v=DKIM1; k=rsa; p=miibijanbgkqhkig9w0baqefaaocaq8afixtureaaa"
+
+; Owner-name case folding in the other direction: this must be found by a
+; lowercase query.
+S6._DomainKey   IN TXT  "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTURE6"

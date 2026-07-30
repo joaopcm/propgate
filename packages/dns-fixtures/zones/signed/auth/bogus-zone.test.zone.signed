@@ -1,0 +1,116 @@
+bogus-zone.test.	300	IN SOA	ns1.test. hostmaster.propgate.invalid. (
+					1          ; serial
+					7200       ; refresh (2 hours)
+					3600       ; retry (1 hour)
+					1209600    ; expire (2 weeks)
+					300        ; minimum (5 minutes)
+					)
+			300	RRSIG	SOA 8 2 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					AEtvUEjZDANgHFFllrjVolIIVI7ZUDD/mlEl
+					bFuFBJzm8S1YQsnoncd3YSp94dB8scWCLG7x
+					IuXi88SchdSTVEYTrTZKZPvRSELfxvfMXw5W
+					GPpv5H8GC+dXjhvyW/4X/gwieamHCwuwYgi4
+					1/1dkt25xAndvdyti0+jLSefcXo= )
+			300	NS	ns1.test.
+			300	RRSIG	NS 8 2 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					YWvDCkLDODqIq3pkEzKST7KgWe0ZJ2HRZiJs
+					b/aCSQrLlNZ3F5l6WmVM9etv8e43cdO56kqB
+					mvclzjLpoXyfngJxVTs+9QKOtylrdLMRfsLM
+					fatV+4kml+n2MbLd/YRpZIL+eWavRmfQihIe
+					x1zZs/OSvmtgTgb3IiFbQ84kbUs= )
+			300	A	198.51.100.110
+			300	RRSIG	A 8 2 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					NgXG3HOuEn5VWj+jb6Edup66p9baBjl8M4pM
+					6G4w1aqQ8gmD7Q17Xz3/Nw/fYxb+S0myKC4r
+					xfCnsGvrr9VbfrlX7bAZ1/KE4FglSNSeUInZ
+					UVkOTZM7JZs8dC6Qx6lbfOY9kKGTADFnFnDK
+					xVFFEEwO6Ao5+4unnTsuSrMpfRU= )
+			300	TXT	"this resolves via a non-validating resolver only"
+			300	RRSIG	TXT 8 2 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					RTyiMEFyxHSKZ58L8vkADvkXTkK9P6g+2tQi
+					ZoeA8IySL6YyPeiDbEoK50npaXkP62BjD/cz
+					IG7fiyCjR6lNMCU1cXe1EOSc5pFSTafrS6Qj
+					0Z5QApIq2sx7UlKd93Ov4YaRDSi1+uyOpxtD
+					7yiMYSrsCquAz6X/UrWpufSRaM4= )
+			300	NSEC	_dmarc.bogus-zone.test. A NS SOA TXT RRSIG NSEC DNSKEY
+			300	RRSIG	NSEC 8 2 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					Y1xdaukSJyEoA0Av3xMQw+MuLo+06PHUUXqB
+					z/U/YqEbSyBEPIpV3rLtxXFJZegXHXjvzu6O
+					ZZMPvtLnQnMg+XG/GF5NLdTtWcj4EZ7waUXy
+					i9bGH6fIbF6Zs8ZvSGBTwDvPJ6sIy8H7qrDU
+					VpZ695g2iAUHxsyusClBIP2XOR8= )
+			300	DNSKEY	256 3 8 (
+					AwEAAZ/0/uiJi+TynTvoXbF4x3wd9Qsnv+of
+					Q5cwuMJb0Tx6BQHouEpuvWWas1ji4Ip0DbPy
+					nBZSKKqpvEEEWW0c4EO9yfgwdJuiNbsQufyG
+					UF3UEh7dnW/WkIgh1o0EqcxthmwIzx5hBAuJ
+					Ln3+I+gbE+MAhIrGtRY91v62Ko5+2X1X
+					) ; ZSK; alg = RSASHA256 ; key id = 60505
+			300	DNSKEY	257 3 8 (
+					AwEAAbGhPkBQHWlmxjjHxyTAh0AZ7n98jH/f
+					HDQFvl7eEJlNM0gNXalY6QaDKWnWmlpVd7Iv
+					tZHBKVJE+8u8NqqjJ7eBa0xlKFhu7e4hrqOW
+					hr90A4XTor863LMiJMtmKwmz29mFoBoyR0Ha
+					9R3007F2E+zmjrOTmJNUVajIrCaT48THpi7T
+					tp9hH1uO6ZnIBaVuYz+coPTurIAIERJBWj3d
+					65NXbelHCfUVRF8sxWS5F0IyFYrhSquEk514
+					XapyCB36x0xOrGTdu8lOdEmLYm2IAdrmLTUV
+					pm9LVmlbfFm08q6iDVKGtP57UElWHLxZcRp3
+					ayb99SOwHTRImCPF0LznDD0=
+					) ; KSK; alg = RSASHA256 ; key id = 24119
+			300	RRSIG	DNSKEY 8 2 300 (
+					20400101000000 20260101000000 24119 bogus-zone.test.
+					yJf5IBNIbb0iyCWrQzPi+7T6XemeTSlKA4HJ
+					VdZGdq4/VTGx1JOJBh/WMznWEE1CkIv+v6kg
+					mw0aGvFMwVYJHmltEA+wWS8in29ek0rj4aFF
+					inme3s9iYDroNptd8iQDipKLk4rpdnx1BpaR
+					fyEhbFCI20ADUlMAbJ2O/yqqiDYdP5xqjqrJ
+					orhBY3jkapnMH26wiJjZw5rKWslLKKN/qFXo
+					kv5rn70EDelTqsj4ppnSM+KsQun3RKLWvaut
+					2IYRpsBijMLJp0LjwVIa16vV1IZBBDJdrsh/
+					wC4H+daPaxiKKj8RV+l/D8R8GIFJOUbaCvWV
+					Yk1vV9r7AzSTSzn87w== )
+			300	RRSIG	DNSKEY 8 2 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					tmTIiZ5etUeLzeYgVv6NAAFTr1xacr7CaBBe
+					frbJwLygIFPuEfoRwYKsExwQPTIB332m3iit
+					zJqxVHOZOMFNdPOmiSz3hAw+NwR8YKyj8i4B
+					IEG/gY+97rmo4WvQ+/uiVzfovlAviGqM+Ch7
+					7I/xvO9gW4+FV7CnAVag5I4A76I= )
+_dmarc.bogus-zone.test.	300	IN TXT	"v=DMARC1; p=reject; rua=mailto:dmarc@bogus-zone.test"
+			300	RRSIG	TXT 8 3 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					dOKly7o++zDcBx6y1BulDGhKFP/cUVwXPQgI
+					GZ52CPATMOnAB5Lyh/5blomKWSbvYnlTorrB
+					yBjVYPQBQBQeHGy0tSf2RkXofraAmRCxBdsZ
+					7K3q2Am0mKXs0Y61QkLNX4jo7+eoN9tKBKjO
+					Z1fEpu65AmFQsjJUlduvbSjSAdM= )
+			300	NSEC	sel._domainkey.bogus-zone.test. TXT RRSIG NSEC
+			300	RRSIG	NSEC 8 3 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					L42WTWmA4E3O9xixGSmxpgCeOlvBmHkH54NT
+					EWhoWggGs7WQ62K0UYlPNVvsPyfQnew9DPzK
+					yUAl/VP8BOtg8AN+rQrQ4wGw6uKg6s6jE8o3
+					NvFY+9TP+ADOxXeAp+orDw4hhHagGvP7pK0O
+					uLqliEK4U+d1mxc6SyK7P+VA9DY= )
+sel._domainkey.bogus-zone.test.	300 IN TXT "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTUREBOGUS"
+			300	RRSIG	TXT 8 4 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					dcTZ9CDgnE8ty8toUNUzeGLN83wq0X9LHTZv
+					LE+myhaCMPUF8dLK5iYOOOE2IEYgkF5C3j63
+					zEZxHoCdGqeULARXZIb8GvXKgpx9NOfPAcB3
+					GNsrapdptaNuOOPaDl4wkZMmEMb0VnXVTahI
+					ImHdk181GH5rw/xCkSSEZiVfZbM= )
+			300	NSEC	bogus-zone.test. TXT RRSIG NSEC
+			300	RRSIG	NSEC 8 4 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					SK53iPNm4+VmgARsE/gHL5O7g75rMMjt/UW2
+					z7UOjlsSN35NRmPRkNVr3k0ZMDSUfjj8FwYr
+					xSs0ecliCyLngl0OKetASqjp/JEP1mwLVpO4
+					E9P/OxypNo1HlV+LvYPsrEgKFh7fKbg8MUGi
+					v+QUrBjoUdKhAx/0MtN8dKSTmbk= )

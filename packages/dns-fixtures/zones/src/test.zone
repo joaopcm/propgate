@@ -1,0 +1,76 @@
+; test. — the delegation hub. Signed, so the DS records below are covered by
+; RRSIG and a child delegated *without* a DS is a real insecure island rather
+; than an untested code path.
+;
+; RFC 6761 reserves .test, so nothing here can ever collide with a real domain.
+; A useful side effect: .test is not in the Public Suffix List, so the implicit
+; "*" rule applies and org-domain(sub.foo.test) == foo.test, which is the
+; behaviour DMARC lookups need. Multi-label public suffixes (co.uk, github.io)
+; cannot be modelled here at all — those live in zones/psl/ and are queried
+; against dns-auth directly.
+$ORIGIN test.
+$TTL 300
+
+@       IN SOA  ns0.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns0.test.
+ns0     IN A    127.0.0.2
+
+; ---------------------------------------------------------------------------
+; Glue. Every fixture nameserver, including one that deliberately isn't there.
+; ---------------------------------------------------------------------------
+ns1             IN A    127.0.0.3   ; dns-auth
+ns-decoy        IN A    127.0.0.4   ; dns-decoy — authoritative for decoy.test only
+ns-divergent    IN A    127.0.0.8   ; dns-divergent
+ns-dead         IN A    127.0.0.9   ; nothing listening, on purpose
+
+; ---------------------------------------------------------------------------
+; Unsigned children on dns-auth.
+; ---------------------------------------------------------------------------
+appended            IN NS   ns1.test.
+propgate-fixture    IN NS   ns1.test.
+wildcard            IN NS   ns1.test.
+txt-split           IN NS   ns1.test.
+tcp                 IN NS   ns1.test.
+negcache-low        IN NS   ns1.test.
+nodata              IN NS   ns1.test.
+canary              IN NS   ns1.test.
+
+; Signed parent, unsigned child, and deliberately NO DS record below.
+; Validating resolvers must report this as insecure (AD=0) and still resolve it —
+; not bogus. Getting that distinction wrong is a real product bug.
+insecure-island     IN NS   ns1.test.
+
+; ---------------------------------------------------------------------------
+; Signed children on dns-auth. DS records are injected by scripts/sign.sh.
+; ---------------------------------------------------------------------------
+secure              IN NS   ns1.test.
+bogus-zone          IN NS   ns1.test.
+wildcard-signed     IN NS   ns1.test.
+
+; ---------------------------------------------------------------------------
+; Delegation pathologies.
+; ---------------------------------------------------------------------------
+; Lame: ns-decoy is authoritative for decoy.test, so it answers REFUSED for this
+; zone immediately. REFUSED is preferred over a blackhole address because a
+; timeout-bound fixture is where wall-clock time and flakiness enter a suite.
+lame                IN NS   ns-decoy.test.
+
+; One live nameserver, one that isn't there. 127.0.0.9 has nothing listening, so
+; the kernel returns ICMP port-unreachable straight away rather than hanging.
+stale               IN NS   ns1.test.
+stale               IN NS   ns-dead.test.
+
+; The genuine zone dns-decoy serves, so "authoritative for something, just not
+; for what was delegated" is a real condition and not an empty server.
+decoy               IN NS   ns-decoy.test.
+
+; Divergent answers for consensus and hysteresis work.
+divergent           IN NS   ns-divergent.test.
+
+; DS records below are injected by scripts/sign.sh. Do not edit by hand.
+; BEGIN GENERATED DS
+secure.test.		IN DS 17899 8 2 D97D8FAF3747F62F42DAD75C5BBA143D2F8CA9EEAC9AF04E893F3423 B2B0C4D9
+bogus-zone.test.	IN DS 24119 8 2 D891724EB5209C218AE533221EAF534D1B4693057B8E3AE64F8E48A7 A421969A
+wildcard-signed.test.	IN DS 56540 13 2 52FC7BC82D9D901D3521A3FFB0997AE1E510A1A1B722E45065F5A0B2 04CEC2C9
+; END GENERATED DS

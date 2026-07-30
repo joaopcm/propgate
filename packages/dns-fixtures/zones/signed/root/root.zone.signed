@@ -1,0 +1,88 @@
+.			3600	IN SOA	ns0.test. hostmaster.propgate.invalid. (
+					1          ; serial
+					7200       ; refresh (2 hours)
+					3600       ; retry (1 hour)
+					1209600    ; expire (2 weeks)
+					3600       ; minimum (1 hour)
+					)
+			3600	RRSIG	SOA 8 0 3600 (
+					20400101000000 20260101000000 19606 .
+					IiRWX3YVMjeZgWLayB42SbTFaUmbYb5pim4q
+					QU/rTVM6lGjbsCWZWaUStYsJ6w9LpYhmP8K5
+					jBIf49j1I18bcaPFJn0X4pQz77bVGSBHBeni
+					XTdfprAJIwOVyAzEJBSg7e3QFrJSOUE42Dqk
+					TxKENe873ERlJaIKs5Aj1H4Cjqg= )
+			3600	NS	ns0.test.
+			3600	RRSIG	NS 8 0 3600 (
+					20400101000000 20260101000000 19606 .
+					nseVc2jnuLR9s4Ruh6kTX58fIuGZ4sfsPmKl
+					u1ueHZkAd7NNvnR/cOrBF2ZxvWJlRKLX0pXq
+					qVYJ89awlgTAXUI2t1CjlRIITuDdKoxRIPYO
+					75hG2KApj98/E6V3zWaO/pbxyes+VcwOOUrQ
+					mOnyvw9md34gTvLla0lxeHlKUk4= )
+			3600	NSEC	test. NS SOA RRSIG NSEC DNSKEY
+			3600	RRSIG	NSEC 8 0 3600 (
+					20400101000000 20260101000000 19606 .
+					UuQVUDFU/6PVhTVbidsEIulQ0xuigLARTbqU
+					TR8xPLd+6/6bRetvFZU8FUYdVi5AniYZiNMg
+					A0u7dWBvF7d0jcj6udxteVL/Z3QGppF12kWZ
+					JZV8sWSu2s3L3wIQNEz40VWselHbAtS0rj/d
+					Q8NI0P5UmVwdBw6s4jPg195RHp0= )
+			3600	DNSKEY	256 3 8 (
+					AwEAAcPTzyRGyDICvcs9hKAOl+IvJLeJMIAy
+					EI4Fc6Pia8pIaNTxWqIiMNSGmcUeDjY0SF+s
+					hvTmIBrsDRy6vV+RUq3pXm9/LC2NJ88anJH8
+					TLZdxqVmgyv9qbm13RUh97Bisk7hxyR63oP+
+					LQEl/tlrulMMqozW4yq+IGbvu/PiaV1B
+					) ; ZSK; alg = RSASHA256 ; key id = 19606
+			3600	DNSKEY	257 3 8 (
+					AwEAAdRfexMuZIazz0qhraeJoD8VqRsrCXDR
+					rsIavPuGoQcIK8SAxgrn2g6aE99JbwcCq7E3
+					NyW8K5qOSAntw/5ChlSMRTrQgp2gY9qfx1Ij
+					jkRbRk3Koam2yaMsyVLm0f4+/BIH5KECAv+w
+					blchGpWPd9d5MFS9xVnBX1xFfdBnMMB+I60p
+					KBKUtwW7vfBDA2PRGCqicbYXSt5VG4SHok55
+					dM3d2ZqfTDiJNgbxT7so34uQ5aoBjENRjlhb
+					MQsjGTZVNHK0M7mFq+8I3By1x0WTAxNsnijg
+					pPAQdS1w2gWqR4vIzvCmT2vI5Qtxx11Kjn9A
+					2bLvN1fN55Y9+XC1f/2Ixr0=
+					) ; KSK; alg = RSASHA256 ; key id = 25040
+			3600	RRSIG	DNSKEY 8 0 3600 (
+					20400101000000 20260101000000 19606 .
+					U7uw64TG+ZTQfyJZKb5FdLuDGH/6eps2pcx+
+					LIL04S0Rb0ONJVWRk96h5VgOfR2HrOH7kBPC
+					m05brDZH9dQ/4GGpLXXv8itBZ7N+tmTHhMan
+					gtDn4pcNxDsWTmZ9DOu8hx0sPjlfnRguCLk+
+					qizZ2+fXzuZZSBmdKLPd29WvoDw= )
+			3600	RRSIG	DNSKEY 8 0 3600 (
+					20400101000000 20260101000000 25040 .
+					tFflAOspTnGmScADoSRD8VCzlfRlWMD4p72J
+					XIpaZpGufVKfNK7TPwHVNJcW4d4MLCkBiunL
+					8rXbe2Xlpf+yLABA1XMuijQPyqVjJwAQ7yfs
+					o3Zp6L1pyhJI8ctL1ECOLEo+6HHULfdHVWNG
+					3HXmhupNovJJEOZ/yBr5rJmHu7TjK2K9Kv9l
+					QbWRHZQ09fk9WW+CRQkc+ME0YbKlwi2P+cTo
+					0eEMHbUbM9cTqxi34+W2e5DiJN0Sfc9UjFjC
+					9r0cfAvJinhi/0eKevvFh/ZH5/MEZqdKwk77
+					hH0X6PTJc0VDD50OQSghEsYGrBhHqcBAAop5
+					3GTjn4g5f+PSc0hiJw== )
+test.			3600	IN NS	ns0.test.
+			3600	DS	53725 8 2 (
+					E747D2F402F8522E011A38E1522E313BEAF7
+					F3040AE318B326B7A795365F18C2 )
+			3600	RRSIG	DS 8 1 3600 (
+					20400101000000 20260101000000 19606 .
+					B3Zfjaz/xPoOsowWXKItx1rDmDDVSG8a70GZ
+					K+papPtpDYaxLnl96hfXz6RnBHSBHYwbV7dM
+					/Wg1Krj1rVwAGLakaEHQM78s68RFYnvg06uW
+					mvRnhr1XSxwPFpeMVB4j+xNV+p2K64KBu6Y1
+					QsLhP/2quaCrOGbH5ALDgs6MeYo= )
+			3600	NSEC	. NS DS RRSIG NSEC
+			3600	RRSIG	NSEC 8 1 3600 (
+					20400101000000 20260101000000 19606 .
+					Dr11pNC0CVyldvmCEAvMwwHHjkNaCdfpqoj9
+					iAcCCeYUerb5yAHuXZOzYLG5XBop6SQPTiTZ
+					nS1By5AWfedLKfmgYyA2FF54lQBjTvyNePMC
+					SB0sO0/kUMxAf26CWAaXNEEk6tkxDIJ44JxT
+					QaBoz81q7EZ8MPSaHlREJL8h8kQ= )
+ns0.test.		3600	IN A	127.0.0.2

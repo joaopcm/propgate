@@ -1,0 +1,7 @@
+# Whitelist. The build context is the repo root, so without this every source
+# change would bust the image layer cache and every `pnpm test` would rebuild
+# the DNS tier for no reason.
+*
+!docker/dns
+!packages/dns-fixtures/zones
+!packages/dns-fixtures/REVISION

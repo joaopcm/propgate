@@ -1,0 +1,29 @@
+; The fake root. Signed; its KSK is the only trust anchor the validating
+; resolver holds.
+;
+; A real signed root is used rather than an explicit trust-anchor for a fake TLD
+; because the interaction between Unbound's `trust-anchor:` and `domain-insecure:`
+; is version-dependent, and because only a genuinely signed parent makes
+; DNSSEC_INSECURE_ISLAND ("signed parent, delegation carries no DS") reproducible.
+;
+; ns0.test. is glue for a name inside the delegated test. zone, which is exactly
+; how the real root works — root servers live under the delegated root-servers.net.
+$ORIGIN .
+$TTL 3600
+
+@       IN SOA  ns0.test. hostmaster.propgate.invalid. (
+                1          ; serial
+                7200       ; refresh
+                3600       ; retry
+                1209600    ; expire
+                3600 )     ; minimum
+@       IN NS   ns0.test.
+
+; test. is delegated to dns-root itself (127.0.0.2), which serves both zones.
+test.           IN NS   ns0.test.
+ns0.test.       IN A    127.0.0.2
+
+; DS records below are injected by scripts/sign.sh. Do not edit by hand.
+; BEGIN GENERATED DS
+test.			IN DS 53725 8 2 E747D2F402F8522E011A38E1522E313BEAF7F3040AE318B326B7A795 365F18C2
+; END GENERATED DS

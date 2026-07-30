@@ -1,0 +1,19 @@
+; The other shape of multi-label public suffix: github.io is itself a public
+; suffix, so user.github.io is the organizational domain and a sibling
+; other.github.io is a *different* organization.
+;
+; This matters for CAA tree climbing and for any "is this the apex" logic — a
+; resolver that naively strips one label lands on github.io and would happily
+; read a policy belonging to nobody.
+$ORIGIN user.github.io.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN A    198.51.100.95
+
+@       IN CAA  0 issue "letsencrypt.org"
+; Quoting is load-bearing: ";" unquoted starts a zone-file comment, which would
+; silently produce a CAA record with empty rdata instead of a deny-all.
+@       IN CAA  0 issuewild ";"

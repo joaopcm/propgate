@@ -1,0 +1,130 @@
+# DNS fixture tier.
+#
+# No Postgres or Redis: Phase 1 has no database. They arrive in Phase 2 with
+# packages/db, as GitHub service containers in CI (which is what buckt does and
+# what works well for them).
+#
+# network_mode: host plus one 127.0.0.x per server, on real port 53. Two reasons
+# this matters more than it looks:
+#
+#  1. DNS glue records carry an address but no port. Serving on high ports would
+#     mean the resolver could never follow a real delegation without an
+#     address-rewriting shim, so the whole delegation / lame / glue family of
+#     diagnoses would be tested through that shim rather than for real.
+#  2. Host networking removes docker-proxy from the UDP path. Fragmented UDP
+#     through the userland proxy is a known source of flakiness.
+#
+# Avoid 127.0.0.53 and 127.0.0.54 (systemd-resolved holds both) and never bind
+# 0.0.0.0:53 — that collides with resolved and fails with EADDRINUSE.
+#
+# macOS: only 127.0.0.1 is up, and Docker Desktop cannot route to container IPs.
+# Use `docker compose -f docker-compose.yml -f docker-compose.darwin.yml up`.
+
+x-dns-common: &dns-common
+  build:
+    context: .
+    dockerfile: docker/dns/Dockerfile
+  image: propgate/dns-fixtures:local
+  network_mode: host
+  restart: unless-stopped
+  volumes:
+    # The mount shadows the image's baked copy, so editing a zone file plus
+    # `pnpm dns:reload` takes effect with no rebuild.
+    - ./packages/dns-fixtures/zones:/fixtures/zones:ro
+    - ./packages/dns-fixtures/REVISION:/fixtures/REVISION:ro
+
+services:
+  dns-root:
+    <<: *dns-common
+    container_name: propgate-dns-root
+    environment:
+      ROLE: root
+      BIND_ADDRESS: 127.0.0.2
+    healthcheck:
+      test: ["CMD", "dig", "+short", "+time=2", "+tries=1", "@127.0.0.2", "test.", "SOA"]
+      interval: 3s
+      timeout: 4s
+      retries: 10
+      start_period: 2s
+
+  dns-auth:
+    <<: *dns-common
+    container_name: propgate-dns-auth
+    environment:
+      ROLE: auth
+      BIND_ADDRESS: 127.0.0.3
+    healthcheck:
+      test: ["CMD", "dig", "+short", "+time=2", "+tries=1", "@127.0.0.3", "_rev.canary.test.", "TXT"]
+      interval: 3s
+      timeout: 4s
+      retries: 10
+      start_period: 2s
+
+  dns-decoy:
+    <<: *dns-common
+    container_name: propgate-dns-decoy
+    environment:
+      ROLE: decoy
+      BIND_ADDRESS: 127.0.0.4
+    healthcheck:
+      test: ["CMD", "dig", "+short", "+time=2", "+tries=1", "@127.0.0.4", "decoy.test.", "SOA"]
+      interval: 3s
+      timeout: 4s
+      retries: 10
+      start_period: 2s
+
+  dns-divergent:
+    <<: *dns-common
+    container_name: propgate-dns-divergent
+    environment:
+      ROLE: divergent
+      BIND_ADDRESS: 127.0.0.8
+    healthcheck:
+      test: ["CMD", "dig", "+short", "+time=2", "+tries=1", "@127.0.0.8", "divergent.test.", "SOA"]
+      interval: 3s
+      timeout: 4s
+      retries: 10
+      start_period: 2s
+
+  dns-resolver:
+    <<: *dns-common
+    container_name: propgate-dns-resolver
+    depends_on:
+      dns-root:
+        condition: service_healthy
+      dns-auth:
+        condition: service_healthy
+    environment:
+      ROLE: resolver
+      BIND_ADDRESS: 127.0.0.6
+      ROOT_ADDRESS: 127.0.0.2
+    healthcheck:
+      # Asserts the whole chain of trust, not just liveness: an AD flag here
+      # means root hints, the fake trust anchor, the DS chain, and delegation
+      # following are all working.
+      test: ["CMD", "sh", "-c", "dig +time=2 +tries=1 @127.0.0.6 secure.test. SOA +dnssec | grep -q 'flags:.* ad'"]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+      start_period: 3s
+
+  dns-permissive:
+    <<: *dns-common
+    container_name: propgate-dns-permissive
+    depends_on:
+      dns-root:
+        condition: service_healthy
+      dns-auth:
+        condition: service_healthy
+    environment:
+      ROLE: permissive
+      BIND_ADDRESS: 127.0.0.7
+      ROOT_ADDRESS: 127.0.0.2
+    healthcheck:
+      # The mirror image of dns-resolver's check: this tier must resolve the
+      # bogus zone happily. If both tiers agree, the differential is broken.
+      test: ["CMD", "sh", "-c", "test -n \"$$(dig +short +time=2 +tries=1 @127.0.0.7 bogus-zone.test. TXT)\""]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+      start_period: 3s

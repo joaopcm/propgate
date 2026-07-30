@@ -1,0 +1,27 @@
+; PROVIDER_APPENDED_ZONE_NAME — probably the single most common support ticket
+; in this space.
+;
+; The customer pastes `selector1._domainkey.appended.test` into a provider whose
+; UI expects a name *relative* to the zone, so the provider appends the zone
+; again. The bug is self-documenting in a zone file: a relative owner name gets
+; $ORIGIN appended, which is the exact same mistake.
+$ORIGIN appended.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN A    198.51.100.10
+
+; Lands at selector1._domainkey.appended.test.appended.test.
+; The correct name deliberately does not exist, so a naive lookup gets NXDOMAIN
+; and only a second probe at the doubled name explains why.
+selector1._domainkey.appended.test  IN TXT ( "v=DKIM1; k=rsa; "
+                                             "p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTURE1" )
+
+; The same provider bug applied to a CNAME *target* rather than an owner name.
+link    IN CNAME  track.propgate-fixture.test.propgate-fixture.test.
+
+; And the variant where the trailing dot was stripped, so the local zone gets
+; appended instead of the target's.
+mail    IN CNAME  bounce.propgate-fixture.test.appended.test.

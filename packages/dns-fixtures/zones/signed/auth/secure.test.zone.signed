@@ -1,0 +1,116 @@
+secure.test.		300	IN SOA	ns1.test. hostmaster.propgate.invalid. (
+					1          ; serial
+					7200       ; refresh (2 hours)
+					3600       ; retry (1 hour)
+					1209600    ; expire (2 weeks)
+					300        ; minimum (5 minutes)
+					)
+			300	RRSIG	SOA 8 2 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					2lrD+GbiRJ9FhCFYJ0QIjnpX36hCsls5W0VV
+					HgCEJ4nakBCljW0qyZTkiO3PBtYQDyfgweyF
+					ottwkFF8LUF1fvRhdQRdGIBOuK7uC27/V4yR
+					u6LdqSseGGytW9viX4hMrzypofzYtYrNdoNk
+					gluExI77rdbz/SriNMdAwtHyrbQ= )
+			300	NS	ns1.test.
+			300	RRSIG	NS 8 2 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					X4DZbjnaS311FtLsyBykRfd5xLBBLp6+sIvs
+					RKXHFn6slLfoN0G1ZaBJg89DaqdByjA8h1Ks
+					JS0sZA1X+Atcw81iKVyH5q4s91Pu6Np+xYwQ
+					xhuCwOncuHrBLfhwejDo3WaVfLXHFZk+8KEl
+					BO4RncfmwrJixtzGkh6nu+B+yJI= )
+			300	A	198.51.100.100
+			300	RRSIG	A 8 2 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					M0DTnSj8+OlavhiZUG+1TiKX2ohAEEVuDP8R
+					rze0NBw/ajNcOC95c35xGGBi8fDvJnVuxfWs
+					MlXlmm2bayOJGS2HiAjgeRoZOlrcp216jWQG
+					5xcuJzdreq4nBa4lWIfodSmkj9pPYRdIda6J
+					CI3NCFptZkLMIVH+WOB7TNlf7lM= )
+			300	TXT	"v=spf1 include:spf.propgate-fixture.test -all"
+			300	RRSIG	TXT 8 2 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					ElXkuzJ5Lf0KrfmLX98hUfWzdAIjuD4O86Uq
+					dFZ3oZMFwxiCgKsVzwwOaWRohjB3kbtj3OYu
+					yZM1eW045SoILyeej4LvZKPVFMo5GsEnFmB4
+					F3LjxMvVsTOfcyfDvEOCLY+ofbeblNOD3L52
+					4DwUfX4cnFhlU+DrSYf+Co5Wq88= )
+			300	NSEC	_dmarc.secure.test. A NS SOA TXT RRSIG NSEC DNSKEY
+			300	RRSIG	NSEC 8 2 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					7J5m9iGgDGPel8SK1mKHRPskwAU+vVaB5aiS
+					iREpa5cXP4GguMvFonUKRL41N/nRFLPH/OF1
+					eLx7DEdLUXNHdZTYBQ1RsAifIIS6x41G7bDb
+					ClKfz0Hk6Q8FHCcJfGkymNYCJNr3JaJDff9n
+					N+cndt8OaMiQxADIPNuWZ/g17/E= )
+			300	DNSKEY	256 3 8 (
+					AwEAAe8jOBzqQMZwgvBLoPRrxp4ohSRlenKS
+					nWGp4NXTMbUixlzMlLebAIHasABIkeHZ7A8O
+					tnpDI9nNnGbVYzEp3Nfw/mxl5bjx6BsvXJjy
+					QzwRxgIwym9PiqWFOb3N9zyNsYk4jv0WwBxD
+					v6r8bcZsewLew9mmcRm2K/ELi2iw3tr1
+					) ; ZSK; alg = RSASHA256 ; key id = 17941
+			300	DNSKEY	257 3 8 (
+					AwEAAckR/CWpKpQ1pcumAKa4LpilpkIxdN58
+					CkZRzqHzW/kpGjpkYNDHlNqSdkN5bjM4iawd
+					g48ZRDfX63VYGSaVNr5dFYQQb4OLRiIwHU4Y
+					0uQ7q8otB87dyEql7cmhwyC0tO6+JbBKlviN
+					lFrvZOZ8PfWTHgK/PIoClDRKiHE0Nx5s4H22
+					43lHexUQrjfrUf9qtF9kU9gZ5Gn1m8OsceWL
+					r6zC1Xj4ceIHNhAJ7H/+4azT/Gq3ftRc/rN6
+					eOMlStkbGi3YwlwcKvhdLXcds2+JCWI6l4ys
+					2tLScxBKpFKtgAR8yxwww4uSQR0UVwGayrzk
+					d9JkMUHQW9osNyEJKo96bX8=
+					) ; KSK; alg = RSASHA256 ; key id = 17899
+			300	RRSIG	DNSKEY 8 2 300 (
+					20400101000000 20260101000000 17899 secure.test.
+					r5ahxDipUJb12Sg9Y0tDrzJziLtdGSq/kKUs
+					27o+NRzS5bMEdsV2t8wr1UMOI46Iri3N9VXh
+					udUwEpUQ37Qj1YCnPTIWM4nJ063YkBSZOlAL
+					iZhbYxgqGWYzA7HbRlkBkh5tDgBs5Qo7UBHK
+					bsZ0gyTv9IyCkWZFRUG+0xeGqQ0bMWODBpp6
+					hYZkdW5phFBhv5v/JRaW0KMPGgZh5PmqfBad
+					ahy2PEFbmj6VwxP5aKeovG5GPD5r2ENovHTI
+					Pkt2o/RyGBYbWcschEn54R1qIvejtPprbO4y
+					VOjGglMuWcuVaWvCjOXLBDAd2R8bQJ79Ioih
+					IRo2Bi8xN5DfXI0Oiw== )
+			300	RRSIG	DNSKEY 8 2 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					R0y6X/+PJOda0nXKii+ActdArRPDe4Y2fmXL
+					v7c4lGpfUcn1sOOhFj3xrsaOwopv2sOIOcgy
+					0q5GoLOAojnvsPvfvu+OQ1uy1UXhSxK6DU9+
+					HfAhTT92aEa/J+MJLiYX4RxooZx0ANbRvxWg
+					+jTI1XYgQ00mmy4Ee9Lq9jmUe8M= )
+_dmarc.secure.test.	300	IN TXT	"v=DMARC1; p=reject; rua=mailto:dmarc@secure.test"
+			300	RRSIG	TXT 8 3 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					QDAQUKOJDGC0vsD3CSpAPJpOYnQLQ0uX6PWf
+					8BwK0FCYAqxDcf0O3Q5dEUMuJcKn85AVeb2H
+					FRlVDBo7A1aztGHuk14tBtXJq0OjLtbzs3oz
+					LUvzMIYeLVN1Hkxr+ChMizUEQfkQJEeWViqU
+					tZsRM5vCwroLZ1s1k/bmkYsgji4= )
+			300	NSEC	sel._domainkey.secure.test. TXT RRSIG NSEC
+			300	RRSIG	NSEC 8 3 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					p77zoW/K2QZXSs/tMcwgmddDhUqCStmfXkbj
+					tA9V0e0s1FyxJJiqPbahCrKAmN2pGrhI8QO1
+					P5CyLWyfTpvu12EJRiTYXO0SSQiQHNGh+UE1
+					DLqUqkuz6WL9USAxNGQNv6WtwNTIN4hWWMGa
+					uaxW6ZG5UA9a8S2w8wt/l6ZBA+k= )
+sel._domainkey.secure.test. 300	IN TXT	"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTURESECURE"
+			300	RRSIG	TXT 8 4 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					xv87Gc6LtmiUp/BP08FRw8w57zdNXSkcFbcJ
+					5Xl2TaVWGUpgzJ4Pgi7WxL4Wzk6XvpKLK9Qm
+					yikPolsEdYpq7f/s9r5oHuWTQq5tze3kEtZ4
+					sKrQzDBqMgCdV0gHK+ESX2498xggmPXjI8la
+					di+J/2a2BJlocWXqAZryULbmKfo= )
+			300	NSEC	secure.test. TXT RRSIG NSEC
+			300	RRSIG	NSEC 8 4 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					m49Ebl3yVaqyAj7YES6n0MWlorc1KuVljvTS
+					1ZF2KNZcJYLR+k1uAEEmMm8CwS5X4te/B/Za
+					S56rVxySB07j9eRtJgjjaX4aILapd2OruR1h
+					+53qzVner0MTGhmCk5RQmVFnvCGSjSp7VYH7
+					GRL732+Nv6j2bajE+/+nOPFeRxE= )

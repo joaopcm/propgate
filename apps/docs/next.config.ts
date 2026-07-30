@@ -1,0 +1,21 @@
+import createMDX from "@next/mdx";
+import type { NextConfig } from "next";
+
+// Plugins are given as string tuples rather than imported functions: Turbopack
+// needs them serializable.
+const withMDX = createMDX({
+  options: {
+    rehypePlugins: [["@shikijs/rehype", { theme: "github-dark-dimmed" }]],
+    remarkPlugins: [["remark-gfm"]],
+  },
+});
+
+const nextConfig: NextConfig = {
+  output: "standalone",
+  pageExtensions: ["ts", "tsx", "mdx"],
+  // Workspace packages ship raw TypeScript (main/types point at ./src), so Next
+  // has to compile them rather than treat them as prebuilt deps.
+  transpilePackages: ["@propgate/dns", "@propgate/dns-fixtures"],
+};
+
+export default withMDX(nextConfig);
