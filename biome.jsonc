@@ -7,5 +7,27 @@
   ],
   "files": {
     "includes": ["!**/packages/dns-fixtures/zones"]
-  }
+  },
+  "overrides": [
+    {
+      // The DNS wire codec is bit manipulation by nature: header flags, the
+      // compression-pointer mask, the OPT record's extended RCODE and DO bit.
+      // `noBitwiseOperators` exists to catch `&` where `&&` was meant, which is
+      // a real hazard in business logic and a non-hazard here — every `&` in
+      // these files is deliberate and carries an RFC citation. Scoped to the
+      // two directories that speak the wire format so the rule keeps protecting
+      // everywhere else.
+      "includes": [
+        "**/packages/dns/src/wire/**",
+        "**/packages/dns/src/transport/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noBitwiseOperators": "off"
+          }
+        }
+      }
+    }
+  ]
 }
