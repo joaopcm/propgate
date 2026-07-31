@@ -127,3 +127,37 @@ temperror           IN TXT  "v=spf1 include:bogus-zone.test -all"
 
 ; Exists, sends nothing. A domain with no SPF record at all.
 norecord            IN A    198.51.100.21
+
+; ---------------------------------------------------------------------------
+; Address matching. Everything above is about the shape of a record; these are
+; about whether one specific host passes it.
+; ---------------------------------------------------------------------------
+
+; A host with both families, so `a` can be shown following the client's family
+; rather than always asking for A.
+host                IN A    198.51.100.30
+host                IN AAAA 2001:db8:cafe::1
+
+amech               IN TXT  "v=spf1 a:host.spf.test -all"
+
+; The same host widened to a /24, which is where a matcher that only compares
+; whole addresses and a matcher that applies the prefix diverge.
+aprefix             IN TXT  "v=spf1 a:host.spf.test/24 -all"
+
+; IPv6 only. An IPv4 client must not match it — §5.6 keeps the families apart,
+; and comparing the four bytes of one against the first four of the other would
+; authorise unrelated hosts.
+ip6only             IN TXT  "v=spf1 ip6:2001:db8::/32 -all"
+
+; Per-mechanism qualifiers. The result is the qualifier of the first mechanism
+; that matches, not of the record's all.
+qualifiers          IN TXT  "v=spf1 ~ip4:198.51.100.10 ?ip4:198.51.100.11 -all"
+
+; mx resolves the exchange and then its address. Those address lookups sit
+; outside the ten, bounded instead by the ten-name cap on the mechanism.
+mail                IN MX   10 mx1.spf.test.
+mx1                 IN A    198.51.100.40
+mxmatch             IN TXT  "v=spf1 mx:mail.spf.test -all"
+
+; exists matches on the name resolving at all, whatever address it resolves to.
+existsmech          IN TXT  "v=spf1 exists:host.spf.test -all"

@@ -2,7 +2,14 @@ import { DiagnosisCode } from "../diagnosis/codes";
 import { RecordType } from "../wire/constants";
 import { recordsOfType } from "../wire/message";
 import type { EvaluationContext } from "./context";
-import type { SpfMechanism, SpfRecord, SpfTerm } from "./spf-record";
+import type { IpAddress } from "./spf-ip";
+import { cidrContains, fullPrefix, parseIpAddress } from "./spf-ip";
+import type {
+  SpfMechanism,
+  SpfQualifier,
+  SpfRecord,
+  SpfTerm,
+} from "./spf-record";
 import {
   containsMacro,
   countsAsLookup,
@@ -34,11 +41,12 @@ import { verdictFromFindings, worstVerdict } from "./types";
  * concurrently would both mis-attribute the overflow and perform lookups a
  * conforming implementation would never reach.
  *
- * Not here yet: matching a specific sending IP, which needs CIDR comparison for
- * `ip4`/`ip6`, address resolution for `a`/`mx`, and macro expansion against the
- * connection. This evaluator answers the two questions onboarding actually
- * asks — is the record sound, and does it authorise the platform being added.
- * Addresses are parsed and validated here; they are simply not matched yet.
+ * **Accounting audits the worst case; matching answers about one sender.** A
+ * receiver stops at the first mechanism that matches, so a message from an
+ * authorised host may never reach the term that breaks the limit. This walks
+ * every term regardless, because the record is still one unauthorised sender
+ * away from permerror and that is the fact worth reporting. Both answers are
+ * returned: the limits describe the record, `SPF_IP_*` describes the sender.
  */
 
 /** RFC 7208 §4.6.4. */
@@ -70,13 +78,42 @@ export interface SpfCheck {
    * authorised just the same.
    */
   readonly include?: string;
+  /**
+   * A sending address to evaluate the record against, IPv4 or IPv6.
+   *
+   * Answers "would a message from this host pass", which is a different
+   * question from whether the record is sound, and both are reported.
+   */
+  readonly ip?: string;
 }
 
 type SpfFailure =
   | { readonly kind: "temperror"; readonly at: string; readonly detail: string }
   | { readonly kind: "permerror"; readonly code: DiagnosisCode };
 
+/**
+ * What the record says about the sending address.
+ *
+ * `undetermined` is its own outcome rather than a flavour of "no match": a
+ * `ptr` mechanism or an unexpanded macro means the answer depends on something
+ * the records alone do not contain, and reporting that as "not authorised"
+ * would be a guess dressed as a result.
+ */
+type MatchResult =
+  | {
+      readonly kind: "match";
+      readonly qualifier: SpfQualifier;
+      readonly mechanism: string;
+      readonly at: string;
+    }
+  | { readonly kind: "none" }
+  | { readonly kind: "undetermined"; readonly because: string };
+
+const NO_MATCH: MatchResult = { kind: "none" };
+
 interface ExpansionState {
+  /** The address being evaluated, absent when only the record is audited. */
+  readonly client: IpAddress | undefined;
   failure: SpfFailure | undefined;
   /** SPF's own counter, distinct from the context's backstop budget. */
   lookups: number;
@@ -93,6 +130,18 @@ type RecordRead =
 
 function normalise(domain: string): string {
   return domain.trim().replace(TRAILING_DOT, "").toLowerCase();
+}
+
+function matched(
+  mechanism: SpfMechanism,
+  domain: string
+): Extract<MatchResult, { kind: "match" }> {
+  return {
+    at: domain,
+    kind: "match",
+    mechanism: mechanism.raw,
+    qualifier: mechanism.qualifier,
+  };
 }
 
 async function readSpfAt(
@@ -156,7 +205,7 @@ function spendVoid(context: EvaluationContext, state: ExpansionState): void {
 /** Whether a query found nothing, which is what §4.6.4 counts as a void. */
 function isVoid(
   outcome: Awaited<ReturnType<EvaluationContext["lookup"]>>,
-  type: "A" | "MX"
+  type: "A" | "AAAA" | "MX"
 ): boolean {
   if (outcome.status !== "answered") {
     return false;
@@ -168,19 +217,87 @@ function isVoid(
   );
 }
 
+/** Whether the client falls inside any of these addresses, at this prefix. */
+function anyAddressMatches(
+  client: IpAddress,
+  addresses: readonly string[],
+  mechanism: SpfMechanism
+): boolean {
+  const prefix =
+    (client.family === "ipv4" ? mechanism.prefix4 : mechanism.prefix6) ??
+    fullPrefix(client.family);
+
+  for (const text of addresses) {
+    const network = parseIpAddress(text);
+
+    if (network !== null && cidrContains(network, prefix, client)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function addressesIn(
+  outcome: Awaited<ReturnType<EvaluationContext["lookup"]>>
+): string[] {
+  if (outcome.status !== "answered") {
+    return [];
+  }
+
+  return [
+    ...recordsOfType(outcome.message.answers, "A").map(
+      (record) => record.rdata.address
+    ),
+    ...recordsOfType(outcome.message.answers, "AAAA").map(
+      (record) => record.rdata.address
+    ),
+  ];
+}
+
 /**
- * Resolve an `a`, `mx` or `exists` term.
+ * Whether any host behind an `mx` mechanism is the client.
  *
- * Nothing is matched against a sending address yet. The query still has to
- * happen, because whether it comes back empty is what the void-lookup limit
- * counts, and a term that resolves to nothing is worth reporting on its own.
+ * These address lookups are outside the ten: §4.6.4 bounds them separately, by
+ * capping the mechanism at ten names, so they are made against the context's
+ * backstop budget and not charged to SPF's counter. Being outside that counter
+ * is also why they can run concurrently — nothing about the answer depends on
+ * which of them finishes first, unlike the include tree.
+ */
+async function mxAddresses(
+  context: EvaluationContext,
+  names: readonly string[],
+  mechanism: SpfMechanism,
+  client: IpAddress
+): Promise<boolean> {
+  const outcomes = await Promise.all(
+    names.map((name) =>
+      context.lookup({
+        name,
+        purpose: `an address for ${name}, named by ${mechanism.raw}`,
+        type: client.family === "ipv4" ? RecordType.A : RecordType.AAAA,
+      })
+    )
+  );
+
+  return outcomes.some((outcome) =>
+    anyAddressMatches(client, addressesIn(outcome), mechanism)
+  );
+}
+
+/**
+ * Resolve an `a`, `mx` or `exists` term, and say whether the client matches.
+ *
+ * The query happens whether or not there is a client to match: whether it comes
+ * back empty is what the void-lookup limit counts, and a term resolving to
+ * nothing is worth reporting on its own.
  */
 async function resolveTerm(
   context: EvaluationContext,
   state: ExpansionState,
   mechanism: SpfMechanism,
   domain: string
-): Promise<void> {
+): Promise<MatchResult> {
   const target = mechanism.value ?? domain;
 
   if (containsMacro(target)) {
@@ -190,14 +307,20 @@ async function resolveTerm(
       name: domain,
       observed: mechanism.raw,
     });
-    return;
+
+    return state.client === undefined
+      ? NO_MATCH
+      : { because: mechanism.raw, kind: "undetermined" };
   }
 
-  const type = mechanism.name === "mx" ? "MX" : "A";
+  // `a` means "an address record", which for an IPv6 client is AAAA. Querying A
+  // for an IPv6 sender would count a void that is not one, and report an
+  // authorised host as unauthorised.
+  const type = answerTypeFor(mechanism, state.client);
   const outcome = await context.lookup({
     name: target,
     purpose: `${mechanism.raw} in the SPF record at ${domain}`,
-    type: type === "MX" ? RecordType.MX : RecordType.A,
+    type: RecordType[type],
   });
 
   if (outcome.status !== "answered") {
@@ -206,7 +329,7 @@ async function resolveTerm(
       detail: `the ${type} lookup ${outcome.status}`,
       kind: "temperror",
     };
-    return;
+    return NO_MATCH;
   }
 
   if (isVoid(outcome, type)) {
@@ -217,58 +340,78 @@ async function resolveTerm(
       observed: mechanism.raw,
     });
     spendVoid(context, state);
-    return;
+    return NO_MATCH;
   }
 
-  const names = recordsOfType(outcome.message.answers, "MX").length;
+  if (mechanism.name === "mx") {
+    return await matchMx(context, state, mechanism, outcome, target);
+  }
 
-  if (type === "MX" && names > SPF_MAX_MX_NAMES) {
+  // `exists` matches on the name resolving at all, whatever it resolves to.
+  if (mechanism.name === "exists") {
+    return matched(mechanism, domain);
+  }
+
+  if (state.client === undefined) {
+    return NO_MATCH;
+  }
+
+  return anyAddressMatches(state.client, addressesIn(outcome), mechanism)
+    ? matched(mechanism, domain)
+    : NO_MATCH;
+}
+
+function answerTypeFor(
+  mechanism: SpfMechanism,
+  client: IpAddress | undefined
+): "A" | "AAAA" | "MX" {
+  if (mechanism.name === "mx") {
+    return "MX";
+  }
+
+  // `exists` is defined as an A query whatever the client is, so only `a`
+  // follows the client's family.
+  return mechanism.name === "a" && client?.family === "ipv6" ? "AAAA" : "A";
+}
+
+async function matchMx(
+  context: EvaluationContext,
+  state: ExpansionState,
+  mechanism: SpfMechanism,
+  outcome: Awaited<ReturnType<EvaluationContext["lookup"]>>,
+  target: string
+): Promise<MatchResult> {
+  if (outcome.status !== "answered") {
+    return NO_MATCH;
+  }
+
+  // The wire form carries a trailing dot; the derivation reads better when
+  // every name in it looks the same, and this resolver has no search list for
+  // the distinction to matter to.
+  const names = recordsOfType(outcome.message.answers, "MX").map((record) =>
+    normalise(record.rdata.exchange)
+  );
+
+  if (names.length > SPF_MAX_MX_NAMES) {
     context.report(DiagnosisCode.SPF_MX_LIMIT_EXCEEDED, {
       detail: `RFC 7208 §4.6.4 allows an mx mechanism to expand to at most ${SPF_MAX_MX_NAMES} names`,
       name: target,
-      observed: `${names} MX records`,
+      observed: `${names.length} MX records`,
     });
     state.failure = {
       code: DiagnosisCode.SPF_MX_LIMIT_EXCEEDED,
       kind: "permerror",
     };
-  }
-}
-
-async function expandInclude(
-  context: EvaluationContext,
-  state: ExpansionState,
-  mechanism: SpfMechanism,
-  domain: string,
-  chain: readonly string[]
-): Promise<void> {
-  const target = mechanism.value ?? "";
-
-  if (containsMacro(target)) {
-    context.report(DiagnosisCode.SPF_MACRO_NOT_EVALUATED, {
-      detail:
-        "the include target depends on the connection, so the tree below it cannot be walked from the records alone",
-      name: domain,
-      observed: mechanism.raw,
-    });
-    return;
+    return NO_MATCH;
   }
 
-  const normalised = normalise(target);
-
-  if (chain.includes(normalised)) {
-    context.report(DiagnosisCode.SPF_INCLUDE_LOOP, {
-      detail:
-        "the chain returns to a domain it has already visited, so it can never terminate",
-      name: domain,
-      observed: [...chain, normalised].join(" -> "),
-    });
-    state.failure = { code: DiagnosisCode.SPF_INCLUDE_LOOP, kind: "permerror" };
-    return;
+  if (state.client === undefined) {
+    return NO_MATCH;
   }
 
-  state.reached.add(normalised);
-  await walk(context, state, target, chain, `include:${target}`);
+  return (await mxAddresses(context, names, mechanism, state.client))
+    ? matched(mechanism, target)
+    : NO_MATCH;
 }
 
 /**
@@ -316,24 +459,166 @@ function chargeable(term: SpfTerm, record: SpfRecord): boolean {
   return !(term.kind === "modifier" && record.all !== undefined);
 }
 
+/**
+ * An `include:` matches only when the included evaluation is a *pass*.
+ *
+ * §5.2. A `-all` inside an include does not reject the message; it just means
+ * the include did not match and evaluation carries on. Treating a nested fail
+ * as a fail is the classic way to reject mail a record authorises.
+ */
+function includeMatches(
+  inner: MatchResult,
+  mechanism: SpfMechanism,
+  domain: string
+): MatchResult {
+  if (inner.kind === "undetermined") {
+    return inner;
+  }
+
+  if (inner.kind === "match" && inner.qualifier === "+") {
+    return matched(mechanism, domain);
+  }
+
+  return NO_MATCH;
+}
+
+async function expandInclude(
+  context: EvaluationContext,
+  state: ExpansionState,
+  mechanism: SpfMechanism,
+  domain: string,
+  chain: readonly string[]
+): Promise<MatchResult> {
+  const target = mechanism.value ?? "";
+
+  if (containsMacro(target)) {
+    context.report(DiagnosisCode.SPF_MACRO_NOT_EVALUATED, {
+      detail:
+        "the include target depends on the connection, so the tree below it cannot be walked from the records alone",
+      name: domain,
+      observed: mechanism.raw,
+    });
+
+    return state.client === undefined
+      ? NO_MATCH
+      : { because: mechanism.raw, kind: "undetermined" };
+  }
+
+  const normalised = normalise(target);
+
+  if (chain.includes(normalised)) {
+    context.report(DiagnosisCode.SPF_INCLUDE_LOOP, {
+      detail:
+        "the chain returns to a domain it has already visited, so it can never terminate",
+      name: domain,
+      observed: [...chain, normalised].join(" -> "),
+    });
+    state.failure = { code: DiagnosisCode.SPF_INCLUDE_LOOP, kind: "permerror" };
+    return NO_MATCH;
+  }
+
+  state.reached.add(normalised);
+
+  const inner = await walk(context, state, target, chain, `include:${target}`);
+
+  return includeMatches(inner, mechanism, domain);
+}
+
+/**
+ * Keep the first match, and only the first.
+ *
+ * A receiver stops there. Later terms are still walked for the accounting, but
+ * they cannot change what happens to this sender.
+ */
+function firstOf(current: MatchResult, next: MatchResult): MatchResult {
+  if (current.kind !== "none") {
+    return current;
+  }
+
+  return next;
+}
+
+/**
+ * Mechanisms that need no DNS: `ip4` and `ip6`.
+ *
+ * Returns undefined for anything else, which is how the loop tells "decided
+ * here" from "needs a lookup".
+ */
+function matchWithoutDns(
+  state: ExpansionState,
+  term: SpfTerm,
+  domain: string
+): MatchResult | undefined {
+  if (term.kind !== "mechanism") {
+    return;
+  }
+
+  if (term.name !== "ip4" && term.name !== "ip6") {
+    return;
+  }
+
+  return matchNetwork(state, term, domain);
+}
+
+/**
+ * A `ptr` mechanism, which is decided by the connection rather than the records.
+ *
+ * Deciding it needs a reverse lookup of the connecting address and a forward
+ * confirmation of every name that comes back. RFC 7208 §5.5 says not to publish
+ * one at all; where someone has, the honest answer for a specific sender is
+ * that we cannot tell — not that they are unauthorised.
+ */
+function matchPtr(state: ExpansionState, term: SpfMechanism): MatchResult {
+  return state.client === undefined
+    ? NO_MATCH
+    : { because: term.raw, kind: "undetermined" };
+}
+
+async function resolveOrInclude(
+  context: EvaluationContext,
+  state: ExpansionState,
+  term: SpfMechanism,
+  domain: string,
+  chain: readonly string[]
+): Promise<MatchResult> {
+  if (term.name === "ptr") {
+    return matchPtr(state, term);
+  }
+
+  if (term.name === "include") {
+    return await expandInclude(context, state, term, domain, chain);
+  }
+
+  return await resolveTerm(context, state, term, domain);
+}
+
 async function expandTerms(
   context: EvaluationContext,
   state: ExpansionState,
   record: SpfRecord,
   domain: string,
   chain: readonly string[]
-): Promise<void> {
+): Promise<MatchResult> {
+  let result: MatchResult = NO_MATCH;
+
   for (const term of record.terms) {
     if (state.failure) {
-      return;
+      return result;
     }
 
-    // `all` always matches, so a receiver stops here and never spends a lookup
-    // on anything written after it. Expanding past this point would charge the
-    // record for terms it does not cost, and could raise a temperror from a
-    // lookup no receiver ever makes.
     if (term.kind === "mechanism" && term.name === "all") {
-      return;
+      // `all` always matches, so a receiver stops here and never spends a
+      // lookup on anything written after it. Expanding past this point would
+      // charge the record for terms it does not cost, and could raise a
+      // temperror from a lookup no receiver ever makes.
+      return firstOf(result, matched(term, domain));
+    }
+
+    const local = matchWithoutDns(state, term, domain);
+
+    if (local !== undefined) {
+      result = firstOf(result, local);
+      continue;
     }
 
     if (!chargeable(term, record)) {
@@ -341,7 +626,7 @@ async function expandTerms(
     }
 
     if (!spendLookup(context, state)) {
-      return;
+      return result;
     }
 
     // redirect= is charged here but followed after the mechanisms, since it
@@ -350,47 +635,73 @@ async function expandTerms(
       continue;
     }
 
-    if (term.name === "include") {
-      // Sequential on purpose, and this is the one place in the codebase where
-      // it is load-bearing: the ten-lookup limit is exact, so which term is the
-      // eleventh depends on evaluation order. Expanding concurrently would
-      // blame the wrong term and perform lookups a receiver never reaches.
-      // biome-ignore lint/performance/noAwaitInLoops: the lookup limit is order-dependent
-      await expandInclude(context, state, term, domain, chain);
-      continue;
-    }
+    // Sequential on purpose, and this is the one place in the codebase where it
+    // is load-bearing: the ten-lookup limit is exact, so which term is the
+    // eleventh depends on evaluation order. Expanding concurrently would blame
+    // the wrong term and perform lookups a receiver never reaches.
+    // biome-ignore lint/performance/noAwaitInLoops: the lookup limit is order-dependent
+    const outcome = await resolveOrInclude(context, state, term, domain, chain);
 
-    // The PTR query depends on the connecting IP, so there is nothing to
-    // resolve from the records alone. The term still costs its lookup, and
-    // publishing one at all is reported separately.
-    if (term.name !== "ptr") {
-      await resolveTerm(context, state, term, domain);
-    }
+    result = firstOf(result, outcome);
   }
+
+  return result;
+}
+
+function matchNetwork(
+  state: ExpansionState,
+  mechanism: SpfMechanism,
+  domain: string
+): MatchResult {
+  const { client } = state;
+
+  if (client === undefined || mechanism.value === undefined) {
+    return NO_MATCH;
+  }
+
+  const network = parseIpAddress(mechanism.value);
+
+  if (network === null) {
+    return NO_MATCH;
+  }
+
+  const prefix =
+    (mechanism.name === "ip4" ? mechanism.prefix4 : mechanism.prefix6) ??
+    fullPrefix(network.family);
+
+  return cidrContains(network, prefix, client)
+    ? matched(mechanism, domain)
+    : NO_MATCH;
 }
 
 async function followRedirect(
   context: EvaluationContext,
   state: ExpansionState,
   record: SpfRecord,
-  chain: readonly string[]
-): Promise<void> {
+  chain: readonly string[],
+  soFar: MatchResult
+): Promise<MatchResult> {
   if (
     state.failure ||
     record.redirect === undefined ||
     record.all !== undefined
   ) {
-    return;
+    return soFar;
   }
 
   state.reached.add(normalise(record.redirect));
-  await walk(
+
+  const inner = await walk(
     context,
     state,
     record.redirect,
     chain,
     `redirect=${record.redirect}`
   );
+
+  // §6.1: the redirect's result *is* the result, qualifier and all — unlike an
+  // include, which only borrows a pass.
+  return soFar.kind === "none" ? inner : soFar;
 }
 
 /**
@@ -406,12 +717,12 @@ async function walk(
   domain: string,
   chain: readonly string[],
   purpose: string
-): Promise<void> {
+): Promise<MatchResult> {
   const read = await readSpfAt(context, domain, purpose);
 
   if (read.kind === "indeterminate") {
     state.failure = { at: domain, detail: read.detail, kind: "temperror" };
-    return;
+    return NO_MATCH;
   }
 
   if (read.kind === "multiple") {
@@ -420,7 +731,7 @@ async function walk(
       code: DiagnosisCode.SPF_MULTIPLE_RECORDS,
       kind: "permerror",
     };
-    return;
+    return NO_MATCH;
   }
 
   if (read.kind === "none") {
@@ -436,7 +747,7 @@ async function walk(
       code: DiagnosisCode.SPF_INCLUDE_UNRESOLVABLE,
       kind: "permerror",
     };
-    return;
+    return NO_MATCH;
   }
 
   const parsed = parseSpfRecord(read.raw);
@@ -447,15 +758,21 @@ async function walk(
       code: DiagnosisCode.SPF_RECORD_MALFORMED,
       kind: "permerror",
     };
-    return;
+    return NO_MATCH;
   }
 
   reportIncludedRecord(context, parsed.record, domain);
 
   const nextChain = [...chain, normalise(domain)];
+  const result = await expandTerms(
+    context,
+    state,
+    parsed.record,
+    domain,
+    nextChain
+  );
 
-  await expandTerms(context, state, parsed.record, domain, nextChain);
-  await followRedirect(context, state, parsed.record, nextChain);
+  return await followRedirect(context, state, parsed.record, nextChain, result);
 }
 
 function reportMultiple(
@@ -625,6 +942,54 @@ function reportAuthorization(
   });
 }
 
+const QUALIFIER_CODES: Readonly<Record<SpfQualifier, DiagnosisCode>> = {
+  "-": DiagnosisCode.SPF_IP_NOT_AUTHORIZED,
+  "?": DiagnosisCode.SPF_IP_NEUTRAL,
+  "+": DiagnosisCode.SPF_IP_AUTHORIZED,
+  "~": DiagnosisCode.SPF_IP_SOFTFAIL,
+};
+
+const QUALIFIER_DETAIL: Readonly<Record<SpfQualifier, string>> = {
+  "-": "the record rejects this host outright, and receivers that honour it will refuse the message",
+  "?": "the record states no opinion about this host, which receivers treat much like no record at all",
+  "+": "the record authorises this host",
+  "~": "the record marks this host as probably unauthorised; receivers usually accept and flag rather than reject",
+};
+
+/** What the record says about the sending address, once the walk is done. */
+function reportIpResult(
+  context: EvaluationContext,
+  result: MatchResult,
+  client: IpAddress,
+  domain: string
+): void {
+  if (result.kind === "undetermined") {
+    context.report(DiagnosisCode.SPF_IP_UNDETERMINED, {
+      detail: `${result.because} depends on the connection rather than on the records, so whether this host passes cannot be decided from DNS alone`,
+      name: domain,
+      observed: client.text,
+    });
+    return;
+  }
+
+  // §4.7: a record that matches nothing and has no all is neutral by default.
+  if (result.kind === "none") {
+    context.report(DiagnosisCode.SPF_IP_NEUTRAL, {
+      detail:
+        "no mechanism matched and the record has no all, so the result defaults to neutral",
+      name: domain,
+      observed: client.text,
+    });
+    return;
+  }
+
+  context.report(QUALIFIER_CODES[result.qualifier], {
+    detail: `${result.mechanism} at ${result.at} is the first mechanism that matches, and ${QUALIFIER_DETAIL[result.qualifier]}`,
+    name: domain,
+    observed: client.text,
+  });
+}
+
 /**
  * A temperror is deliberately `indeterminate` rather than `fail`.
  *
@@ -661,11 +1026,36 @@ function finalVerdict(
   return worstVerdict([verdictFromFindings(context.findings), ...extra]);
 }
 
+function parseClient(
+  context: EvaluationContext,
+  check: SpfCheck
+): IpAddress | undefined {
+  if (check.ip === undefined) {
+    return;
+  }
+
+  const client = parseIpAddress(check.ip);
+
+  if (client === null) {
+    context.report(DiagnosisCode.SPF_IP_UNDETERMINED, {
+      detail:
+        "the address given to check against is not an IPv4 or IPv6 address",
+      name: check.domain,
+      observed: check.ip,
+    });
+    return;
+  }
+
+  return client;
+}
+
 export async function evaluateSpf(
   context: EvaluationContext,
   check: SpfCheck
 ): Promise<EvaluationResult> {
+  const client = parseClient(context, check);
   const state: ExpansionState = {
+    client,
     failure: undefined,
     lookups: 0,
     reached: new Set<string>(),
@@ -726,9 +1116,20 @@ export async function evaluateSpf(
   reportPosture(context, parsed.record, check.domain);
 
   const chain = [normalise(check.domain)];
-
-  await expandTerms(context, state, parsed.record, check.domain, chain);
-  await followRedirect(context, state, parsed.record, chain);
+  const expanded = await expandTerms(
+    context,
+    state,
+    parsed.record,
+    check.domain,
+    chain
+  );
+  const result = await followRedirect(
+    context,
+    state,
+    parsed.record,
+    chain,
+    expanded
+  );
 
   if (state.failure?.kind === "temperror") {
     return finish(
@@ -744,6 +1145,10 @@ export async function evaluateSpf(
 
   if (check.include !== undefined) {
     reportAuthorization(context, state, check);
+  }
+
+  if (client !== undefined) {
+    reportIpResult(context, result, client, check.domain);
   }
 
   return finish(finalVerdict(context));
