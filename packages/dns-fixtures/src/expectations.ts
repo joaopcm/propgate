@@ -54,6 +54,21 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
     zone: "wildcard-signed.test",
   },
   {
+    codes: [
+      "DKIM_RECORD_MISSING",
+      "DKIM_RECORD_MALFORMED",
+      "DKIM_KEY_UNPARSEABLE",
+      "DKIM_KEY_REVOKED",
+      "DKIM_KEY_TOO_SHORT",
+      "DKIM_KEY_MISMATCH",
+      "DKIM_TESTING_MODE",
+    ],
+    reason:
+      "DKIM semantics as distinct from wire-level mangling: revoked (empty p=), a real 512-bit key, testing mode, wrong version, v= not first, unsupported algorithm, and a non-DKIM TXT sharing the selector. Every key is real and parses with node:crypto.",
+    role: "auth",
+    zone: "dkim.test",
+  },
+  {
     codes: ["TXT_VALUE_SPLIT_MANGLED", "MULTIPLE_DKIM_RECORDS"],
     reason:
       "Multi-string TXT rejoined with whitespace, with duplicated tag prefixes, split across two RRs, and differing only in base64 case.",

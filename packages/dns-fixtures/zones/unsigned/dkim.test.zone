@@ -1,0 +1,46 @@
+; DKIM semantics, as distinct from DKIM wire-level mangling.
+;
+; txt-split.test covers how a provider can corrupt the *transport* of a key.
+; This zone covers what the key itself says: revoked, too short, testing mode,
+; wrong version, unsupported algorithm. Two different failure families, and
+; conflating them in one zone would make each fixture harder to read.
+;
+; Every key here is real and parses with node:crypto — a hand-typed base64 blob
+; would test the parser against something no provider ever serves.
+$ORIGIN dkim.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+; The control: a valid 2048-bit key that should pass cleanly.
+valid._domainkey       IN TXT ( "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApbBuIv1NwQ/rmgGPN8OufvLBfd2asvyk4ajVkiW2CsC12MohickhGufJPsGNyO/ZXD4b/HnClukz07BZwpJe80wz0w/AfhJCqM8F3v/aVHF7wWnd9wBBPBroTL7kNx5u39NnBZZj8SYJF7zNaQ3rud4ekF+GAyTovT7MUfXHQBgEZn0n5Y4dN7b7VEMi4/97T"
+                                "DCNDJucFywdDmbJ9r6LaCu+l+gWfZGl4rDimTJCw3oCQIpCOGlNrWPwxRLuB0sLR2gR1GT9EqBg3yGforXasq2wqBuZlpI1YXmdldEZh3VRIyft4TeVTHRJAf7/TKuAINb8+LOoXHj5hFYl+C4zUQIDAQAB" )
+
+; RFC 6376 3.6.1: an empty p= is revocation, not corruption. Reporting it
+; as malformed would tell someone to fix a record they revoked on purpose.
+revoked._domainkey     IN TXT  "v=DKIM1; k=rsa; p="
+
+; A real 512-bit key: parses fine, and receivers are already rejecting it.
+short._domainkey       IN TXT  "v=DKIM1; k=rsa; p=MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAJQ7SBev8ZHdSnurrDf8GLxZwBPJK097UITBWcrK3uWjMychOIgQnizYagb7I64SsgjhFdU9lUx+dBP+WJuDAYUCAwEAAQ=="
+
+; t=y — receivers must ignore failures, so this key protects nothing yet.
+testing._domainkey     IN TXT ( "v=DKIM1; k=rsa; t=y; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApbBuIv1NwQ/rmgGPN8OufvLBfd2asvyk4ajVkiW2CsC12MohickhGufJPsGNyO/ZXD4b/HnClukz07BZwpJe80wz0w/AfhJCqM8F3v/aVHF7wWnd9wBBPBroTL7kNx5u39NnBZZj8SYJF7zNaQ3rud4ekF+G"
+                                "AyTovT7MUfXHQBgEZn0n5Y4dN7b7VEMi4/97TDCNDJucFywdDmbJ9r6LaCu+l+gWfZGl4rDimTJCw3oCQIpCOGlNrWPwxRLuB0sLR2gR1GT9EqBg3yGforXasq2wqBuZlpI1YXmdldEZh3VRIyft4TeVTHRJAf7/TKuAINb8+LOoXHj5hFYl+C4zUQIDAQAB" )
+
+; v= must be DKIM1 when present.
+badversion._domainkey  IN TXT  "v=DKIM2; k=rsa; p=MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAJQ7SBev8ZHdSnurrDf8GLxZwBPJK097UITBWcrK3uWjMychOIgQnizYagb7I64SsgjhFdU9lUx+dBP+WJuDAYUCAwEAAQ=="
+
+; RFC 6376 3.6.1: "This tag MUST be the first tag in the record."
+vlast._domainkey       IN TXT  "k=rsa; v=DKIM1; p=MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAJQ7SBev8ZHdSnurrDf8GLxZwBPJK097UITBWcrK3uWjMychOIgQnizYagb7I64SsgjhFdU9lUx+dBP+WJuDAYUCAwEAAQ=="
+
+; A valid ed25519 key (RFC 8463): 32 raw bytes, not an SPKI wrapper.
+ed25519._domainkey     IN TXT  "v=DKIM1; k=ed25519; p=3wICWzXC5dt59zmgZf7cvhffhwvwSFZnK3j0c+Mlrqs="
+
+; An algorithm no verifier implements.
+badtype._domainkey     IN TXT  "v=DKIM1; k=ecdsa; p=MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAJQ7SBev8ZHdSnurrDf8GLxZwBPJK097UITBWcrK3uWjMychOIgQnizYagb7I64SsgjhFdU9lUx+dBP+WJuDAYUCAwEAAQ=="
+
+; A non-DKIM TXT sharing the selector name. Counting records blindly would
+; call this a duplicate; only DKIM-looking records should be considered.
+shared._domainkey      IN TXT  "google-site-verification=abcdef123456"shared._domainkey      IN TXT  "v=DKIM1; k=rsa; p=MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAJQ7SBev8ZHdSnurrDf8GLxZwBPJK097UITBWcrK3uWjMychOIgQnizYagb7I64SsgjhFdU9lUx+dBP+WJuDAYUCAwEAAQ=="

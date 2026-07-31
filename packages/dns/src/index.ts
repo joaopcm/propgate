@@ -7,6 +7,28 @@ export {
   DiagnosisCode,
   NOT_LOCALLY_REPRODUCIBLE,
 } from "./diagnosis/codes";
+export type { EvaluationContextOptions } from "./evaluate/context";
+export { createEvaluationContext, EvaluationContext } from "./evaluate/context";
+export type { DkimCheck } from "./evaluate/dkim";
+export { dkimRecordName, evaluateDkim } from "./evaluate/dkim";
+export type {
+  DkimKeyResult,
+  DkimParseResult,
+  DkimRecord,
+} from "./evaluate/dkim-record";
+export {
+  isTestingMode,
+  parseDkimKey,
+  parseDkimRecord,
+} from "./evaluate/dkim-record";
+export type {
+  EvaluationResult,
+  Evidence,
+  Finding,
+  Lookup,
+  Verdict,
+} from "./evaluate/types";
+export { worstVerdict } from "./evaluate/types";
 export type { PslOptions } from "./psl";
 export {
   getPublicSuffix,
