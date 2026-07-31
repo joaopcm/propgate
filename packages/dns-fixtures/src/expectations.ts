@@ -262,6 +262,22 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
     role: "root",
     zone: "test",
   },
+  {
+    codes: [
+      "MX_IMPLICIT_A",
+      "MX_MAIL_NOT_ACCEPTED",
+      "MX_NULL",
+      "MX_NULL_WITH_OTHER_RECORDS",
+      "MX_RECORDS_MISSING",
+      "MX_TARGET_IS_CNAME",
+      "MX_TARGET_IS_IP_LITERAL",
+      "MX_TARGET_UNRESOLVABLE",
+    ],
+    reason:
+      "The same records are correct or broken depending on what the domain is for: nomail is a deliberate null MX, and the only difference between the passing and failing cases is what the caller says the domain does. Also carries the exchanges that cannot receive anything — an address written where a name belongs, an alias RFC 2181 forbids, a name with no address — plus an IPv6-only exchange, which is legitimate and would be failed by a check that reads a missing A record as a missing address.",
+    role: "auth",
+    zone: "mx.test",
+  },
 ];
 
 /** Every code any fixture is expected to produce. */

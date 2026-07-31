@@ -74,6 +74,22 @@ export const DiagnosisCode = {
   DNSSEC_INSECURE_ISLAND: "DNSSEC_INSECURE_ISLAND",
   /** More than one TXT RR where the record type permits exactly one. */
   MULTIPLE_DKIM_RECORDS: "MULTIPLE_DKIM_RECORDS",
+  /** No MX, so mail is delivered to the address record. */
+  MX_IMPLICIT_A: "MX_IMPLICIT_A",
+  /** The domain is expected to receive mail and nothing can deliver to it. */
+  MX_MAIL_NOT_ACCEPTED: "MX_MAIL_NOT_ACCEPTED",
+  /** A null MX: the domain states that it accepts no mail. */
+  MX_NULL: "MX_NULL",
+  /** A null MX alongside ordinary exchanges. */
+  MX_NULL_WITH_OTHER_RECORDS: "MX_NULL_WITH_OTHER_RECORDS",
+  /** No MX records at all. */
+  MX_RECORDS_MISSING: "MX_RECORDS_MISSING",
+  /** An MX points at an alias, which RFC 2181 forbids. */
+  MX_TARGET_IS_CNAME: "MX_TARGET_IS_CNAME",
+  /** An MX holds an address where a name belongs. */
+  MX_TARGET_IS_IP_LITERAL: "MX_TARGET_IS_IP_LITERAL",
+  /** A mail exchange has no address. */
+  MX_TARGET_UNRESOLVABLE: "MX_TARGET_UNRESOLVABLE",
   /** NXDOMAIN whose authority SOA implies a long negative cache. */
   NEGATIVE_CACHE_LIKELY: "NEGATIVE_CACHE_LIKELY",
   /** Name exists but has no record of the queried type. Not NXDOMAIN. */
@@ -344,6 +360,61 @@ export const DIAGNOSIS_REGISTRY: Readonly<
     slug: "multiple-dkim-records",
     summary:
       "More than one record exists at this name. Remove the extras so only the correct one remains.",
+  },
+  MX_IMPLICIT_A: {
+    code: DiagnosisCode.MX_IMPLICIT_A,
+    severity: "info",
+    slug: "mx-implicit-a",
+    summary:
+      "This domain has no MX records, so mail is delivered to whatever runs at its address — usually the web server, and usually by accident.",
+  },
+  MX_MAIL_NOT_ACCEPTED: {
+    code: DiagnosisCode.MX_MAIL_NOT_ACCEPTED,
+    severity: "error",
+    slug: "mx-mail-not-accepted",
+    summary: "Mail sent to this domain cannot be delivered anywhere.",
+  },
+  MX_NULL: {
+    code: DiagnosisCode.MX_NULL,
+    severity: "info",
+    slug: "mx-null",
+    summary:
+      "This domain declares that it accepts no mail, which is the correct configuration for a domain that only sends.",
+  },
+  MX_NULL_WITH_OTHER_RECORDS: {
+    code: DiagnosisCode.MX_NULL_WITH_OTHER_RECORDS,
+    severity: "error",
+    slug: "mx-null-with-other-records",
+    summary:
+      "This domain publishes both a null MX and real mail exchanges, so whether a message is delivered depends on whose mail server is trying.",
+  },
+  MX_RECORDS_MISSING: {
+    code: DiagnosisCode.MX_RECORDS_MISSING,
+    severity: "warning",
+    slug: "mx-records-missing",
+    summary:
+      "This domain publishes no MX records, so senders fall back to its address record.",
+  },
+  MX_TARGET_IS_CNAME: {
+    code: DiagnosisCode.MX_TARGET_IS_CNAME,
+    severity: "warning",
+    slug: "mx-target-is-cname",
+    summary:
+      "One of this domain's mail exchanges is an alias rather than a host; most senders follow it and some refuse, which looks like an intermittent fault.",
+  },
+  MX_TARGET_IS_IP_LITERAL: {
+    code: DiagnosisCode.MX_TARGET_IS_IP_LITERAL,
+    severity: "error",
+    slug: "mx-target-is-ip-literal",
+    summary:
+      "One of this domain's MX records holds an IP address, which is looked up as a name and resolves to nothing.",
+  },
+  MX_TARGET_UNRESOLVABLE: {
+    code: DiagnosisCode.MX_TARGET_UNRESOLVABLE,
+    severity: "error",
+    slug: "mx-target-unresolvable",
+    summary:
+      "One of this domain's mail exchanges has no address, so senders have nowhere to connect.",
   },
   NEGATIVE_CACHE_LIKELY: {
     code: DiagnosisCode.NEGATIVE_CACHE_LIKELY,

@@ -1,0 +1,51 @@
+; Mail routing (RFC 5321 §5.1, RFC 7505, RFC 2181 §10.3).
+;
+; The same records are correct or broken depending on what the domain is for. A
+; null MX on a sending-only domain is deliberate and right; the same record on a
+; domain that expects mail means every message bounces. Both are here, and the
+; only difference between them is what the caller says the domain is for.
+$ORIGIN mx.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+; Two exchanges, both resolvable. Nothing wrong here.
+@                   IN MX   10 mail1.mx.test.
+@                   IN MX   20 mail2.mx.test.
+mail1               IN A    198.51.100.80
+mail2               IN A    198.51.100.81
+
+; RFC 7505. The trailing dot is the root, and it is the whole record: this
+; domain accepts no mail and says so.
+nomail              IN MX   0 .
+
+; A null MX alongside a real one. Section 3 forbids the pair, and senders
+; disagree about what it means, so delivery depends on whose MTA is trying.
+ambiguous           IN MX   0 .
+ambiguous           IN MX   10 mail1.mx.test.
+
+; The exchange exists as a name and has no address of either family.
+dangling            IN MX   10 nowhere.mx.test.
+nowhere             IN TXT  "a name with no address"
+
+; RFC 2181 §10.3 forbids an MX pointing at an alias. Most senders follow it
+; anyway, which is exactly why the ones that refuse look intermittent.
+aliased             IN MX   10 alias.mx.test.
+alias               IN CNAME mail1.mx.test.
+
+; An address where a name belongs. The zone file accepts it, dig prints it, and
+; senders look it up as a name and find nothing.
+literal             IN MX   10 198.51.100.80.
+
+; No MX at all, but an address record — so mail goes to whatever runs there.
+implicit            IN A    198.51.100.82
+
+; Neither MX nor address. Nothing can deliver here at all.
+undeliverable       IN TXT  "no mx, no address"
+
+; IPv6 only. Unusual and legitimate: the absence of an A record is not the
+; absence of an address.
+sixth               IN MX   10 mail6.mx.test.
+mail6               IN AAAA 2001:db8:6a11::1
