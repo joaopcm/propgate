@@ -59,6 +59,9 @@ wildcard-signed     IN NS   ns1.test.
 ; are spent across.
 spf                 IN NS   ns1.test.
 
+; Mail routing: null MX, aliased and unresolvable exchanges, implicit delivery.
+mx                  IN NS   ns1.test.
+
 ; Delegation health. Two servers with different serials, a zone whose own NS
 ; set disagrees with this delegation, and one with nothing wrong at all.
 drift               IN NS   ns1.test.

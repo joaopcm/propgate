@@ -82,22 +82,6 @@ bogus-zone.test.	300	IN SOA	ns1.test. hostmaster.propgate.invalid. (
 					zJqxVHOZOMFNdPOmiSz3hAw+NwR8YKyj8i4B
 					IEG/gY+97rmo4WvQ+/uiVzfovlAviGqM+Ch7
 					7I/xvO9gW4+FV7CnAVag5I4A76I= )
-sel._domainkey.bogus-zone.test.	300 IN TXT "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTUREBOGUS"
-			300	RRSIG	TXT 8 4 300 (
-					20400101000000 20260101000000 60505 bogus-zone.test.
-					dcTZ9CDgnE8ty8toUNUzeGLN83wq0X9LHTZv
-					LE+myhaCMPUF8dLK5iYOOOE2IEYgkF5C3j63
-					zEZxHoCdGqeULARXZIb8GvXKgpx9NOfPAcB3
-					GNsrapdptaNuOOPaDl4wkZMmEMb0VnXVTahI
-					ImHdk181GH5rw/xCkSSEZiVfZbM= )
-			300	NSEC	bogus-zone.test. TXT RRSIG NSEC
-			300	RRSIG	NSEC 8 4 300 (
-					20400101000000 20260101000000 60505 bogus-zone.test.
-					SK53iPNm4+VmgARsE/gHL5O7g75rMMjt/UW2
-					z7UOjlsSN35NRmPRkNVr3k0ZMDSUfjj8FwYr
-					xSs0ecliCyLngl0OKetASqjp/JEP1mwLVpO4
-					E9P/OxypNo1HlV+LvYPsrEgKFh7fKbg8MUGi
-					v+QUrBjoUdKhAx/0MtN8dKSTmbk= )
 _dmarc.bogus-zone.test.	300	IN TXT	"v=DMARC1; p=reject; rua=mailto:dmarc@bogus-zone.test"
 			300	RRSIG	TXT 8 3 300 (
 					20400101000000 20260101000000 60505 bogus-zone.test.
@@ -114,3 +98,19 @@ _dmarc.bogus-zone.test.	300	IN TXT	"v=DMARC1; p=reject; rua=mailto:dmarc@bogus-z
 					yUAl/VP8BOtg8AN+rQrQ4wGw6uKg6s6jE8o3
 					NvFY+9TP+ADOxXeAp+orDw4hhHagGvP7pK0O
 					uLqliEK4U+d1mxc6SyK7P+VA9DY= )
+sel._domainkey.bogus-zone.test.	300 IN TXT "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTUREBOGUS"
+			300	RRSIG	TXT 8 4 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					dcTZ9CDgnE8ty8toUNUzeGLN83wq0X9LHTZv
+					LE+myhaCMPUF8dLK5iYOOOE2IEYgkF5C3j63
+					zEZxHoCdGqeULARXZIb8GvXKgpx9NOfPAcB3
+					GNsrapdptaNuOOPaDl4wkZMmEMb0VnXVTahI
+					ImHdk181GH5rw/xCkSSEZiVfZbM= )
+			300	NSEC	bogus-zone.test. TXT RRSIG NSEC
+			300	RRSIG	NSEC 8 4 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					SK53iPNm4+VmgARsE/gHL5O7g75rMMjt/UW2
+					z7UOjlsSN35NRmPRkNVr3k0ZMDSUfjj8FwYr
+					xSs0ecliCyLngl0OKetASqjp/JEP1mwLVpO4
+					E9P/OxypNo1HlV+LvYPsrEgKFh7fKbg8MUGi
+					v+QUrBjoUdKhAx/0MtN8dKSTmbk= )

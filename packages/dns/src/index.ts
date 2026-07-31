@@ -46,6 +46,8 @@ export {
   looksLikeDmarc,
   parseDmarcRecord,
 } from "./evaluate/dmarc-record";
+export type { MxCheck } from "./evaluate/mx";
+export { evaluateMx } from "./evaluate/mx";
 export type { SpfCheck } from "./evaluate/spf";
 export { evaluateSpf } from "./evaluate/spf";
 export type { IpAddress, IpFamily } from "./evaluate/spf-ip";
