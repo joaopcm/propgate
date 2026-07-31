@@ -78,8 +78,20 @@ export const DiagnosisCode = {
   NEGATIVE_CACHE_LIKELY: "NEGATIVE_CACHE_LIKELY",
   /** Name exists but has no record of the queried type. Not NXDOMAIN. */
   NODATA_NOT_NXDOMAIN: "NODATA_NOT_NXDOMAIN",
+  /** No delegated nameserver answered at all. */
+  NS_ALL_UNREACHABLE: "NS_ALL_UNREACHABLE",
   /** A delegated nameserver is not authoritative for the delegated zone. */
   NS_DELEGATION_LAME: "NS_DELEGATION_LAME",
+  /** The parent's delegation and the zone's own NS records differ. */
+  NS_PARENT_CHILD_MISMATCH: "NS_PARENT_CHILD_MISMATCH",
+  /** No delegation at the parent and no NS records at the zone. */
+  NS_RECORDS_MISSING: "NS_RECORDS_MISSING",
+  /** Authoritative servers disagree on the SOA serial. */
+  NS_SERIAL_MISMATCH: "NS_SERIAL_MISMATCH",
+  /** Only one nameserver, which is a single point of failure. */
+  NS_SINGLE_NAMESERVER: "NS_SINGLE_NAMESERVER",
+  /** A delegated nameserver did not answer. */
+  NS_UNREACHABLE: "NS_UNREACHABLE",
   /** Record exists at `<name>.<zone>.<zone>` — the provider appended the zone. */
   PROVIDER_APPENDED_ZONE_NAME: "PROVIDER_APPENDED_ZONE_NAME",
   /** A CNAME was expected but an A/AAAA was observed at the same address. */
@@ -347,12 +359,54 @@ export const DIAGNOSIS_REGISTRY: Readonly<
     summary:
       "The name exists but has no record of the type we need. Something else is configured at this name.",
   },
+  NS_ALL_UNREACHABLE: {
+    code: DiagnosisCode.NS_ALL_UNREACHABLE,
+    severity: "error",
+    slug: "ns-all-unreachable",
+    summary:
+      "None of this domain's nameservers answered, so nothing under this name resolves for anyone.",
+  },
   NS_DELEGATION_LAME: {
     code: DiagnosisCode.NS_DELEGATION_LAME,
     severity: "error",
     slug: "ns-delegation-lame",
     summary:
       "A nameserver listed for this domain does not answer for it, so some lookups will fail unpredictably.",
+  },
+  NS_PARENT_CHILD_MISMATCH: {
+    code: DiagnosisCode.NS_PARENT_CHILD_MISMATCH,
+    severity: "warning",
+    slug: "ns-parent-child-mismatch",
+    summary:
+      "The nameservers this domain is delegated to are not the same set the zone itself publishes.",
+  },
+  NS_RECORDS_MISSING: {
+    code: DiagnosisCode.NS_RECORDS_MISSING,
+    severity: "error",
+    slug: "ns-records-missing",
+    summary:
+      "This domain has no nameservers, so nothing under the name resolves.",
+  },
+  NS_SERIAL_MISMATCH: {
+    code: DiagnosisCode.NS_SERIAL_MISMATCH,
+    severity: "warning",
+    slug: "ns-serial-mismatch",
+    summary:
+      "This domain's nameservers hold different versions of the zone, so which answer a customer gets depends on which server they reach.",
+  },
+  NS_SINGLE_NAMESERVER: {
+    code: DiagnosisCode.NS_SINGLE_NAMESERVER,
+    severity: "warning",
+    slug: "ns-single-nameserver",
+    summary:
+      "This domain has only one nameserver, so it is one maintenance window away from disappearing.",
+  },
+  NS_UNREACHABLE: {
+    code: DiagnosisCode.NS_UNREACHABLE,
+    severity: "warning",
+    slug: "ns-unreachable",
+    summary:
+      "One of this domain's nameservers did not answer; the domain still resolves through the others, which is what makes it easy to miss.",
   },
   PROVIDER_APPENDED_ZONE_NAME: {
     code: DiagnosisCode.PROVIDER_APPENDED_ZONE_NAME,

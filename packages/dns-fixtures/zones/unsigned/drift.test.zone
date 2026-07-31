@@ -1,0 +1,17 @@
+; NS_SERIAL_MISMATCH — a zone transfer that stopped.
+;
+; Served by both dns-auth and dns-divergent, with different SOA serials. Every
+; answer either gives is valid; one of them is simply older, and which one a
+; customer sees depends on which server their resolver happened to pick. This
+; is the fault that produces "it works for me" with nobody lying.
+;
+; Keep in step with zones/divergent/drift.test.zone, which is the stale side.
+$ORIGIN drift.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                7 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN NS   ns-divergent.test.
+
+www     IN A    198.51.100.70

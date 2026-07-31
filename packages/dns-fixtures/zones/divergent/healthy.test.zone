@@ -1,0 +1,17 @@
+; The second vantage point for healthy.test, deliberately identical.
+;
+; Two nameservers, both authoritative, both holding the same serial. Worth a
+; fixture of its own: a checker that reports something about every domain is a
+; checker nobody reads, so "no findings at all" has to be reachable.
+;
+; Keep in step with zones/unsigned/healthy.test.zone — including the serial,
+; which is the whole point.
+$ORIGIN healthy.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN NS   ns-divergent.test.
+
+www     IN A    198.51.100.71

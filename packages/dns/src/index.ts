@@ -18,6 +18,8 @@ export {
 } from "./evaluate/caa-record";
 export type { EvaluationContextOptions } from "./evaluate/context";
 export { createEvaluationContext, EvaluationContext } from "./evaluate/context";
+export type { DelegationCheck } from "./evaluate/delegation";
+export { evaluateDelegation, parentOf } from "./evaluate/delegation";
 export type { DkimCheck } from "./evaluate/dkim";
 export { dkimRecordName, evaluateDkim } from "./evaluate/dkim";
 export type {
@@ -122,13 +124,16 @@ export type {
   RdataA,
   RdataAAAA,
   RdataCAA,
+  RdataCNAME,
   RdataDNSKEY,
   RdataDS,
   RdataMX,
   RdataName,
+  RdataNS,
   RdataNSEC,
   RdataNSEC3,
   RdataOPT,
+  RdataPTR,
   RdataRRSIG,
   RdataSOA,
   RdataTXT,

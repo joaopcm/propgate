@@ -82,22 +82,6 @@ bogus-zone.test.	300	IN SOA	ns1.test. hostmaster.propgate.invalid. (
 					zJqxVHOZOMFNdPOmiSz3hAw+NwR8YKyj8i4B
 					IEG/gY+97rmo4WvQ+/uiVzfovlAviGqM+Ch7
 					7I/xvO9gW4+FV7CnAVag5I4A76I= )
-_dmarc.bogus-zone.test.	300	IN TXT	"v=DMARC1; p=reject; rua=mailto:dmarc@bogus-zone.test"
-			300	RRSIG	TXT 8 3 300 (
-					20400101000000 20260101000000 60505 bogus-zone.test.
-					dOKly7o++zDcBx6y1BulDGhKFP/cUVwXPQgI
-					GZ52CPATMOnAB5Lyh/5blomKWSbvYnlTorrB
-					yBjVYPQBQBQeHGy0tSf2RkXofraAmRCxBdsZ
-					7K3q2Am0mKXs0Y61QkLNX4jo7+eoN9tKBKjO
-					Z1fEpu65AmFQsjJUlduvbSjSAdM= )
-			300	NSEC	sel._domainkey.bogus-zone.test. TXT RRSIG NSEC
-			300	RRSIG	NSEC 8 3 300 (
-					20400101000000 20260101000000 60505 bogus-zone.test.
-					L42WTWmA4E3O9xixGSmxpgCeOlvBmHkH54NT
-					EWhoWggGs7WQ62K0UYlPNVvsPyfQnew9DPzK
-					yUAl/VP8BOtg8AN+rQrQ4wGw6uKg6s6jE8o3
-					NvFY+9TP+ADOxXeAp+orDw4hhHagGvP7pK0O
-					uLqliEK4U+d1mxc6SyK7P+VA9DY= )
 sel._domainkey.bogus-zone.test.	300 IN TXT "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTUREBOGUS"
 			300	RRSIG	TXT 8 4 300 (
 					20400101000000 20260101000000 60505 bogus-zone.test.
@@ -114,3 +98,19 @@ sel._domainkey.bogus-zone.test.	300 IN TXT "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w
 					xSs0ecliCyLngl0OKetASqjp/JEP1mwLVpO4
 					E9P/OxypNo1HlV+LvYPsrEgKFh7fKbg8MUGi
 					v+QUrBjoUdKhAx/0MtN8dKSTmbk= )
+_dmarc.bogus-zone.test.	300	IN TXT	"v=DMARC1; p=reject; rua=mailto:dmarc@bogus-zone.test"
+			300	RRSIG	TXT 8 3 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					dOKly7o++zDcBx6y1BulDGhKFP/cUVwXPQgI
+					GZ52CPATMOnAB5Lyh/5blomKWSbvYnlTorrB
+					yBjVYPQBQBQeHGy0tSf2RkXofraAmRCxBdsZ
+					7K3q2Am0mKXs0Y61QkLNX4jo7+eoN9tKBKjO
+					Z1fEpu65AmFQsjJUlduvbSjSAdM= )
+			300	NSEC	sel._domainkey.bogus-zone.test. TXT RRSIG NSEC
+			300	RRSIG	NSEC 8 3 300 (
+					20400101000000 20260101000000 60505 bogus-zone.test.
+					L42WTWmA4E3O9xixGSmxpgCeOlvBmHkH54NT
+					EWhoWggGs7WQ62K0UYlPNVvsPyfQnew9DPzK
+					yUAl/VP8BOtg8AN+rQrQ4wGw6uKg6s6jE8o3
+					NvFY+9TP+ADOxXeAp+orDw4hhHagGvP7pK0O
+					uLqliEK4U+d1mxc6SyK7P+VA9DY= )

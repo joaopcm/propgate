@@ -1,5 +1,6 @@
 import type { DiagnosisCode, DiagnosisSeverity } from "../diagnosis/codes";
 import type { QueryOutcome } from "../transport/types";
+import type { ServerAddress } from "../types";
 
 /**
  * The shape every evaluator returns.
@@ -24,6 +25,15 @@ export interface Lookup {
    * of queries into an explanation.
    */
   readonly purpose: string;
+  /**
+   * Which server was asked.
+   *
+   * Most checks ask one server throughout, and this is the same every time.
+   * Delegation checks ask each nameserver in turn, and "which one said that"
+   * is the entire finding — a lame delegation is a fact about one server, not
+   * about the zone.
+   */
+  readonly server: ServerAddress;
   readonly type: number;
 }
 
