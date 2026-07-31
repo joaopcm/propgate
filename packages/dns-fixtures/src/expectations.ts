@@ -227,6 +227,41 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
     role: "auth",
     zone: "spf.test",
   },
+  {
+    codes: ["NS_SERIAL_MISMATCH"],
+    reason:
+      'Served by both dns-auth and dns-divergent with different SOA serials, which is a zone transfer that stopped. Every answer is valid and one of them is older, so the domain works for whoever reaches the current server and is stale for everyone else — the fault that produces "it works for me" with nobody lying.',
+    role: "auth",
+    zone: "drift.test",
+  },
+  {
+    codes: ["NS_PARENT_CHILD_MISMATCH"],
+    reason:
+      "Delegated to ns1 alone while the zone itself claims ns1 and ns-decoy. Resolvers follow the parent, so the operator believes they have two nameservers and has one.",
+    role: "auth",
+    zone: "mismatch.test",
+  },
+  {
+    codes: ["NS_UNREACHABLE"],
+    reason:
+      "Delegated to a live nameserver and to 127.0.0.9, which has nothing listening. The zone exists on dns-auth on purpose: without it the fixture would be testing lameness rather than a dead server, and the domain resolving fine today is the entire hazard.",
+    role: "auth",
+    zone: "stale.test",
+  },
+  {
+    codes: [],
+    reason:
+      'Two nameservers, both authoritative, both on the same serial. A delegation with nothing wrong with it, because a checker that reports something about every domain is a checker nobody reads and "no findings" has to be reachable.',
+    role: "auth",
+    zone: "healthy.test",
+  },
+  {
+    codes: ["NS_ALL_UNREACHABLE", "NS_RECORDS_MISSING", "NS_SINGLE_NAMESERVER"],
+    reason:
+      "Delegation faults that need no zone of their own: a single-nameserver delegation is every other zone here, and the two total-failure codes are reached by pointing the evaluator at a server that is not there rather than by publishing a broken zone nothing else could use.",
+    role: "root",
+    zone: "test",
+  },
 ];
 
 /** Every code any fixture is expected to produce. */

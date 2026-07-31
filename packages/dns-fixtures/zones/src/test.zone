@@ -59,6 +59,14 @@ wildcard-signed     IN NS   ns1.test.
 ; are spent across.
 spf                 IN NS   ns1.test.
 
+; Delegation health. Two servers with different serials, a zone whose own NS
+; set disagrees with this delegation, and one with nothing wrong at all.
+drift               IN NS   ns1.test.
+drift               IN NS   ns-divergent.test.
+mismatch            IN NS   ns1.test.
+healthy             IN NS   ns1.test.
+healthy             IN NS   ns-divergent.test.
+
 ; Delegation pathologies.
 ; ---------------------------------------------------------------------------
 ; Lame: ns-decoy is authoritative for decoy.test, so it answers REFUSED for this

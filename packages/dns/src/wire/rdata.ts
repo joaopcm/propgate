@@ -20,10 +20,33 @@ export interface RdataAAAA {
   readonly kind: "AAAA";
 }
 
-export interface RdataName {
-  readonly kind: "CNAME" | "NS" | "PTR";
+/**
+ * The three record types whose rdata is a single name.
+ *
+ * Deliberately three interfaces rather than one with a union `kind`. They are
+ * structurally identical, but a union in the discriminant makes
+ * `Extract<Rdata, { kind: "NS" }>` resolve to `never`, so `recordsOfType` —
+ * this package's only way to pull records of one type out of a section —
+ * silently returns nothing for all three. That is a compile-time trap with a
+ * runtime-looking symptom.
+ */
+export interface RdataCNAME {
+  readonly kind: "CNAME";
   readonly target: string;
 }
+
+export interface RdataNS {
+  readonly kind: "NS";
+  readonly target: string;
+}
+
+export interface RdataPTR {
+  readonly kind: "PTR";
+  readonly target: string;
+}
+
+/** Any of the single-name rdata types, when which one does not matter. */
+export type RdataName = RdataCNAME | RdataNS | RdataPTR;
 
 export interface RdataMX {
   readonly exchange: string;
@@ -146,7 +169,9 @@ export interface RdataUnknown {
 export type Rdata =
   | RdataA
   | RdataAAAA
-  | RdataName
+  | RdataCNAME
+  | RdataNS
+  | RdataPTR
   | RdataMX
   | RdataSOA
   | RdataTXT

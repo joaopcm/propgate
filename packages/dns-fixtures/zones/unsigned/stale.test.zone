@@ -1,0 +1,18 @@
+; NS_UNREACHABLE — one live nameserver, one that is gone.
+;
+; test.zone delegates this to ns1 and to ns-dead, and 127.0.0.9 has nothing
+; listening. dns-auth serves the zone properly, so the domain resolves fine
+; today: that is the whole hazard. A dead nameserver in a delegation is
+; invisible until the last live one goes too.
+;
+; The zone has to exist here. Without it dns-auth refuses the name as well, and
+; the fixture would be testing a lame delegation rather than a dead server.
+$ORIGIN stale.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN NS   ns-dead.test.
+
+www     IN A    198.51.100.72

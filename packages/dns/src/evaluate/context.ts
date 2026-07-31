@@ -118,11 +118,22 @@ export class EvaluationContext {
     /** Omit OPT entirely, to observe truncation rather than resolve past it. */
     retryOverTcp?: boolean;
     ednsBufferSize?: number;
+    /**
+     * Ask this server instead of the configured one.
+     *
+     * Delegation checks have to address each nameserver individually — whether
+     * one of them is lame is not something any other server can answer.
+     */
+    target?: ServerAddress;
+    /** Override recursion for this lookup, for talking straight to authority. */
+    recursionDesired?: boolean;
   }): Promise<QueryOutcome> {
     const timeoutMs = Math.min(
       this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
       this.remainingMs
     );
+
+    const target = spec.target ?? this.options.target;
 
     if (this.remainingLookups <= 0 || timeoutMs <= 0) {
       const exhausted: QueryOutcome = {
@@ -136,6 +147,7 @@ export class EvaluationContext {
         name: spec.name,
         outcome: exhausted,
         purpose: `${spec.purpose} (skipped: evaluation budget exhausted)`,
+        server: target,
         type: spec.type,
       });
 
@@ -146,9 +158,9 @@ export class EvaluationContext {
       dnssecOk: this.options.dnssecOk,
       ednsBufferSize: spec.ednsBufferSize,
       name: spec.name,
-      recursionDesired: this.options.recursionDesired,
+      recursionDesired: spec.recursionDesired ?? this.options.recursionDesired,
       retryOverTcp: spec.retryOverTcp,
-      target: this.options.target,
+      target,
       timeoutMs,
       type: spec.type,
     });
@@ -157,6 +169,7 @@ export class EvaluationContext {
       name: spec.name,
       outcome,
       purpose: spec.purpose,
+      server: target,
       type: spec.type,
     });
 

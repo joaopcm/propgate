@@ -1,0 +1,13 @@
+; The stale side of drift.test — serial 3 against dns-auth's 7.
+;
+; Keep in step with zones/unsigned/drift.test.zone. The NS RRset must match, or
+; the fixture stops testing serial drift and starts testing a set mismatch.
+$ORIGIN drift.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                3 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN NS   ns-divergent.test.
+
+www     IN A    198.51.100.70
