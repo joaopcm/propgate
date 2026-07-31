@@ -46,6 +46,12 @@ export {
 } from "./evaluate/dmarc-record";
 export type { SpfCheck } from "./evaluate/spf";
 export { evaluateSpf } from "./evaluate/spf";
+export type { IpAddress, IpFamily } from "./evaluate/spf-ip";
+export {
+  cidrContains,
+  fullPrefix,
+  parseIpAddress,
+} from "./evaluate/spf-ip";
 export type {
   SpfMechanism,
   SpfMechanismName,

@@ -12,14 +12,18 @@
     {
       // The DNS wire codec is bit manipulation by nature: header flags, the
       // compression-pointer mask, the OPT record's extended RCODE and DO bit.
-      // `noBitwiseOperators` exists to catch `&` where `&&` was meant, which is
-      // a real hazard in business logic and a non-hazard here — every `&` in
-      // these files is deliberate and carries an RFC citation. Scoped to the
-      // two directories that speak the wire format so the rule keeps protecting
-      // everywhere else.
+      // SPF's CIDR matching is the same thing one layer up — a prefix that does
+      // not land on a byte boundary is a mask, and writing it any other way is
+      // slower and less clear. `noBitwiseOperators` exists to catch `&` where
+      // `&&` was meant, which is a real hazard in business logic and a
+      // non-hazard here — every `&` in these files is deliberate and carries an
+      // RFC citation. Scoped to the wire format and to the one evaluator file
+      // that does address arithmetic, so the rule keeps protecting the rest of
+      // the evaluators.
       "includes": [
         "**/packages/dns/src/wire/**",
-        "**/packages/dns/src/transport/**"
+        "**/packages/dns/src/transport/**",
+        "**/packages/dns/src/evaluate/spf-ip.ts"
       ],
       "linter": {
         "rules": {

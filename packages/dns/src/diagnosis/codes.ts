@@ -96,6 +96,16 @@ export const DiagnosisCode = {
   SPF_INCLUDE_LOOP: "SPF_INCLUDE_LOOP",
   /** An include: or redirect= target publishes no SPF record. */
   SPF_INCLUDE_UNRESOLVABLE: "SPF_INCLUDE_UNRESOLVABLE",
+  /** The record authorises this sending address. */
+  SPF_IP_AUTHORIZED: "SPF_IP_AUTHORIZED",
+  /** The record states no opinion about this address. */
+  SPF_IP_NEUTRAL: "SPF_IP_NEUTRAL",
+  /** The record rejects this sending address. */
+  SPF_IP_NOT_AUTHORIZED: "SPF_IP_NOT_AUTHORIZED",
+  /** The record marks this address as probably unauthorised. */
+  SPF_IP_SOFTFAIL: "SPF_IP_SOFTFAIL",
+  /** A term depends on the connection, so the address cannot be decided. */
+  SPF_IP_UNDETERMINED: "SPF_IP_UNDETERMINED",
   /** More than ten DNS lookups, so receivers return permerror. */
   SPF_LOOKUP_LIMIT_EXCEEDED: "SPF_LOOKUP_LIMIT_EXCEEDED",
   /** Close enough to the ten-lookup limit that one more service breaks it. */
@@ -392,6 +402,41 @@ export const DIAGNOSIS_REGISTRY: Readonly<
     slug: "spf-include-unresolvable",
     summary:
       "This domain's SPF record points at another domain that publishes no SPF record, which makes the whole evaluation a permanent error.",
+  },
+  SPF_IP_AUTHORIZED: {
+    code: DiagnosisCode.SPF_IP_AUTHORIZED,
+    severity: "info",
+    slug: "spf-ip-authorized",
+    summary:
+      "This domain's SPF record authorises the sending address that was checked.",
+  },
+  SPF_IP_NEUTRAL: {
+    code: DiagnosisCode.SPF_IP_NEUTRAL,
+    severity: "warning",
+    slug: "spf-ip-neutral",
+    summary:
+      "This domain's SPF record says nothing either way about the sending address that was checked, which receivers treat much like no record at all.",
+  },
+  SPF_IP_NOT_AUTHORIZED: {
+    code: DiagnosisCode.SPF_IP_NOT_AUTHORIZED,
+    severity: "error",
+    slug: "spf-ip-not-authorized",
+    summary:
+      "This domain's SPF record rejects the sending address that was checked, so receivers that honour it will refuse those messages.",
+  },
+  SPF_IP_SOFTFAIL: {
+    code: DiagnosisCode.SPF_IP_SOFTFAIL,
+    severity: "warning",
+    slug: "spf-ip-softfail",
+    summary:
+      "This domain's SPF record marks the sending address that was checked as probably unauthorised; receivers usually accept and flag rather than reject.",
+  },
+  SPF_IP_UNDETERMINED: {
+    code: DiagnosisCode.SPF_IP_UNDETERMINED,
+    severity: "warning",
+    slug: "spf-ip-undetermined",
+    summary:
+      "Whether this domain's SPF record authorises the sending address depends on something that is not in DNS, so it cannot be decided from the records alone.",
   },
   SPF_LOOKUP_LIMIT_EXCEEDED: {
     code: DiagnosisCode.SPF_LOOKUP_LIMIT_EXCEEDED,
