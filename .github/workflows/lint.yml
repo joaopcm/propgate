@@ -58,3 +58,32 @@ jobs:
       # named file and line number.
       - name: named-checkzone every fixture
         run: ./packages/dns-fixtures/scripts/check-zones.sh
+
+  psl:
+    name: Public Suffix List
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Proves the vendored data is exactly what the generator produces from
+      # upstream, so nobody can hand-edit a generated file and nobody has to
+      # trust that the last refresh was run correctly.
+      #
+      # Deliberately NOT a staleness check. Failing because upstream moved would
+      # break unrelated PRs for a reason the author cannot fix, which is a
+      # time-bomb rather than a signal. Refreshing the list is a deliberate act:
+      # `pnpm --filter @propgate/dns psl:refresh`.
+      - name: Vendored PSL matches the generator
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm --filter @propgate/dns psl:check
