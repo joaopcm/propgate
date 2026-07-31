@@ -55,6 +55,10 @@ bogus-zone          IN NS   ns1.test.
 wildcard-signed     IN NS   ns1.test.
 
 ; ---------------------------------------------------------------------------
+; SPF accounting: the ten-lookup and two-void limits, and the include tree they
+; are spent across.
+spf                 IN NS   ns1.test.
+
 ; Delegation pathologies.
 ; ---------------------------------------------------------------------------
 ; Lame: ns-decoy is authoritative for decoy.test, so it answers REFUSED for this

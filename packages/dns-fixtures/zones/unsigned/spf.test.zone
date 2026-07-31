@@ -1,0 +1,129 @@
+; SPF accounting and syntax (RFC 7208).
+;
+; Almost every fixture here is about a limit rather than a spelling. The ten
+; DNS lookups of section 4.6.4 are spent across the whole include: tree, the two
+; void lookups are spent the same way, and neither is visible by reading one
+; record. The names below are sized to land exactly on the interesting side of
+; each boundary, so an off-by-one in the accounting shows up as a failing test
+; rather than as a plausible number.
+$ORIGIN spf.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+; A sound record: two includes, one of which includes a third. Three lookups
+; total, well inside the limit. The nested target is the point — a platform
+; reached through a customer's own aggregator is still authorised, so
+; authorisation has to be checked against the whole expanded tree and not just
+; the terms written at the apex.
+@                   IN TXT  "v=spf1 include:one.spf.test include:two.spf.test -all"
+one                 IN TXT  "v=spf1 ip4:198.51.100.0/24 -all"
+two                 IN TXT  "v=spf1 include:three.spf.test ~all"
+three               IN TXT  "v=spf1 ip4:203.0.113.0/24 -all"
+
+; Filler targets for the counting fixtures. Each costs exactly one lookup and
+; spends none of its own.
+n1                  IN TXT  "v=spf1 -all"
+n2                  IN TXT  "v=spf1 -all"
+n3                  IN TXT  "v=spf1 -all"
+n4                  IN TXT  "v=spf1 -all"
+n5                  IN TXT  "v=spf1 -all"
+n6                  IN TXT  "v=spf1 -all"
+n7                  IN TXT  "v=spf1 -all"
+n8                  IN TXT  "v=spf1 -all"
+n9                  IN TXT  "v=spf1 -all"
+n10                 IN TXT  "v=spf1 -all"
+n11                 IN TXT  "v=spf1 -all"
+
+; Eight lookups: legal today, two short of the limit. This is the state worth
+; warning about, because the next sending service a customer adds is what breaks
+; it, and by then the symptom is failing mail rather than a bad record.
+near                IN TXT  "v=spf1 include:n1.spf.test include:n2.spf.test include:n3.spf.test include:n4.spf.test include:n5.spf.test include:n6.spf.test include:n7.spf.test include:n8.spf.test -all"
+
+; Eleven lookups. The eleventh is the failure; the tenth is still legal.
+limit               IN TXT  "v=spf1 include:n1.spf.test include:n2.spf.test include:n3.spf.test include:n4.spf.test include:n5.spf.test include:n6.spf.test include:n7.spf.test include:n8.spf.test include:n9.spf.test include:n10.spf.test include:n11.spf.test -all"
+
+; nx1, nx2 and nx3 are deliberately absent from this zone, so each a: term below
+; is a void lookup. One is a warning: it authorises nothing while still costing
+; a lookup. Three is a permanent error, which is the part nobody expects.
+void1               IN TXT  "v=spf1 a:nx1.spf.test -all"
+void3               IN TXT  "v=spf1 a:nx1.spf.test a:nx2.spf.test a:nx3.spf.test -all"
+
+; Two records. RFC 7208 4.5 makes this permerror — the domain authorises
+; nothing, rather than the union of the two.
+multi               IN TXT  "v=spf1 include:one.spf.test -all"
+multi               IN TXT  "v=spf1 ip4:198.51.100.1 -all"
+
+; One SPF record and one verification token. Filtering on v=spf1 before counting
+; is what keeps this from being reported as the case above.
+token               IN TXT  "v=spf1 include:one.spf.test -all"
+token               IN TXT  "propgate-site-verification=abc123"
+
+; 198.51.100.999 is not an address. A syntax error is permerror: receivers stop
+; rather than read past the mistake.
+syntax              IN TXT  "v=spf1 ip4:198.51.100.999 -all"
+
+; +all authorises the entire internet, which is strictly worse than publishing
+; nothing: it tells receivers that forgeries are legitimate.
+plusall             IN TXT  "v=spf1 +all"
+
+; No all and no redirect. The result for an unlisted sender defaults to neutral,
+; which most receivers treat about the same as having no record.
+noall               IN TXT  "v=spf1 ip4:198.51.100.1"
+
+; ?all says the domain has no opinion, so the record protects nothing.
+neutral             IN TXT  "v=spf1 ip4:198.51.100.1 ?all"
+
+; RFC 7208 5.5: ptr SHOULD NOT be published.
+ptrmech             IN TXT  "v=spf1 ptr -all"
+
+; all always matches, so the include after it never runs. It reads like it
+; authorises a sender and does not — and a checker that expands it anyway would
+; charge a lookup a receiver never spends.
+afterall            IN TXT  "v=spf1 -all include:one.spf.test"
+
+; Section 6.1: redirect= is ignored entirely when the record has an all.
+redirectignored     IN TXT  "v=spf1 -all redirect=one.spf.test"
+
+; redirect= with no all, which is the form that actually does something.
+redirected          IN TXT  "v=spf1 redirect=one.spf.test"
+
+; A record that includes itself. The lookup limit would eventually stop this,
+; but "your include chain loops" is a fixable sentence and "too many lookups"
+; is not.
+loop                IN TXT  "v=spf1 include:loop.spf.test -all"
+
+; nospf exists but publishes no SPF record, which section 5.2 makes a permanent
+; error for the including domain rather than a term that simply matches nothing.
+nospf               IN A    198.51.100.20
+unresolvable        IN TXT  "v=spf1 include:nospf.spf.test -all"
+
+; Eleven MX records behind one mx mechanism, which is one more than section
+; 4.6.4 allows it to expand to.
+mxmany              IN TXT  "v=spf1 mx:many.spf.test -all"
+many                IN MX   10 mx1.spf.test.
+many                IN MX   20 mx2.spf.test.
+many                IN MX   30 mx3.spf.test.
+many                IN MX   40 mx4.spf.test.
+many                IN MX   50 mx5.spf.test.
+many                IN MX   60 mx6.spf.test.
+many                IN MX   70 mx7.spf.test.
+many                IN MX   80 mx8.spf.test.
+many                IN MX   90 mx9.spf.test.
+many                IN MX   100 mx10.spf.test.
+many                IN MX   110 mx11.spf.test.
+
+; A macro that expands per connection. Resolving it from the records alone would
+; mean inventing a client address, so the term is reported as unevaluated
+; instead of being guessed at.
+macro               IN TXT  "v=spf1 exists:%{i}._spf.spf.test -all"
+
+; An include: into a zone whose signatures are deliberately broken. Through the
+; validating resolver that is SERVFAIL, which SPF calls temperror — receivers
+; defer rather than reject, and this record may be perfectly correct.
+temperror           IN TXT  "v=spf1 include:bogus-zone.test -all"
+
+; Exists, sends nothing. A domain with no SPF record at all.
+norecord            IN A    198.51.100.21
