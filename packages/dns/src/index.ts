@@ -1,5 +1,13 @@
 // biome-ignore-all lint/performance/noBarrelFile: intentional package entry point
 
+export type { CheckKind, DomainProfile } from "./check/profile";
+export { CHECK_KINDS, fullMail, sendingOnly, webOnly } from "./check/profile";
+export type {
+  CheckOutcome,
+  CheckResult,
+  RunOptions,
+} from "./check/run";
+export { outcomeFor, runChecks } from "./check/run";
 export type { DiagnosisDefinition, DiagnosisSeverity } from "./diagnosis/codes";
 export {
   DIAGNOSIS_REGISTRY,
