@@ -7,6 +7,13 @@ export {
   DiagnosisCode,
   NOT_LOCALLY_REPRODUCIBLE,
 } from "./diagnosis/codes";
+export type { PslOptions } from "./psl";
+export {
+  getPublicSuffix,
+  getRegistrableDomain,
+  isPublicSuffix,
+} from "./psl";
+export { PSL_UPSTREAM_COMMIT } from "./psl/data";
 export { query } from "./transport/query";
 export type { QueryOutcome, QuerySpec } from "./transport/types";
 export type {

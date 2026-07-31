@@ -67,6 +67,32 @@ passing any value, even a small one, changes the semantics.
 Measured, since it is easy to get wrong: a 2048-bit DKIM key is a **483-byte**
 response and does **not** truncate. 4096-bit keys (~752 bytes) do.
 
+### The Public Suffix List
+
+`getPublicSuffix`, `getRegistrableDomain`, and `isPublicSuffix` implement the
+[publicsuffix.org algorithm](https://publicsuffix.org/list/) against a vendored
+copy of the list, checked in `psl.spec.ts` against that project's own 82 test
+vectors.
+
+Matching happens in ASCII against punycoded rules, but results are sliced from
+the caller's own labels — a unicode input gets a unicode answer, which is what
+the vectors require and what a customer wants to read in a diagnosis.
+
+**`includePrivate` defaults to true**, and it changes real answers.
+`user.github.io` is an organizational domain with private rules included and
+collapses to `github.io` without them. Included is what DMARC alignment needs
+and what mail implementations do, because the question is who *controls* a name
+rather than who registered it.
+
+Refresh with `pnpm --filter @propgate/dns psl:refresh`; CI runs `psl:check` to
+prove the vendored file is exactly what the generator produces. There is
+deliberately no staleness check — failing because upstream moved would break
+unrelated PRs for a reason their author cannot fix.
+
+**Cost:** the vendored list is ~196 KB of the package's ~228 KB CJS bundle.
+That is the price of the zero-dependency promise; `psl` and `tldts` carry
+comparable data, they just carry it as a dependency.
+
 ### Everything is port-aware
 
 Addresses are `{ address, port, transport }` and `port` is never assumed to be

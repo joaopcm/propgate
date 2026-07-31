@@ -38,7 +38,9 @@
   "scripts": {
     "build": "tsup",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "psl:refresh": "node scripts/generate-psl.mjs",
+    "psl:check": "node scripts/generate-psl.mjs --check"
   },
   "devDependencies": {
     "@propgate/dns-fixtures": "workspace:*",
