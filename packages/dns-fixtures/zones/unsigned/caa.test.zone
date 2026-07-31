@@ -1,0 +1,48 @@
+; CAA tree climbing and property semantics (RFC 8659).
+;
+; The climb runs from the queried name up to, but not including, the root — the
+; Public Suffix List plays no part. The nearest ancestor with a CAA RRset wins
+; outright; policies are never merged up the tree.
+$ORIGIN caa.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+; The apex policy. Ordinary certificates from letsencrypt only; no wildcards at
+; all. Quoting is load-bearing: an unquoted ";" starts a zone-file comment and
+; would silently produce empty rdata instead of a deny-all.
+@                   IN CAA  0 issue "letsencrypt.org"
+@                   IN CAA  0 issuewild ";"
+@                   IN CAA  0 iodef "mailto:security@caa.test"
+
+; No CAA of its own, so it climbs to the apex. Two labels up, to prove the climb
+; does not stop after one step.
+deep.nested         IN A    198.51.100.10
+
+; Its own policy, naming a different CA. The apex policy must NOT be merged in,
+; so letsencrypt is not authorised here even though it is at the apex.
+sub                 IN CAA  0 issue "digicert.com"
+host.sub            IN A    198.51.100.11
+
+; Deny-all: no authority may issue.
+denyall             IN CAA  0 issue ";"
+
+; Wildcards allowed for one CA, ordinary certificates for another. Confusing the
+; two properties would authorise the wrong CA for the wrong kind of certificate.
+split               IN CAA  0 issue "letsencrypt.org"
+split               IN CAA  0 issuewild "digicert.com"
+
+; Several authorised CAs: any of them may issue.
+multi               IN CAA  0 issue "letsencrypt.org"
+multi               IN CAA  0 issue "digicert.com"
+
+; An unrecognised property with the critical bit. RFC 8659 4.1 requires an
+; authority that does not understand it to refuse issuance, so this blocks
+; everything despite also naming a CA.
+critical            IN CAA  128 unknownprop "whatever"
+critical            IN CAA  0 issue "letsencrypt.org"
+
+; Account binding parameters, which must not be mistaken for part of the CA name.
+params              IN CAA  0 issue "letsencrypt.org; accounturi=https://acme.test/acct/1; validationmethods=dns-01"

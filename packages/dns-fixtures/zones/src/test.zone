@@ -30,6 +30,8 @@ ns-dead         IN A    127.0.0.9   ; nothing listening, on purpose
 appended            IN NS   ns1.test.
 dkim                IN NS   ns1.test.
 dmarc               IN NS   ns1.test.
+caa                 IN NS   ns1.test.
+caa-child           IN NS   ns1.test.
 reports             IN NS   ns1.test.
 unauth-reports      IN NS   ns1.test.
 propgate-fixture    IN NS   ns1.test.

@@ -1,0 +1,16 @@
+; A separately delegated zone whose parent publishes CAA.
+;
+; RFC 8659 climbs the *name* tree and does not stop at a zone cut, so a policy
+; at caa-child.test governs names inside the delegated child. A resolver that
+; halted at the delegation boundary would miss it entirely.
+$ORIGIN caa-child.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN CAA  0 issue "parent-ca.test"
+
+; Delegated away to the same server, but a distinct zone. Nothing in it
+; publishes CAA, so the climb must cross the cut to find the parent's policy.
+inner   IN NS   ns1.test.
