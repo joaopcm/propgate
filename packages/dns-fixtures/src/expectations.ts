@@ -278,6 +278,13 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
     role: "auth",
     zone: "mx.test",
   },
+  {
+    codes: [],
+    reason:
+      "An onboarded customer domain with nothing to fix: SPF authorising the platform, a DKIM selector, an enforcing DMARC policy, a null MX because it only sends, and two nameservers on the same serial. Every other fixture isolates one fault; this one exists so a clean run across six checks is reachable, because a checker that finds something wrong with every domain is a checker nobody reads.",
+    role: "auth",
+    zone: "customer.test",
+  },
 ];
 
 /** Every code any fixture is expected to produce. */

@@ -1,0 +1,38 @@
+; The second vantage point for customer.test, deliberately identical.
+;
+; The end-to-end fixture for the check pipeline: SPF authorising the platform,
+; a DKIM selector the platform issued, an enforcing DMARC policy, a null MX
+; because this domain only sends, and two nameservers holding the same serial.
+;
+; Every other fixture here isolates one fault. This one exists so that a clean
+; run across six checks is reachable and tested — a checker that finds something
+; to fix on every domain is a checker nobody reads. Clean is not silent: the
+; null MX is still reported, at info severity, because a dashboard should say
+; that this domain accepts no mail.
+;
+; Served by dns-auth and dns-divergent both. Keep the two in step, serial
+; included, or this stops testing a healthy domain and starts testing drift.
+$ORIGIN customer.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN NS   ns-divergent.test.
+
+; The platform's include, and nothing else authorised.
+@                   IN TXT  "v=spf1 include:one.spf.test -all"
+
+; RFC 7505: this domain sends and does not receive, and says so.
+@                   IN MX   0 .
+
+; Enforcing, with reports going to the domain itself so no external
+; authorisation is needed.
+_dmarc              IN TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@customer.test"
+
+; The selector the platform issued.
+pg1._domainkey         IN TXT ( "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApbBuIv1NwQ/rmgGPN8OufvLBfd2asvyk4ajVkiW2CsC12MohickhGufJPsGNyO/ZXD4b/HnClukz07BZwpJe80wz0w/AfhJCqM8F3v/aVHF7wWnd9wBBPBroTL7kNx5u39NnBZZj8SYJF7zNaQ3rud4ekF+GAyTovT7MUfXHQBgEZn0n5Y4dN7b7VEMi4/97T"
+                                "DCNDJucFywdDmbJ9r6LaCu+l+gWfZGl4rDimTJCw3oCQIpCOGlNrWPwxRLuB0sLR2gR1GT9EqBg3yGforXasq2wqBuZlpI1YXmdldEZh3VRIyft4TeVTHRJAf7/TKuAINb8+LOoXHj5hFYl+C4zUQIDAQAB" )
+
+; RFC 6376 3.6.1: an empty p= is revocation, not corruption. Reporting it
+; as malformed would tell someone to fix a record they revoked on purpose.
