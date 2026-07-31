@@ -55,24 +55,28 @@ describe("DMARC lookup at the organizational domain", () => {
     expect(policy).toContain("sp=quarantine");
   });
 
-  it("would miss the policy if it queried the subdomain's own _dmarc", async () => {
-    // The subdomain does have a _dmarc record in the fixture, and DMARC says to
-    // ignore it in favour of the org domain's policy plus sp=. Asserting both
-    // records exist is what makes "we read the right one" a real claim.
+  it("has distinct policies at the subdomain and the org domain", async () => {
+    // Correcting an earlier version of this comment, which had the discovery
+    // order backwards. RFC 7489 §6.6.3 queries the *exact* name first; the
+    // organizational domain is only a fallback when that returns nothing. So a
+    // subdomain publishing its own _dmarc is authoritative for itself, and the
+    // org domain's sp= governs only subdomains that publish none.
+    //
+    // Both records exist here precisely so the evaluator's discovery order is
+    // observable: see dmarc.fixture.spec.ts, which asserts which one wins.
     const [atSubdomain] = await txt("_dmarc.sub.example.co.uk");
     expect(atSubdomain).toContain("p=none");
 
     const [atOrg] = await txt("_dmarc.example.co.uk");
     expect(atOrg).toContain("p=reject");
+    expect(atOrg).toContain("sp=quarantine");
 
-    // A resolver that used the subdomain's record would apply p=none — no
-    // enforcement — while the domain owner asked for quarantine via sp=.
     expect(atSubdomain).not.toBe(atOrg);
   });
 
-  it("never climbs to the public suffix itself", () => {
-    // There is deliberately no _dmarc.co.uk in the fixtures, and there must
-    // never be a lookup for one.
+  it("never falls back past the org domain to the public suffix", () => {
+    // The fallback stops at PSL+1. There is deliberately no _dmarc.co.uk in the
+    // fixtures, and there must never be a lookup for one.
     expect(getRegistrableDomain("_dmarc.co.uk")).toBe("_dmarc.co.uk");
     expect(getRegistrableDomain("co.uk")).toBeNull();
   });

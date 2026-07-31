@@ -1,0 +1,12 @@
+; An external report destination that has NOT authorised dmarc.test.
+;
+; The zone exists and answers, so the absence of the authorization record is a
+; real NXDOMAIN rather than an unreachable server. That distinction matters: one
+; is a misconfiguration, the other is "we could not tell".
+$ORIGIN unauth-reports.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN TXT  "a real zone, deliberately missing the _report._dmarc authorization"

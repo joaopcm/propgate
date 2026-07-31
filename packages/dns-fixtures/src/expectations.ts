@@ -69,6 +69,35 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
     zone: "dkim.test",
   },
   {
+    codes: [
+      "DMARC_RECORD_MISSING",
+      "DMARC_RECORD_MALFORMED",
+      "DMARC_MULTIPLE_RECORDS",
+      "DMARC_POLICY_NONE",
+      "DMARC_POLICY_PARTIAL",
+      "DMARC_POLICY_INHERITED",
+      "DMARC_REPORT_URI_INVALID",
+    ],
+    reason:
+      "Policy discovery and semantics. own.dmarc.test publishes its own policy so the exact-name lookup wins; inherit.dmarc.test publishes none so sp= applies. Also multiple records, a policy sharing a name with an unrelated TXT, v= not first, no p=, and an out-of-range pct.",
+    role: "auth",
+    zone: "dmarc.test",
+  },
+  {
+    codes: ["DMARC_EXTERNAL_REPORT_UNAUTHORIZED"],
+    reason:
+      "The authorized/unauthorized pair for RFC 7489 §7.1. reports.test publishes dmarc.test._report._dmarc; unauth-reports.test is a real zone that deliberately does not, so the absence is NXDOMAIN rather than an unreachable server — a misconfiguration rather than uncertainty.",
+    role: "auth",
+    zone: "unauth-reports.test",
+  },
+  {
+    codes: [],
+    reason:
+      "The authorised counterpart to unauth-reports.test. Without a zone that passes, the unauthorized finding would only prove that something failed.",
+    role: "auth",
+    zone: "reports.test",
+  },
+  {
     codes: ["TXT_VALUE_SPLIT_MANGLED", "MULTIPLE_DKIM_RECORDS"],
     reason:
       "Multi-string TXT rejoined with whitespace, with duplicated tag prefixes, split across two RRs, and differing only in base64 case.",

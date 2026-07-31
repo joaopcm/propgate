@@ -21,6 +21,20 @@ export {
   parseDkimKey,
   parseDkimRecord,
 } from "./evaluate/dkim-record";
+export type { DmarcCheck, DmarcDiscovery } from "./evaluate/dmarc";
+export { dmarcRecordName, evaluateDmarc } from "./evaluate/dmarc";
+export type {
+  DmarcAlignment,
+  DmarcParseResult,
+  DmarcPolicy,
+  DmarcRecord,
+  DmarcReportUri,
+} from "./evaluate/dmarc-record";
+export {
+  effectivePolicy,
+  looksLikeDmarc,
+  parseDmarcRecord,
+} from "./evaluate/dmarc-record";
 export type {
   EvaluationResult,
   Evidence,

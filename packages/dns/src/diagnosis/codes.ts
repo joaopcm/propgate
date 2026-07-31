@@ -36,6 +36,24 @@ export const DiagnosisCode = {
   DKIM_RECORD_MISSING: "DKIM_RECORD_MISSING",
   /** t=y — receivers must ignore failures, so the key is not yet protecting anything. */
   DKIM_TESTING_MODE: "DKIM_TESTING_MODE",
+  /** A report address at another domain that has not authorised receiving them. */
+  DMARC_EXTERNAL_REPORT_UNAUTHORIZED: "DMARC_EXTERNAL_REPORT_UNAUTHORIZED",
+  /** More than one DMARC record, which RFC 7489 treats as no policy at all. */
+  DMARC_MULTIPLE_RECORDS: "DMARC_MULTIPLE_RECORDS",
+  /** Policy inherited from the organizational domain rather than published here. */
+  DMARC_POLICY_INHERITED: "DMARC_POLICY_INHERITED",
+  /** p=none: reports only, nothing is enforced. */
+  DMARC_POLICY_NONE: "DMARC_POLICY_NONE",
+  /** pct< 100: the policy applies to only some messages. */
+  DMARC_POLICY_PARTIAL: "DMARC_POLICY_PARTIAL",
+  /** A v=DMARC1 record exists but does not parse. */
+  DMARC_RECORD_MALFORMED: "DMARC_RECORD_MALFORMED",
+
+  // --- DMARC ---
+  /** No DMARC policy at the domain or its organizational domain. */
+  DMARC_RECORD_MISSING: "DMARC_RECORD_MISSING",
+  /** A rua/ruf entry that is not a usable URI. */
+  DMARC_REPORT_URI_INVALID: "DMARC_REPORT_URI_INVALID",
   /** Signatures failed validation; validating resolvers see nothing at all. */
   DNSSEC_BOGUS: "DNSSEC_BOGUS",
   /** Signed parent, unsigned delegation, no DS — resolves, but unsigned. */
@@ -131,6 +149,62 @@ export const DIAGNOSIS_REGISTRY: Readonly<
     slug: "dkim-testing-mode",
     summary:
       "This DKIM record is in testing mode, so receivers are told to ignore signature failures. Remove t=y once you are ready.",
+  },
+  DMARC_EXTERNAL_REPORT_UNAUTHORIZED: {
+    code: DiagnosisCode.DMARC_EXTERNAL_REPORT_UNAUTHORIZED,
+    severity: "error",
+    slug: "dmarc-external-report-unauthorized",
+    summary:
+      "Reports are addressed to another domain that has not authorised receiving them, so they are silently discarded.",
+  },
+  DMARC_MULTIPLE_RECORDS: {
+    code: DiagnosisCode.DMARC_MULTIPLE_RECORDS,
+    severity: "error",
+    slug: "dmarc-multiple-records",
+    summary:
+      "More than one DMARC record is published here. Receivers treat that as no policy at all, so remove the extras.",
+  },
+  DMARC_POLICY_INHERITED: {
+    code: DiagnosisCode.DMARC_POLICY_INHERITED,
+    severity: "info",
+    slug: "dmarc-policy-inherited",
+    summary:
+      "This subdomain has no DMARC record of its own and inherits the policy published at the organizational domain.",
+  },
+  DMARC_POLICY_NONE: {
+    code: DiagnosisCode.DMARC_POLICY_NONE,
+    severity: "warning",
+    slug: "dmarc-policy-none",
+    summary:
+      "The policy is p=none, so failing messages are still delivered. This is a monitoring setting, not protection.",
+  },
+  DMARC_POLICY_PARTIAL: {
+    code: DiagnosisCode.DMARC_POLICY_PARTIAL,
+    severity: "warning",
+    slug: "dmarc-policy-partial",
+    summary:
+      "The policy applies to only a percentage of messages, so most failures are still delivered.",
+  },
+  DMARC_RECORD_MALFORMED: {
+    code: DiagnosisCode.DMARC_RECORD_MALFORMED,
+    severity: "error",
+    slug: "dmarc-record-malformed",
+    summary:
+      "A DMARC record exists but cannot be read, so receivers will behave as though there is no policy.",
+  },
+  DMARC_RECORD_MISSING: {
+    code: DiagnosisCode.DMARC_RECORD_MISSING,
+    severity: "error",
+    slug: "dmarc-record-missing",
+    summary:
+      "No DMARC policy was found for this domain, so receivers have no instructions when a message fails authentication.",
+  },
+  DMARC_REPORT_URI_INVALID: {
+    code: DiagnosisCode.DMARC_REPORT_URI_INVALID,
+    severity: "warning",
+    slug: "dmarc-report-uri-invalid",
+    summary:
+      "A report address is not a usable URI, so reports for it will not be sent.",
   },
   DNSSEC_BOGUS: {
     code: DiagnosisCode.DNSSEC_BOGUS,
