@@ -105,6 +105,38 @@ describe("fixture delegation graph", () => {
     expect(undelegated).toEqual([]);
   });
 
+  it("carries every delegation into the signed copy the root actually serves", () => {
+    // dns-root serves signed/root/test.zone.signed, not zones/src/test.zone.
+    // Adding a delegation to the source and not re-signing leaves the new zone
+    // reachable by querying dns-auth directly and invisible to the recursive
+    // tier — which looks like a resolver bug and is not one. This bit once,
+    // silently, and only showed up when a fixture needed the resolver.
+    const source = read("src", "test.zone");
+    const signed = read("signed", "root", "test.zone.signed");
+
+    const delegated = new Set(
+      source
+        .split("\n")
+        .filter((line) => !line.startsWith(";") && line.includes("IN NS"))
+        .map((line) => line.split(WHITESPACE)[0])
+        .filter((label) => label !== undefined && label !== "@")
+    );
+
+    const missing = [...delegated].filter(
+      (label) =>
+        !signed
+          .split("\n")
+          .some(
+            (line) => line.startsWith(`${label}.test.`) && line.includes(" NS")
+          )
+    );
+
+    expect(
+      missing,
+      "run `pnpm dns:sign` — the signed root is missing these delegations"
+    ).toEqual([]);
+  });
+
   it("keeps the PSL zones out of the fake root on purpose", () => {
     // example.co.uk and user.github.io are reachable only by querying dns-auth
     // directly. The fake root has no uk. or com., and inventing one would model

@@ -66,6 +66,7 @@
 					9r0cfAvJinhi/0eKevvFh/ZH5/MEZqdKwk77
 					hH0X6PTJc0VDD50OQSghEsYGrBhHqcBAAop5
 					3GTjn4g5f+PSc0hiJw== )
+ns0.test.		3600	IN A	127.0.0.2
 test.			3600	IN NS	ns0.test.
 			3600	DS	53725 8 2 (
 					E747D2F402F8522E011A38E1522E313BEAF7
@@ -85,4 +86,3 @@ test.			3600	IN NS	ns0.test.
 					nS1By5AWfedLKfmgYyA2FF54lQBjTvyNePMC
 					SB0sO0/kUMxAf26CWAaXNEEk6tkxDIJ44JxT
 					QaBoz81q7EZ8MPSaHlREJL8h8kQ= )
-ns0.test.		3600	IN A	127.0.0.2

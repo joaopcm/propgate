@@ -44,6 +44,26 @@ export {
   looksLikeDmarc,
   parseDmarcRecord,
 } from "./evaluate/dmarc-record";
+export type { SpfCheck } from "./evaluate/spf";
+export { evaluateSpf } from "./evaluate/spf";
+export type {
+  SpfMechanism,
+  SpfMechanismName,
+  SpfModifier,
+  SpfParse,
+  SpfQualifier,
+  SpfRecord,
+  SpfTerm,
+} from "./evaluate/spf-record";
+export {
+  containsMacro,
+  countsAsLookup,
+  directLookupCost,
+  looksLikeSpf,
+  parseSpfRecord,
+  SPF_MECHANISMS,
+  SPF_QUALIFIERS,
+} from "./evaluate/spf-record";
 export type {
   EvaluationResult,
   Evidence,
@@ -51,7 +71,7 @@ export type {
   Lookup,
   Verdict,
 } from "./evaluate/types";
-export { worstVerdict } from "./evaluate/types";
+export { verdictFromFindings, worstVerdict } from "./evaluate/types";
 export type { PslOptions } from "./psl";
 export {
   getPublicSuffix,

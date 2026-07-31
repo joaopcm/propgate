@@ -84,6 +84,46 @@ export const DiagnosisCode = {
   PROVIDER_APPENDED_ZONE_NAME: "PROVIDER_APPENDED_ZONE_NAME",
   /** A CNAME was expected but an A/AAAA was observed at the same address. */
   PROVIDER_FLATTENED_CNAME: "PROVIDER_FLATTENED_CNAME",
+
+  // --- SPF ---
+  /** No all mechanism, so the result for an unlisted sender is neutral. */
+  SPF_ALL_MISSING: "SPF_ALL_MISSING",
+  /** ?all states no opinion, so the record protects nothing. */
+  SPF_ALL_NEUTRAL: "SPF_ALL_NEUTRAL",
+  /** +all authorises every host on the internet. */
+  SPF_ALL_PASS: "SPF_ALL_PASS",
+  /** An include: chain returns to a domain it already visited. */
+  SPF_INCLUDE_LOOP: "SPF_INCLUDE_LOOP",
+  /** An include: or redirect= target publishes no SPF record. */
+  SPF_INCLUDE_UNRESOLVABLE: "SPF_INCLUDE_UNRESOLVABLE",
+  /** More than ten DNS lookups, so receivers return permerror. */
+  SPF_LOOKUP_LIMIT_EXCEEDED: "SPF_LOOKUP_LIMIT_EXCEEDED",
+  /** Close enough to the ten-lookup limit that one more service breaks it. */
+  SPF_LOOKUP_LIMIT_NEAR: "SPF_LOOKUP_LIMIT_NEAR",
+  /** A term contains a macro that depends on the connection. */
+  SPF_MACRO_NOT_EVALUATED: "SPF_MACRO_NOT_EVALUATED",
+  /** More than one SPF record, which RFC 7208 makes a permanent error. */
+  SPF_MULTIPLE_RECORDS: "SPF_MULTIPLE_RECORDS",
+  /** An mx mechanism expands to more than ten names. */
+  SPF_MX_LIMIT_EXCEEDED: "SPF_MX_LIMIT_EXCEEDED",
+  /** ptr is published, which RFC 7208 says it should not be. */
+  SPF_PTR_MECHANISM: "SPF_PTR_MECHANISM",
+  /** The record does not parse, so receivers return permerror. */
+  SPF_RECORD_MALFORMED: "SPF_RECORD_MALFORMED",
+  /** No SPF record at all. */
+  SPF_RECORD_MISSING: "SPF_RECORD_MISSING",
+  /** redirect= alongside an all mechanism, so it never runs. */
+  SPF_REDIRECT_IGNORED: "SPF_REDIRECT_IGNORED",
+  /** The expected sending source is not in the expanded record. */
+  SPF_SOURCE_NOT_AUTHORIZED: "SPF_SOURCE_NOT_AUTHORIZED",
+  /** A lookup during expansion failed temporarily. */
+  SPF_TEMPORARY_FAILURE: "SPF_TEMPORARY_FAILURE",
+  /** Mechanisms after all, which never run. */
+  SPF_TERMS_AFTER_ALL: "SPF_TERMS_AFTER_ALL",
+  /** A term resolves to nothing while still costing a lookup. */
+  SPF_VOID_LOOKUP: "SPF_VOID_LOOKUP",
+  /** More than two terms resolve to nothing. */
+  SPF_VOID_LOOKUP_LIMIT_EXCEEDED: "SPF_VOID_LOOKUP_LIMIT_EXCEEDED",
   /** A middlebox silently drops TCP/53, so oversized answers never arrive. */
   TCP_SILENTLY_BLOCKED: "TCP_SILENTLY_BLOCKED",
   /** Response was truncated and the TCP retry succeeded. */
@@ -317,6 +357,139 @@ export const DIAGNOSIS_REGISTRY: Readonly<
     slug: "provider-flattened-cname",
     summary:
       "Your provider flattens CNAMEs into address records. The record is correct; it just looks different when queried.",
+  },
+  SPF_ALL_MISSING: {
+    code: DiagnosisCode.SPF_ALL_MISSING,
+    severity: "warning",
+    slug: "spf-all-missing",
+    summary:
+      "This domain's SPF record has no all mechanism, so it neither authorises nor rejects senders it does not list.",
+  },
+  SPF_ALL_NEUTRAL: {
+    code: DiagnosisCode.SPF_ALL_NEUTRAL,
+    severity: "warning",
+    slug: "spf-all-neutral",
+    summary:
+      "This domain's SPF record ends in ?all, which tells receivers nothing about senders it does not list.",
+  },
+  SPF_ALL_PASS: {
+    code: DiagnosisCode.SPF_ALL_PASS,
+    severity: "error",
+    slug: "spf-all-pass",
+    summary:
+      "This domain's SPF record authorises every host on the internet to send as it, which is worse than publishing no record at all.",
+  },
+  SPF_INCLUDE_LOOP: {
+    code: DiagnosisCode.SPF_INCLUDE_LOOP,
+    severity: "error",
+    slug: "spf-include-loop",
+    summary:
+      "This domain's SPF record includes a chain that loops back on itself, so it can never finish evaluating.",
+  },
+  SPF_INCLUDE_UNRESOLVABLE: {
+    code: DiagnosisCode.SPF_INCLUDE_UNRESOLVABLE,
+    severity: "error",
+    slug: "spf-include-unresolvable",
+    summary:
+      "This domain's SPF record points at another domain that publishes no SPF record, which makes the whole evaluation a permanent error.",
+  },
+  SPF_LOOKUP_LIMIT_EXCEEDED: {
+    code: DiagnosisCode.SPF_LOOKUP_LIMIT_EXCEEDED,
+    severity: "error",
+    slug: "spf-lookup-limit-exceeded",
+    summary:
+      "Checking this domain's SPF record needs more than the ten DNS lookups receivers allow, so SPF fails for every message.",
+  },
+  SPF_LOOKUP_LIMIT_NEAR: {
+    code: DiagnosisCode.SPF_LOOKUP_LIMIT_NEAR,
+    severity: "warning",
+    slug: "spf-lookup-limit-near",
+    summary:
+      "This domain's SPF record is close to the ten-lookup limit, so adding one more sending service is likely to break it.",
+  },
+  SPF_MACRO_NOT_EVALUATED: {
+    code: DiagnosisCode.SPF_MACRO_NOT_EVALUATED,
+    severity: "info",
+    slug: "spf-macro-not-evaluated",
+    summary:
+      "Part of this domain's SPF record changes for every connection, so it cannot be checked from the published records alone.",
+  },
+  SPF_MULTIPLE_RECORDS: {
+    code: DiagnosisCode.SPF_MULTIPLE_RECORDS,
+    severity: "error",
+    slug: "spf-multiple-records",
+    summary:
+      "This domain publishes more than one SPF record, which authorises nothing at all; the two must be merged into one.",
+  },
+  SPF_MX_LIMIT_EXCEEDED: {
+    code: DiagnosisCode.SPF_MX_LIMIT_EXCEEDED,
+    severity: "error",
+    slug: "spf-mx-limit-exceeded",
+    summary:
+      "An mx mechanism in this domain's SPF record expands to more names than receivers will follow.",
+  },
+  SPF_PTR_MECHANISM: {
+    code: DiagnosisCode.SPF_PTR_MECHANISM,
+    severity: "warning",
+    slug: "spf-ptr-mechanism",
+    summary:
+      "This domain's SPF record uses the ptr mechanism, which is slow, unreliable, and ignored by some receivers.",
+  },
+  SPF_RECORD_MALFORMED: {
+    code: DiagnosisCode.SPF_RECORD_MALFORMED,
+    severity: "error",
+    slug: "spf-record-malformed",
+    summary:
+      "This domain's SPF record has a syntax error, so receivers reject it outright rather than reading past the mistake.",
+  },
+  SPF_RECORD_MISSING: {
+    code: DiagnosisCode.SPF_RECORD_MISSING,
+    severity: "error",
+    slug: "spf-record-missing",
+    summary:
+      "This domain publishes no SPF record, so receivers have nothing to check a sending host against.",
+  },
+  SPF_REDIRECT_IGNORED: {
+    code: DiagnosisCode.SPF_REDIRECT_IGNORED,
+    severity: "warning",
+    slug: "spf-redirect-ignored",
+    summary:
+      "This domain's SPF record has both an all mechanism and a redirect, and the redirect is never reached.",
+  },
+  SPF_SOURCE_NOT_AUTHORIZED: {
+    code: DiagnosisCode.SPF_SOURCE_NOT_AUTHORIZED,
+    severity: "error",
+    slug: "spf-source-not-authorized",
+    summary:
+      "This domain's SPF record does not authorise the sending service being set up, so its messages will fail SPF.",
+  },
+  SPF_TEMPORARY_FAILURE: {
+    code: DiagnosisCode.SPF_TEMPORARY_FAILURE,
+    severity: "warning",
+    slug: "spf-temporary-failure",
+    summary:
+      "A DNS lookup needed to check this domain's SPF record did not answer, so receivers will defer messages rather than reject them.",
+  },
+  SPF_TERMS_AFTER_ALL: {
+    code: DiagnosisCode.SPF_TERMS_AFTER_ALL,
+    severity: "warning",
+    slug: "spf-terms-after-all",
+    summary:
+      "This domain's SPF record lists mechanisms after the all mechanism, where they have no effect.",
+  },
+  SPF_VOID_LOOKUP: {
+    code: DiagnosisCode.SPF_VOID_LOOKUP,
+    severity: "warning",
+    slug: "spf-void-lookup",
+    summary:
+      "Part of this domain's SPF record points at a name that does not exist, so it authorises nothing while still counting toward the ten-lookup limit.",
+  },
+  SPF_VOID_LOOKUP_LIMIT_EXCEEDED: {
+    code: DiagnosisCode.SPF_VOID_LOOKUP_LIMIT_EXCEEDED,
+    severity: "error",
+    slug: "spf-void-lookup-limit-exceeded",
+    summary:
+      "More than two parts of this domain's SPF record point at names that do not exist, which receivers treat as a permanent error.",
   },
   TCP_SILENTLY_BLOCKED: {
     code: DiagnosisCode.TCP_SILENTLY_BLOCKED,

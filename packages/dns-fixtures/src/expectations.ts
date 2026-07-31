@@ -195,6 +195,33 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
     role: "auth",
     zone: "user.github.io",
   },
+  {
+    codes: [
+      "SPF_ALL_MISSING",
+      "SPF_ALL_NEUTRAL",
+      "SPF_ALL_PASS",
+      "SPF_INCLUDE_LOOP",
+      "SPF_INCLUDE_UNRESOLVABLE",
+      "SPF_LOOKUP_LIMIT_EXCEEDED",
+      "SPF_LOOKUP_LIMIT_NEAR",
+      "SPF_MACRO_NOT_EVALUATED",
+      "SPF_MULTIPLE_RECORDS",
+      "SPF_MX_LIMIT_EXCEEDED",
+      "SPF_PTR_MECHANISM",
+      "SPF_RECORD_MALFORMED",
+      "SPF_RECORD_MISSING",
+      "SPF_REDIRECT_IGNORED",
+      "SPF_SOURCE_NOT_AUTHORIZED",
+      "SPF_TEMPORARY_FAILURE",
+      "SPF_TERMS_AFTER_ALL",
+      "SPF_VOID_LOOKUP",
+      "SPF_VOID_LOOKUP_LIMIT_EXCEEDED",
+    ],
+    reason:
+      "The ten-lookup and two-void limits of RFC 7208 4.6.4 are spent across a whole include: tree, so neither is visible in any single record. Each name here is sized to land one term either side of a boundary, which is the only way an off-by-one in the accounting shows up as a failure rather than as a plausible number.",
+    role: "auth",
+    zone: "spf.test",
+  },
 ];
 
 /** Every code any fixture is expected to produce. */

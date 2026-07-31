@@ -68,6 +68,34 @@ export interface EvaluationResult {
   readonly verdict: Verdict;
 }
 
+/**
+ * The verdict a set of findings implies on its own.
+ *
+ * Every finding already carries a severity from the registry, so an evaluator
+ * that also decides a verdict per finding is keeping the same fact in two
+ * places — and the two drift, leaving a `pass` result carrying a warning nobody
+ * acts on. Deriving the floor here means a new diagnosis code affects the
+ * verdict the moment it is reported.
+ *
+ * `indeterminate` is never derived: it is a statement about what the evaluator
+ * could see, not about what it found, so only the evaluator can raise it.
+ */
+export function verdictFromFindings(findings: readonly Finding[]): Verdict {
+  let verdict: Verdict = "pass";
+
+  for (const finding of findings) {
+    if (finding.severity === "error") {
+      return "fail";
+    }
+
+    if (finding.severity === "warning") {
+      verdict = "warn";
+    }
+  }
+
+  return verdict;
+}
+
 /** Severity ranking, used to fold findings into a single verdict. */
 const VERDICT_RANK: Readonly<Record<Verdict, number>> = {
   fail: 3,
