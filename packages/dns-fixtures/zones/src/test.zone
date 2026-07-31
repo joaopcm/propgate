@@ -28,6 +28,7 @@ ns-dead         IN A    127.0.0.9   ; nothing listening, on purpose
 ; Unsigned children on dns-auth.
 ; ---------------------------------------------------------------------------
 appended            IN NS   ns1.test.
+dkim                IN NS   ns1.test.
 propgate-fixture    IN NS   ns1.test.
 wildcard            IN NS   ns1.test.
 txt-split           IN NS   ns1.test.

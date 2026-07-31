@@ -20,6 +20,22 @@ export const DiagnosisCode = {
   // --- Not locally reproducible. See NOT_LOCALLY_REPRODUCIBLE below. ---
   /** Authoritative answers disagree across vantage points. */
   ANSWER_DIVERGES_BY_VANTAGE_POINT: "ANSWER_DIVERGES_BY_VANTAGE_POINT",
+  /** A valid key, but not the one the profile expects. */
+  DKIM_KEY_MISMATCH: "DKIM_KEY_MISMATCH",
+  /** p= is empty, which RFC 6376 defines as revocation. */
+  DKIM_KEY_REVOKED: "DKIM_KEY_REVOKED",
+  /** Key is valid but shorter than receivers now expect. */
+  DKIM_KEY_TOO_SHORT: "DKIM_KEY_TOO_SHORT",
+  /** p= parses but is not a usable key. */
+  DKIM_KEY_UNPARSEABLE: "DKIM_KEY_UNPARSEABLE",
+  /** The record exists but is not a parseable DKIM key record. */
+  DKIM_RECORD_MALFORMED: "DKIM_RECORD_MALFORMED",
+
+  // --- DKIM ---
+  /** No TXT record at the selector, and no sign of one nearby. */
+  DKIM_RECORD_MISSING: "DKIM_RECORD_MISSING",
+  /** t=y — receivers must ignore failures, so the key is not yet protecting anything. */
+  DKIM_TESTING_MODE: "DKIM_TESTING_MODE",
   /** Signatures failed validation; validating resolvers see nothing at all. */
   DNSSEC_BOGUS: "DNSSEC_BOGUS",
   /** Signed parent, unsigned delegation, no DS — resolves, but unsigned. */
@@ -66,6 +82,55 @@ export const DIAGNOSIS_REGISTRY: Readonly<
     slug: "answer-diverges-by-vantage-point",
     summary:
       "Different parts of the internet see different answers for this name, so verification results may be inconsistent.",
+  },
+  DKIM_KEY_MISMATCH: {
+    code: DiagnosisCode.DKIM_KEY_MISMATCH,
+    severity: "error",
+    slug: "dkim-key-mismatch",
+    summary:
+      "A valid DKIM key is published here, but it is not the one we issued. It may be left over from another provider.",
+  },
+  DKIM_KEY_REVOKED: {
+    code: DiagnosisCode.DKIM_KEY_REVOKED,
+    severity: "error",
+    slug: "dkim-key-revoked",
+    summary:
+      "This DKIM key has been revoked by publishing an empty key. Signatures using this selector will fail.",
+  },
+  DKIM_KEY_TOO_SHORT: {
+    code: DiagnosisCode.DKIM_KEY_TOO_SHORT,
+    severity: "warning",
+    slug: "dkim-key-too-short",
+    summary:
+      "This DKIM key is shorter than 1024 bits. Some receivers already refuse keys this small.",
+  },
+  DKIM_KEY_UNPARSEABLE: {
+    code: DiagnosisCode.DKIM_KEY_UNPARSEABLE,
+    severity: "error",
+    slug: "dkim-key-unparseable",
+    summary:
+      "The public key in this record cannot be read. It was most likely altered when it was pasted in.",
+  },
+  DKIM_RECORD_MALFORMED: {
+    code: DiagnosisCode.DKIM_RECORD_MALFORMED,
+    severity: "error",
+    slug: "dkim-record-malformed",
+    summary:
+      "A record exists at this selector but it is not a valid DKIM key record, so receivers will ignore it.",
+  },
+  DKIM_RECORD_MISSING: {
+    code: DiagnosisCode.DKIM_RECORD_MISSING,
+    severity: "error",
+    slug: "dkim-record-missing",
+    summary:
+      "No DKIM record was found at this selector, so messages signed with it cannot be verified.",
+  },
+  DKIM_TESTING_MODE: {
+    code: DiagnosisCode.DKIM_TESTING_MODE,
+    severity: "warning",
+    slug: "dkim-testing-mode",
+    summary:
+      "This DKIM record is in testing mode, so receivers are told to ignore signature failures. Remove t=y once you are ready.",
   },
   DNSSEC_BOGUS: {
     code: DiagnosisCode.DNSSEC_BOGUS,
