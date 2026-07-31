@@ -7,6 +7,15 @@ export {
   DiagnosisCode,
   NOT_LOCALLY_REPRODUCIBLE,
 } from "./diagnosis/codes";
+export type { CaaCheck, CaaDiscovery } from "./evaluate/caa";
+export { caaClimbPath, evaluateCaa } from "./evaluate/caa";
+export type { CaaDecision, CaaIssuer, CaaPolicy } from "./evaluate/caa-record";
+export {
+  decideIssuance,
+  isDenyAll,
+  parseCaaIssuer,
+  parseCaaPolicy,
+} from "./evaluate/caa-record";
 export type { EvaluationContextOptions } from "./evaluate/context";
 export { createEvaluationContext, EvaluationContext } from "./evaluate/context";
 export type { DkimCheck } from "./evaluate/dkim";

@@ -42,20 +42,32 @@ const TEST_SUFFIX = /\.test$/;
 const WHITESPACE = /\s+/;
 
 /**
- * Whether `zone` is delegated from the given zone text.
+ * Whether `zoneText` delegates the child sitting at `ownerLabel`.
  *
  * Line-based rather than a built regex: the owner name comes from a filename, so
  * a regex would need escaping, and "first field on the line, then IN NS" is what
  * we actually mean.
  */
-function hasDelegation(zoneText: string, zone: string): boolean {
-  const label = zone.replace(TEST_SUFFIX, "");
-
+function hasDelegation(zoneText: string, ownerLabel: string): boolean {
   return zoneText
     .split("\n")
     .some(
-      (line) => line.split(WHITESPACE)[0] === label && line.includes("IN NS")
+      (line) =>
+        line.split(WHITESPACE)[0] === ownerLabel && line.includes("IN NS")
     );
+}
+
+/** Every zone dns-auth serves, mapped to the text of its file. */
+function servedZones(): Map<string, string> {
+  const served = new Map<string, string>();
+
+  for (const dir of ["unsigned", "signed/auth"]) {
+    for (const file of zoneFilesIn(dir)) {
+      served.set(zoneNameOf(file), read(dir, file));
+    }
+  }
+
+  return served;
 }
 
 /** RRSIG rdata is: type alg labels origTTL expiration inception keytag signer. */
@@ -73,15 +85,22 @@ function rrsigExpirations(zoneText: string): number[] {
 }
 
 describe("fixture delegation graph", () => {
-  it("delegates every dns-auth zone from test.zone", () => {
+  it("delegates every dns-auth zone from its parent", () => {
     const testZone = read("src", "test.zone");
+    const served = servedZones();
 
-    const served = [
-      ...zoneFilesIn("unsigned"),
-      ...zoneFilesIn("signed/auth"),
-    ].map(zoneNameOf);
+    // Usually the parent is test.zone. A zone cut one level deeper —
+    // inner.caa-child.test — is delegated from its own parent's file instead,
+    // with an owner name relative to that parent. Demanding a delegation in
+    // test.zone for those would demand a record that would be wrong to write.
+    const undelegated = [...served.keys()].filter((zone) => {
+      const [label, ...rest] = zone.split(".");
+      const parent = served.get(rest.join("."));
 
-    const undelegated = served.filter((zone) => !hasDelegation(testZone, zone));
+      return parent
+        ? !hasDelegation(parent, label ?? "")
+        : !hasDelegation(testZone, zone.replace(TEST_SUFFIX, ""));
+    });
 
     expect(undelegated).toEqual([]);
   });
@@ -173,7 +192,7 @@ describe("fixture expectations table", () => {
       }
       // lame.test has no zone file anywhere by design — it exists purely as a
       // delegation pointing at a server that is not authoritative for it.
-      return !hasDelegation(testZone, row.zone);
+      return !hasDelegation(testZone, row.zone.replace(TEST_SUFFIX, ""));
     }).map((row) => row.zone);
 
     expect(dangling).toEqual([]);

@@ -20,6 +20,20 @@ export const DiagnosisCode = {
   // --- Not locally reproducible. See NOT_LOCALLY_REPRODUCIBLE below. ---
   /** Authoritative answers disagree across vantage points. */
   ANSWER_DIVERGES_BY_VANTAGE_POINT: "ANSWER_DIVERGES_BY_VANTAGE_POINT",
+  /** An unrecognised property with the critical bit, which blocks all issuance. */
+  CAA_CRITICAL_UNKNOWN_PROPERTY: "CAA_CRITICAL_UNKNOWN_PROPERTY",
+  /** issue ";" — no CA may issue at all. */
+  CAA_ISSUANCE_DENIED: "CAA_ISSUANCE_DENIED",
+  /** The CA we need is not among those authorised. */
+  CAA_ISSUER_NOT_AUTHORIZED: "CAA_ISSUER_NOT_AUTHORIZED",
+  /** The policy governing this name is published on an ancestor, not here. */
+  CAA_POLICY_FROM_ANCESTOR: "CAA_POLICY_FROM_ANCESTOR",
+
+  // --- CAA ---
+  /** No CAA anywhere up the tree: any CA may issue. */
+  CAA_UNRESTRICTED: "CAA_UNRESTRICTED",
+  /** issuewild forbids the wildcard certificate being requested. */
+  CAA_WILDCARD_DENIED: "CAA_WILDCARD_DENIED",
   /** A valid key, but not the one the profile expects. */
   DKIM_KEY_MISMATCH: "DKIM_KEY_MISMATCH",
   /** p= is empty, which RFC 6376 defines as revocation. */
@@ -100,6 +114,48 @@ export const DIAGNOSIS_REGISTRY: Readonly<
     slug: "answer-diverges-by-vantage-point",
     summary:
       "Different parts of the internet see different answers for this name, so verification results may be inconsistent.",
+  },
+  CAA_CRITICAL_UNKNOWN_PROPERTY: {
+    code: DiagnosisCode.CAA_CRITICAL_UNKNOWN_PROPERTY,
+    severity: "error",
+    slug: "caa-critical-unknown-property",
+    summary:
+      "This domain publishes a CAA property marked critical that authorities do not understand, which blocks all issuance.",
+  },
+  CAA_ISSUANCE_DENIED: {
+    code: DiagnosisCode.CAA_ISSUANCE_DENIED,
+    severity: "error",
+    slug: "caa-issuance-denied",
+    summary:
+      "This domain's CAA policy forbids every certificate authority from issuing.",
+  },
+  CAA_ISSUER_NOT_AUTHORIZED: {
+    code: DiagnosisCode.CAA_ISSUER_NOT_AUTHORIZED,
+    severity: "error",
+    slug: "caa-issuer-not-authorized",
+    summary:
+      "The certificate authority we use is not listed in this domain's CAA policy, so it cannot issue a certificate.",
+  },
+  CAA_POLICY_FROM_ANCESTOR: {
+    code: DiagnosisCode.CAA_POLICY_FROM_ANCESTOR,
+    severity: "info",
+    slug: "caa-policy-from-ancestor",
+    summary:
+      "The CAA policy for this name is published on a parent domain, so changing it may not be within your control.",
+  },
+  CAA_UNRESTRICTED: {
+    code: DiagnosisCode.CAA_UNRESTRICTED,
+    severity: "info",
+    slug: "caa-unrestricted",
+    summary:
+      "No CAA policy applies to this name, so any certificate authority may issue for it.",
+  },
+  CAA_WILDCARD_DENIED: {
+    code: DiagnosisCode.CAA_WILDCARD_DENIED,
+    severity: "error",
+    slug: "caa-wildcard-denied",
+    summary:
+      "This domain's CAA policy forbids wildcard certificates, even though ordinary certificates are allowed.",
   },
   DKIM_KEY_MISMATCH: {
     code: DiagnosisCode.DKIM_KEY_MISMATCH,

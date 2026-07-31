@@ -98,6 +98,27 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
     zone: "reports.test",
   },
   {
+    codes: [
+      "CAA_UNRESTRICTED",
+      "CAA_POLICY_FROM_ANCESTOR",
+      "CAA_ISSUER_NOT_AUTHORIZED",
+      "CAA_ISSUANCE_DENIED",
+      "CAA_WILDCARD_DENIED",
+      "CAA_CRITICAL_UNKNOWN_PROPERTY",
+    ],
+    reason:
+      "Tree climbing and property semantics. deep.nested climbs two labels to the apex; sub publishes its own policy that must not be merged with the apex's; split has different CAs for issue and issuewild; critical carries an unknown property with the critical bit, which blocks issuance despite also naming a CA.",
+    role: "auth",
+    zone: "caa.test",
+  },
+  {
+    codes: [],
+    reason:
+      "The climb must cross a zone cut: inner.caa-child.test is separately delegated and publishes no CAA, so the policy at caa-child.test governs it. A resolver that stopped at the delegation boundary would miss the policy entirely.",
+    role: "auth",
+    zone: "caa-child.test",
+  },
+  {
     codes: ["TXT_VALUE_SPLIT_MANGLED", "MULTIPLE_DKIM_RECORDS"],
     reason:
       "Multi-string TXT rejoined with whitespace, with duplicated tag prefixes, split across two RRs, and differing only in base64 case.",

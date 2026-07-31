@@ -107,9 +107,19 @@ describe("the private section against a real zone", () => {
     ).toEqual(["issue", "issuewild"]);
   });
 
-  it("stops CAA climbing at the org domain rather than walking to io", () => {
-    // RFC 8659 climbs the name tree, but a policy at github.io would belong to
-    // GitHub, not to this customer. The org domain is the floor.
+  it("is not what bounds CAA climbing — a second correction", () => {
+    // An earlier version of this test claimed the organizational domain was the
+    // floor for CAA tree climbing. It is not. RFC 8659 §3: "The search for a CAA
+    // RRset climbs the DNS name tree from the specified label up to, but not
+    // including, the DNS root." The PSL plays no part in CAA whatsoever.
+    //
+    // The intuition behind the mistake was about ownership — a policy at
+    // github.io belongs to GitHub — and that much is true. But CAA deliberately
+    // lets a parent bind its children, which is precisely how a platform
+    // restricts which CAs may issue for the names it hands out.
+    //
+    // The org domain is still exactly right for DMARC, which is what this file
+    // is otherwise about. See caa.fixture.spec.ts for the climb itself.
     expect(getRegistrableDomain("pages.user.github.io")).toBe("user.github.io");
     expect(getRegistrableDomain("github.io")).toBeNull();
   });

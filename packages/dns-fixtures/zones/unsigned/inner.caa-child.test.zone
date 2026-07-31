@@ -1,0 +1,10 @@
+; The delegated child. Deliberately publishes no CAA, so evaluating a name here
+; has to climb across the zone cut into caa-child.test.
+$ORIGIN inner.caa-child.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN A    198.51.100.20
+www     IN A    198.51.100.21
