@@ -161,3 +161,32 @@ mxmatch             IN TXT  "v=spf1 mx:mail.spf.test -all"
 
 ; exists matches on the name resolving at all, whatever address it resolves to.
 existsmech          IN TXT  "v=spf1 exists:host.spf.test -all"
+
+; ---------------------------------------------------------------------------
+; Macro expansion (RFC 7208 §7). A macro turns one published record into a
+; different name for every connection, so these names only exist for one
+; specific sender — which is the entire point of the mechanism.
+; ---------------------------------------------------------------------------
+
+; The classic per-sender question: %{ir}.%{v} for 198.51.100.7 is
+; 7.100.51.198.in-addr. Any other address asks about a name that is not here.
+macroexists                 IN TXT  "v=spf1 exists:%{ir}.%{v}._spf.spf.test -all"
+7.100.51.198.in-addr._spf   IN A    127.0.0.1
+
+; %{d} is the domain whose record is being read, so this is a:mail.macrodomain.spf.test.
+macrodomain                 IN TXT  "v=spf1 a:mail.%{d} -all"
+mail.macrodomain            IN A    198.51.100.60
+
+; %{l} is the local part of the envelope sender, so this record can only be
+; answered for a check that was told who is sending.
+macrosender                 IN TXT  "v=spf1 exists:%{l}._sender.spf.test -all"
+strongbad._sender           IN A    127.0.0.1
+
+; %{p} needs a reverse lookup of the connecting address and a forward
+; confirmation of every name it returns. RFC 7208 §7.3 says not to publish it,
+; and the honest answer for a sender is that we cannot tell.
+macroptr                    IN TXT  "v=spf1 exists:%{p}._spf.spf.test -all"
+
+; %{q} is not a macro letter. A macro that does not parse makes the record
+; malformed, which is a permanent error rather than a term that matches nothing.
+macrobroken                 IN TXT  "v=spf1 exists:%{q}._spf.spf.test -all"

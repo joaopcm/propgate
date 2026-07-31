@@ -52,6 +52,8 @@ export {
   fullPrefix,
   parseIpAddress,
 } from "./evaluate/spf-ip";
+export type { MacroContext, MacroExpansion } from "./evaluate/spf-macro";
+export { expandMacros, validateMacroString } from "./evaluate/spf-macro";
 export type {
   SpfMechanism,
   SpfMechanismName,

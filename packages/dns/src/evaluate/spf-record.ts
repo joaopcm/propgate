@@ -1,4 +1,5 @@
 import { isIPv4, isIPv6 } from "node:net";
+import { validateMacroString } from "./spf-macro";
 
 /**
  * SPF record syntax (RFC 7208 §4, §5, §6, ABNF in §12).
@@ -399,6 +400,41 @@ function duplicateModifier(terms: readonly SpfTerm[], name: string): boolean {
   );
 }
 
+/**
+ * The first term whose macros do not parse, if any.
+ *
+ * Only domain-specs are checked. An unknown modifier's value is a macro-string
+ * too, but nothing ever evaluates it — rejecting a whole record over a term no
+ * receiver reads would fail domains that work today.
+ */
+function firstBadMacro(
+  terms: readonly SpfTerm[]
+): { detail: string; term: string } | undefined {
+  for (const term of terms) {
+    const value = macroBearingValue(term);
+
+    if (value === undefined) {
+      continue;
+    }
+
+    const detail = validateMacroString(value);
+
+    if (detail !== null) {
+      return { detail, term: term.raw };
+    }
+  }
+}
+
+function macroBearingValue(term: SpfTerm): string | undefined {
+  if (term.kind === "modifier") {
+    return term.name === "redirect" || term.name === "exp"
+      ? term.value
+      : undefined;
+  }
+
+  return term.name === "ip4" || term.name === "ip6" ? undefined : term.value;
+}
+
 export function parseSpfRecord(raw: string): SpfParse {
   const trimmed = raw.trim();
 
@@ -427,6 +463,12 @@ export function parseSpfRecord(raw: string): SpfParse {
     if (duplicateModifier(terms, name)) {
       return { detail: `${name}= appears more than once`, ok: false };
     }
+  }
+
+  const badMacro = firstBadMacro(terms);
+
+  if (badMacro) {
+    return { detail: badMacro.detail, ok: false, term: badMacro.term };
   }
 
   const modifierValue = (name: string): string | undefined =>
