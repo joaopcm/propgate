@@ -41,6 +41,18 @@ Gating on an env var rather than on reachability is deliberate: a suite that
 silently skips when the servers are down is worse than one that fails, because
 the skip looks like a pass.
 
+> **Any new gate flag must be added to `turbo.json`'s `test.env`.** Turbo passes
+> through only the variables a task declares and silently strips the rest, so a
+> flag that works under `vitest` directly can be invisible under `pnpm test`.
+> `PROPGATE_FIXTURES` was missing from that list at first, and the CI job went
+> green across two PRs while running nothing but unit tests — the exact failure
+> the gate exists to prevent, one layer further out.
+>
+> `test.yml` now runs `vitest --project dns-fixtures` by name as a tripwire.
+> Vitest exits non-zero when a named project matches no files, so the job cannot
+> pass while the fixture-backed specs quietly do not run. Never add
+> `--passWithNoTests` to that step.
+
 ## fileParallelism stays on — and why that differs from Postgres
 
 The usual monorepo pattern is `fileParallelism: false`, because a shared Postgres

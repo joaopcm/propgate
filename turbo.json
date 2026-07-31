@@ -15,6 +15,7 @@
     "test": {
       "env": [
         "NODE_ENV",
+        "PROPGATE_FIXTURES",
         "PROPGATE_FIXTURE_ROOT",
         "PROPGATE_FIXTURE_AUTH",
         "PROPGATE_FIXTURE_DECOY",
