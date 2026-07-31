@@ -4,18 +4,15 @@ import { recordsOfType } from "../wire/message";
 import type { EvaluationContext } from "./context";
 import type { IpAddress } from "./spf-ip";
 import { cidrContains, fullPrefix, parseIpAddress } from "./spf-ip";
+import type { MacroContext } from "./spf-macro";
+import { expandMacros } from "./spf-macro";
 import type {
   SpfMechanism,
   SpfQualifier,
   SpfRecord,
   SpfTerm,
 } from "./spf-record";
-import {
-  containsMacro,
-  countsAsLookup,
-  looksLikeSpf,
-  parseSpfRecord,
-} from "./spf-record";
+import { countsAsLookup, looksLikeSpf, parseSpfRecord } from "./spf-record";
 import type { EvaluationResult, Verdict } from "./types";
 import { verdictFromFindings, worstVerdict } from "./types";
 
@@ -72,6 +69,11 @@ const TRAILING_DOT = /\.$/;
 export interface SpfCheck {
   readonly domain: string;
   /**
+   * The HELO/EHLO name the client gave, for `%{h}` and as the fallback sender
+   * domain on a bounce.
+   */
+  readonly helo?: string;
+  /**
    * A sending source that must be authorised, given as the `include:` token the
    * platform publishes — `_spf.example-esp.com`. Matched anywhere in the
    * expanded tree, since an ESP reached through a customer's own aggregator is
@@ -85,6 +87,12 @@ export interface SpfCheck {
    * question from whether the record is sound, and both are reported.
    */
   readonly ip?: string;
+  /**
+   * The envelope sender, `local@domain`, for the `%{s}`, `%{l}` and `%{o}`
+   * macros. Without it a record that uses them stays undecidable rather than
+   * being answered from a guess.
+   */
+  readonly sender?: string;
 }
 
 type SpfFailure =
@@ -115,10 +123,12 @@ interface ExpansionState {
   /** The address being evaluated, absent when only the record is audited. */
   readonly client: IpAddress | undefined;
   failure: SpfFailure | undefined;
+  readonly helo: string | undefined;
   /** SPF's own counter, distinct from the context's backstop budget. */
   lookups: number;
   /** Every `include:` / `redirect=` target reached, normalised for comparison. */
   readonly reached: Set<string>;
+  readonly sender: string | undefined;
   voids: number;
 }
 
@@ -286,6 +296,63 @@ async function mxAddresses(
 }
 
 /**
+ * Expand a term's domain-spec against the connection.
+ *
+ * Three outcomes, and keeping them apart is the point. A macro that does not
+ * parse is the domain owner's mistake and a permanent error. A macro we cannot
+ * expand — `%{p}`, or `%{s}` with no sender given — is our gap, not theirs, and
+ * has to stay `undetermined` rather than becoming "not authorised". Everything
+ * else is a name to query.
+ */
+function resolveTarget(
+  context: EvaluationContext,
+  state: ExpansionState,
+  mechanism: SpfMechanism,
+  target: string,
+  domain: string
+): { readonly name: string } | MatchResult {
+  const expansion = expandMacros(target, macroContext(state, domain));
+
+  if (expansion.ok) {
+    return { name: expansion.value };
+  }
+
+  if (expansion.reason === "syntax") {
+    reportMalformed(
+      context,
+      domain,
+      mechanism.raw,
+      expansion.detail,
+      mechanism.raw
+    );
+    state.failure = {
+      code: DiagnosisCode.SPF_RECORD_MALFORMED,
+      kind: "permerror",
+    };
+    return NO_MATCH;
+  }
+
+  context.report(DiagnosisCode.SPF_MACRO_NOT_EVALUATED, {
+    detail: `${expansion.detail}, so this term cannot be resolved from the records alone`,
+    name: domain,
+    observed: mechanism.raw,
+  });
+
+  return state.client === undefined
+    ? NO_MATCH
+    : { because: mechanism.raw, kind: "undetermined" };
+}
+
+function macroContext(state: ExpansionState, domain: string): MacroContext {
+  return {
+    domain,
+    ...(state.helo === undefined ? {} : { helo: state.helo }),
+    ...(state.client === undefined ? {} : { ip: state.client }),
+    ...(state.sender === undefined ? {} : { sender: state.sender }),
+  };
+}
+
+/**
  * Resolve an `a`, `mx` or `exists` term, and say whether the client matches.
  *
  * The query happens whether or not there is a client to match: whether it comes
@@ -298,20 +365,19 @@ async function resolveTerm(
   mechanism: SpfMechanism,
   domain: string
 ): Promise<MatchResult> {
-  const target = mechanism.value ?? domain;
+  const resolved = resolveTarget(
+    context,
+    state,
+    mechanism,
+    mechanism.value ?? domain,
+    domain
+  );
 
-  if (containsMacro(target)) {
-    context.report(DiagnosisCode.SPF_MACRO_NOT_EVALUATED, {
-      detail:
-        "the term expands differently for every connection, so it cannot be resolved from the records alone",
-      name: domain,
-      observed: mechanism.raw,
-    });
-
-    return state.client === undefined
-      ? NO_MATCH
-      : { because: mechanism.raw, kind: "undetermined" };
+  if (!("name" in resolved)) {
+    return resolved;
   }
+
+  const target = resolved.name;
 
   // `a` means "an address record", which for an IPv6 client is AAAA. Querying A
   // for an IPv6 sender would count a void that is not one, and report an
@@ -489,21 +555,19 @@ async function expandInclude(
   domain: string,
   chain: readonly string[]
 ): Promise<MatchResult> {
-  const target = mechanism.value ?? "";
+  const resolved = resolveTarget(
+    context,
+    state,
+    mechanism,
+    mechanism.value ?? "",
+    domain
+  );
 
-  if (containsMacro(target)) {
-    context.report(DiagnosisCode.SPF_MACRO_NOT_EVALUATED, {
-      detail:
-        "the include target depends on the connection, so the tree below it cannot be walked from the records alone",
-      name: domain,
-      observed: mechanism.raw,
-    });
-
-    return state.client === undefined
-      ? NO_MATCH
-      : { because: mechanism.raw, kind: "undetermined" };
+  if (!("name" in resolved)) {
+    return resolved;
   }
 
+  const target = resolved.name;
   const normalised = normalise(target);
 
   if (chain.includes(normalised)) {
@@ -1057,8 +1121,10 @@ export async function evaluateSpf(
   const state: ExpansionState = {
     client,
     failure: undefined,
+    helo: check.helo,
     lookups: 0,
     reached: new Set<string>(),
+    sender: check.sender,
     voids: 0,
   };
 

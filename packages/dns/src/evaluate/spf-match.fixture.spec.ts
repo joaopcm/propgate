@@ -298,13 +298,27 @@ describe("what cannot be decided from DNS", () => {
     expect(codes(result)).not.toContain(DiagnosisCode.SPF_IP_NOT_AUTHORIZED);
   });
 
-  it("does not guess at an unexpanded macro", async () => {
+  it("does not attempt %{p}, which needs a reverse lookup", async () => {
+    // RFC 7208 §7.3 says not to publish it. Where someone has, the answer for a
+    // sender is that we cannot tell — not that they are unauthorised.
     const result = await evaluate({
-      domain: "macro.spf.test",
+      domain: "macroptr.spf.test",
       ip: "198.51.100.7",
     });
 
     expect(ipOutcome(result)).toBe(DiagnosisCode.SPF_IP_UNDETERMINED);
+  });
+
+  it("does not guess at a macro whose input was not given", async () => {
+    // macrosender.spf.test needs the envelope sender for %{l}, and this check
+    // was not told one.
+    const result = await evaluate({
+      domain: "macrosender.spf.test",
+      ip: "198.51.100.7",
+    });
+
+    expect(ipOutcome(result)).toBe(DiagnosisCode.SPF_IP_UNDETERMINED);
+    expect(codes(result)).toContain(DiagnosisCode.SPF_MACRO_NOT_EVALUATED);
   });
 
   it("says so when the address given is not an address", async () => {

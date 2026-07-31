@@ -223,7 +223,7 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
       "SPF_VOID_LOOKUP_LIMIT_EXCEEDED",
     ],
     reason:
-      "The ten-lookup and two-void limits of RFC 7208 4.6.4 are spent across a whole include: tree, so neither is visible in any single record. Each name here is sized to land one term either side of a boundary, which is the only way an off-by-one in the accounting shows up as a failure rather than as a plausible number. The address-matching names carry both an A and a AAAA so that `a` can be shown following the client's family, and a /24 so that a matcher ignoring the prefix is caught.",
+      "The ten-lookup and two-void limits of RFC 7208 4.6.4 are spent across a whole include: tree, so neither is visible in any single record. Each name here is sized to land one term either side of a boundary, which is the only way an off-by-one in the accounting shows up as a failure rather than as a plausible number. The address-matching names carry both an A and a AAAA so that `a` can be shown following the client's family, and a /24 so that a matcher ignoring the prefix is caught. The macro names resolve only for one specific sender, which is what makes an expansion bug visible rather than merely different.",
     role: "auth",
     zone: "spf.test",
   },
