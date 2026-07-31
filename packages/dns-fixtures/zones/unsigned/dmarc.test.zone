@@ -1,0 +1,61 @@
+; DMARC policy discovery and semantics.
+;
+; The organising idea is RFC 7489 6.6.3: receivers query the *exact* name first
+; and fall back to the organizational domain only when that returns nothing.
+; sp= therefore governs a subdomain only when the subdomain publishes nothing of
+; its own. Getting this backwards is common, and this zone makes the difference
+; observable rather than assumed.
+$ORIGIN dmarc.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+; The organizational policy. sp= is deliberately stricter than nothing and
+; weaker than p=, so which one applied is visible in the result.
+_dmarc              IN TXT  "v=DMARC1; p=reject; sp=quarantine; rua=mailto:agg@dmarc.test"
+
+; Publishes its own policy, so the exact-name lookup wins and sp= is irrelevant.
+_dmarc.own          IN TXT  "v=DMARC1; p=none"
+
+; Publishes nothing, so it inherits — and sp=quarantine applies, not p=reject.
+; (No records at all under this name, which is the point.)
+
+; Monitoring only.
+_dmarc.monitor      IN TXT  "v=DMARC1; p=none; rua=mailto:agg@dmarc.test"
+
+; Enforcement on a fraction of mail. The rest is delivered regardless.
+_dmarc.partial      IN TXT  "v=DMARC1; p=reject; pct=20"
+
+; Two policies is no policy at all, per RFC 7489.
+_dmarc.multi        IN TXT  "v=DMARC1; p=reject"
+_dmarc.multi        IN TXT  "v=DMARC1; p=none"
+
+; One policy plus an unrelated TXT is still one policy: non-DMARC records are
+; discarded before the count, so this must NOT read as ambiguous.
+_dmarc.shared       IN TXT  "google-site-verification=abcdef"
+_dmarc.shared       IN TXT  "v=DMARC1; p=reject"
+
+; v= must be the first tag.
+_dmarc.vlast        IN TXT  "p=reject; v=DMARC1"
+
+; A v=DMARC1 record with no policy states nothing.
+_dmarc.nopolicy     IN TXT  "v=DMARC1; rua=mailto:agg@dmarc.test"
+
+; p= must be one of none/quarantine/reject.
+_dmarc.badpolicy    IN TXT  "v=DMARC1; p=block"
+
+; pct above 100 is not a percentage.
+_dmarc.badpct       IN TXT  "v=DMARC1; p=reject; pct=150"
+
+; Reports addressed to a domain that HAS authorised them.
+_dmarc.authorized   IN TXT  "v=DMARC1; p=reject; rua=mailto:agg@reports.test"
+
+; Reports addressed to a domain that has NOT. These are silently discarded, and
+; the domain owner sees no reports and no error — which is the failure this
+; check exists to surface.
+_dmarc.unauthorized IN TXT  "v=DMARC1; p=reject; rua=mailto:agg@unauth-reports.test"
+
+; A report address that is not a usable URI.
+_dmarc.baduri       IN TXT  "v=DMARC1; p=reject; rua=dmarc@dmarc.test"
