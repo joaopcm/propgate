@@ -38,8 +38,13 @@ export interface DomainProfile {
   readonly checks: readonly CheckKind[];
   /** Selectors the platform issued. Empty means DKIM is not expected here. */
   readonly dkimSelectors?: readonly string[];
-  /** Whether this domain is meant to receive mail. */
-  readonly expectsMail: boolean;
+  /**
+   * Whether this domain is meant to receive mail.
+   *
+   * Omit when the caller does not know. Undeliverable mail is only a fault if
+   * someone said the domain should receive it.
+   */
+  readonly expectsMail?: boolean;
   /** Stable identifier, stored alongside the domain and reported in results. */
   readonly id: string;
   /** The `include:` token the platform publishes, if SPF authorisation matters. */

@@ -74,11 +74,24 @@ describe("a null MX means different things to different domains", () => {
   it("is a failure for a domain that expects mail", async () => {
     // Same records, same query. Only the caller's statement of intent differs,
     // which is why the observation and the judgement are separate codes.
-    const result = await evaluate({ domain: "nomail.mx.test" });
+    const result = await evaluate({
+      domain: "nomail.mx.test",
+      expectsMail: true,
+    });
 
     expect(codes(result)).toContain(DiagnosisCode.MX_NULL);
     expect(codes(result)).toContain(DiagnosisCode.MX_MAIL_NOT_ACCEPTED);
     expect(result.verdict).toBe("fail");
+  });
+
+  it("says nothing about delivery when the caller did not state an intent", async () => {
+    // Three states, not two. A caller who did not say has not asserted that the
+    // domain receives mail, and defaulting to "it should" reports every
+    // correctly configured sending-only domain as broken.
+    const result = await evaluate({ domain: "nomail.mx.test" });
+
+    expect(codes(result)).toEqual([DiagnosisCode.MX_NULL]);
+    expect(result.verdict).toBe("pass");
   });
 
   it("rejects a null MX published alongside a real one", async () => {
@@ -159,7 +172,10 @@ describe("no MX at all", () => {
   });
 
   it("fails when there is no address either", async () => {
-    const result = await evaluate({ domain: "undeliverable.mx.test" });
+    const result = await evaluate({
+      domain: "undeliverable.mx.test",
+      expectsMail: true,
+    });
 
     expect(codes(result)).toContain(DiagnosisCode.MX_MAIL_NOT_ACCEPTED);
     expect(result.verdict).toBe("fail");

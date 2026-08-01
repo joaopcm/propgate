@@ -127,7 +127,9 @@ function runOne(
     case "mx":
       return evaluateMx(context(), {
         domain,
-        expectsMail: profile.expectsMail,
+        ...(profile.expectsMail === undefined
+          ? {}
+          : { expectsMail: profile.expectsMail }),
       });
 
     default:

@@ -199,6 +199,9 @@ importers:
         specifier: workspace:*
         version: link:../dns
     devDependencies:
+      '@propgate/dns-fixtures':
+        specifier: workspace:*
+        version: link:../dns-fixtures
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
