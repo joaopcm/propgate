@@ -14,6 +14,7 @@ import type {
 } from "../evaluate/types";
 import { worstVerdict } from "../evaluate/types";
 import type { CheckKind, DomainProfile } from "./profile";
+import { dkimSelectorName } from "./profile";
 
 /**
  * One domain, one answer.
@@ -39,10 +40,29 @@ import type { CheckKind, DomainProfile } from "./profile";
  * about the rest.
  */
 
+/** One selector's own answer, inside the merged DKIM outcome. */
+export interface DkimSelectorOutcome {
+  readonly findings: readonly Finding[];
+  readonly lookups: readonly Lookup[];
+  readonly selector: string;
+  readonly verdict: Verdict;
+}
+
 export interface CheckOutcome {
   readonly findings: readonly Finding[];
   readonly kind: CheckKind;
   readonly lookups: readonly Lookup[];
+  /**
+   * Per-selector detail. Present on the `dkim` outcome and nowhere else.
+   *
+   * Additive rather than a replacement for the merged verdict above, because
+   * both questions are real and they are asked by different callers. "Is DKIM
+   * set up" is what the public checker shows a human; "which of the three keys
+   * we issued is actually published" is what a platform tracking one
+   * requirement per selector needs, and it cannot be recovered from a merged
+   * answer afterwards.
+   */
+  readonly selectors?: readonly DkimSelectorOutcome[];
   readonly verdict: Verdict;
 }
 
@@ -70,26 +90,43 @@ export interface RunOptions {
   readonly resolver: EvaluationContextOptions;
 }
 
+interface DkimRun extends EvaluationResult {
+  readonly selectors: readonly DkimSelectorOutcome[];
+}
+
 /**
- * DKIM is per-selector, so one profile can produce several DKIM outcomes.
+ * DKIM is per-selector, so one profile can produce several DKIM answers.
  *
- * They are merged into one, because a customer asked whether DKIM is set up
- * and the answer is not "yes for selector one".
+ * They are merged, because a customer asked whether DKIM is set up and the
+ * answer is not "yes for selector one" — and they are also kept apart, because
+ * a platform that issued three keys tracks three requirements and a merged
+ * verdict cannot tell it which one is missing. Both, rather than a choice.
  */
-async function runDkim(options: RunOptions): Promise<EvaluationResult> {
+async function runDkim(options: RunOptions): Promise<DkimRun> {
   const selectors = options.profile.dkimSelectors ?? [];
   const results = await Promise.all(
-    selectors.map((selector) =>
-      evaluateDkim(createEvaluationContext(options.resolver), {
-        domain: options.domain,
-        selector,
-      })
-    )
+    selectors.map(async (selector) => {
+      const name = dkimSelectorName(selector);
+      const expectedPublicKey =
+        typeof selector === "string" ? undefined : selector.expectedPublicKey;
+
+      const result = await evaluateDkim(
+        createEvaluationContext(options.resolver),
+        {
+          domain: options.domain,
+          selector: name,
+          ...(expectedPublicKey === undefined ? {} : { expectedPublicKey }),
+        }
+      );
+
+      return { ...result, selector: name };
+    })
   );
 
   return {
     findings: results.flatMap((result) => result.findings),
     lookups: results.flatMap((result) => result.lookups),
+    selectors: results,
     verdict: worstVerdict(results.map((result) => result.verdict)),
   };
 }
@@ -97,7 +134,7 @@ async function runDkim(options: RunOptions): Promise<EvaluationResult> {
 function runOne(
   kind: CheckKind,
   options: RunOptions
-): Promise<EvaluationResult> | undefined {
+): Promise<DkimRun | EvaluationResult> | undefined {
   const { domain, profile, resolver } = options;
   const context = () => createEvaluationContext(resolver);
 
@@ -145,8 +182,10 @@ export async function runChecks(options: RunOptions): Promise<CheckResult> {
     .filter(
       (
         entry
-      ): entry is { kind: CheckKind; running: Promise<EvaluationResult> } =>
-        entry.running !== undefined
+      ): entry is {
+        kind: CheckKind;
+        running: Promise<DkimRun | EvaluationResult>;
+      } => entry.running !== undefined
     );
 
   const results = await Promise.all(planned.map((entry) => entry.running));
@@ -158,6 +197,9 @@ export async function runChecks(options: RunOptions): Promise<CheckResult> {
       findings: result?.findings ?? [],
       kind: entry.kind,
       lookups: result?.lookups ?? [],
+      ...(result !== undefined && "selectors" in result
+        ? { selectors: result.selectors }
+        : {}),
       verdict: result?.verdict ?? "indeterminate",
     };
   });
