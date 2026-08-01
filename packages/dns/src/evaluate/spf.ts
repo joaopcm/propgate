@@ -1,6 +1,8 @@
 import { DiagnosisCode } from "../diagnosis/codes";
+import type { QueryOutcome } from "../transport/types";
 import { RecordType } from "../wire/constants";
 import { recordsOfType } from "../wire/message";
+import { reportAnswerShape } from "./answer";
 import type { EvaluationContext } from "./context";
 import type { IpAddress } from "./spf-ip";
 import { cidrContains, fullPrefix, parseIpAddress } from "./spf-ip";
@@ -134,7 +136,9 @@ interface ExpansionState {
 
 type RecordRead =
   | { readonly kind: "one"; readonly raw: string }
-  | { readonly kind: "none" }
+  // The outcome travels with the absence: what *kind* of nothing came back is
+  // as actionable as the nothing itself. See `reportAnswerShape`.
+  | { readonly kind: "none"; readonly outcome: QueryOutcome }
   | { readonly kind: "multiple"; readonly count: number }
   | { readonly kind: "indeterminate"; readonly detail: string };
 
@@ -189,7 +193,7 @@ async function readSpfAt(
   }
 
   if (candidates.length === 0) {
-    return { kind: "none" };
+    return { kind: "none", outcome };
   }
 
   return { kind: "one", raw: candidates[0] ?? "" };
@@ -1158,6 +1162,10 @@ export async function evaluateSpf(
         "with no SPF record, receivers have nothing to check a sending host against",
       name: check.domain,
     });
+    // What kind of nothing: a name that does not exist, or one that exists with
+    // other records on it and how long the absence will be remembered.
+    reportAnswerShape(context, initial.outcome, check.domain);
+
     return finish(finalVerdict(context));
   }
 

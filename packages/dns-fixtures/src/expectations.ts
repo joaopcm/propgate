@@ -285,6 +285,13 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
     role: "auth",
     zone: "customer.test",
   },
+  {
+    codes: ["NEGATIVE_CACHE_LIKELY", "NODATA_NOT_NXDOMAIN"],
+    reason:
+      "An address and no TXT, so a TXT query is NODATA rather than NXDOMAIN and the answer carries the SOA that says how long that will be remembered. An hour is the interval that generates support tickets: long enough to be disbelieved after a correct edit, short enough that nobody suspects caching. negcache-low.test at 60 seconds is the counterpart that must produce nothing.",
+    role: "auth",
+    zone: "negcache-high.test",
+  },
 ];
 
 /** Every code any fixture is expected to produce. */

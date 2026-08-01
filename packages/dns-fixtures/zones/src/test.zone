@@ -63,6 +63,8 @@ spf                 IN NS   ns1.test.
 customer            IN NS   ns1.test.
 customer            IN NS   ns-divergent.test.
 
+negcache-high        IN NS   ns1.test.
+
 ; Mail routing: null MX, aliased and unresolvable exchanges, implicit delivery.
 mx                  IN NS   ns1.test.
 

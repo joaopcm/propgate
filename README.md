@@ -102,14 +102,14 @@ Delegation is deliberately **not** in v1. It requires enormous trust (our namese
 
 <!-- conformance:start -->
 
-**62 of 69 catalogued requirements** (89%).
+**65 of 71 catalogued requirements** (91%).
 
 | RFC | | Implemented | |
 | --- | --- | --- | --- |
 | [RFC 1034](https://www.rfc-editor.org/rfc/rfc1034) | Domain names — concepts and facilities | 4 / 4 | 100% |
-| [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035) | Domain names — implementation and specification | 4 / 4 | 100% |
+| [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035) | Domain names — implementation and specification | 5 / 5 | 100% |
 | [RFC 2181](https://www.rfc-editor.org/rfc/rfc2181) | Clarifications to the DNS specification | 1 / 2 | 50% |
-| [RFC 2308](https://www.rfc-editor.org/rfc/rfc2308) | Negative caching of DNS queries | 0 / 1 | 0% |
+| [RFC 2308](https://www.rfc-editor.org/rfc/rfc2308) | Negative caching of DNS queries | 2 / 2 | 100% |
 | [RFC 4035](https://www.rfc-editor.org/rfc/rfc4035) | Protocol modifications for DNSSEC | 0 / 1 | 0% |
 | [RFC 4343](https://www.rfc-editor.org/rfc/rfc4343) | Domain name system case insensitivity clarification | 1 / 1 | 100% |
 | [RFC 5321](https://www.rfc-editor.org/rfc/rfc5321) | Simple Mail Transfer Protocol | 1 / 1 | 100% |
@@ -135,7 +135,6 @@ generated from that ledger and CI rejects the README if it has drifted.
 ### What we do not do
 
 - **RFC 2181 §5.2** — All records in an RRset carry the same TTL. Every record in an RRset should carry the same TTL, and a mismatch is a real provider fault. No evaluator compares them yet, so nothing would notice — the resolver keeps per-record TTLs, so this is reachable without new plumbing.
-- **RFC 2308 §5** — Negative answers are cached for the lesser of the SOA minimum and the SOA TTL. The negcache-low fixture exists and no evaluator reads the authority-section SOA yet, so TTL behaviour under negative answers is untested.
 - **RFC 4035 §5** — Validating the DNSSEC chain of trust for an answer. We rely on the resolver we query, and read the AD bit it sets. Validating the chain ourselves would mean shipping a trust anchor and a validator, which is Phase 2 work at the earliest — the fixture tier already carries signed, bogus and insecure-island zones for it.
 - **RFC 7208 §5.5** — Evaluating whether a ptr mechanism matches a given client. Deciding one needs a reverse lookup of the connecting address and a forward confirmation of every name it returns. We report the term as undetermined for a specific sender rather than guessing, which is visible as SPF_IP_UNDETERMINED.
 - **RFC 7208 §6.2** — Fetching and macro-expanding exp= text on a fail. exp= text is fetched only to build a rejection message after the outcome is already decided, so it changes no verdict. Parsing the modifier is implemented; retrieving and expanding the explanation string is not.
