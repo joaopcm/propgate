@@ -18,6 +18,7 @@
   --color-destructive: var(--destructive);
   --color-warning: var(--warning);
   --color-success: var(--success);
+  --color-unknown: var(--unknown);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -42,6 +43,11 @@
   --destructive: #ef4444;
   --warning: #f59e0b;
   --success: #22c55e;
+  /* `indeterminate` is a verdict, not an absence of one: the check did not run.
+     It needs a colour that reads as "unmeasured" rather than as a milder
+     failure, or the distinction the resolver works hard to preserve is thrown
+     away at the last step. */
+  --unknown: #38bdf8;
 
   --radius: 0.625rem;
 }
@@ -55,5 +61,41 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/*
+ * Results arrive all at once and land in sequence, so the eye follows the list
+ * down instead of being handed six rows simultaneously. Short enough that a
+ * fast answer still feels instant.
+ */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The rail while a check is in flight: a slow traverse, not a spinner. */
+@keyframes sweep {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(400%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

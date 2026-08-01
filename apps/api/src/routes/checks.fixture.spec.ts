@@ -88,6 +88,18 @@ describe("a domain that was never configured", () => {
     expect(spf.lookups[0].name).toBe("nodata.test");
     expect(spf.lookups[0].purpose.length).toBeGreaterThan(0);
     expect(spf.lookups[0].server).toBe(`${fixture.address}:${fixture.port}`);
+    // The web client renders the record type and the outcome, so both are part
+    // of the contract rather than incidental.
+    expect(spf.lookups[0].type).toBe(16);
+    expect(spf.lookups[0].status).toBe("answered");
+  });
+
+  it("reports how long the whole check took", async () => {
+    // Rendered next to the verdict, so it is part of the response rather than
+    // something a caller has to time themselves.
+    const { body } = await check({ domain: "customer.test" });
+
+    expect(typeof body.data.elapsedMs).toBe("number");
   });
 });
 
