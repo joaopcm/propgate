@@ -1,4 +1,5 @@
 import { Checker } from "@/components/checker";
+import { env } from "@/env";
 
 export default function Home() {
   return (
@@ -14,10 +15,25 @@ export default function Home() {
 
       <Checker />
 
-      <footer className="mt-24 border-border border-t pt-8 text-muted-foreground/60 text-xs leading-relaxed">
+      <footer className="mt-24 space-y-2 border-border border-t pt-8 text-muted-foreground/60 text-xs leading-relaxed">
         <p>
           Nothing is stored. Every check runs against live DNS at the moment you
           ask, and the queries behind each answer are listed with it.
+        </p>
+        <p>
+          {/* Deliberately a footnote. Someone checking a domain does not care
+              which RFC clauses we implement — but someone deciding whether to
+              build on the library does, and this is where they will look. */}
+          The checks are the same ones in{" "}
+          <a
+            className="underline decoration-transparent underline-offset-2 transition-colors hover:text-foreground hover:decoration-current"
+            href={`${env.NEXT_PUBLIC_DOCS_URL}/conformance`}
+            rel="noreferrer"
+            target="_blank"
+          >
+            @propgate/dns
+          </a>
+          , which publishes what it implements of each RFC and what it does not.
         </p>
       </footer>
     </main>
