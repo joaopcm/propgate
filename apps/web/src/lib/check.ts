@@ -158,6 +158,11 @@ const RECORD_TYPES: Readonly<Record<number, string>> = {
   257: "CAA",
 };
 
+/** Where a finding's own page lives. The slug exists for exactly this. */
+export function docsUrlFor(slug: string): string {
+  return `${env.NEXT_PUBLIC_DOCS_URL}/taxonomy/${slug}`;
+}
+
 export function recordTypeName(type: number): string {
   return RECORD_TYPES[type] ?? String(type);
 }
