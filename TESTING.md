@@ -61,6 +61,18 @@ is mutable state and parallel files trample each other.
 **Do not copy that here.** The DNS fixtures are read-only, stateless zone files.
 Nothing contends. Turning parallelism off would slow the suite for no benefit.
 
+As of `packages/db` the comparison is no longer hypothetical. The `db-postgres`
+project **does** set `fileParallelism: false`, because a shared Postgres is
+exactly the mutable state described above. The rule is unchanged: the setting
+belongs to the project that needs it, and copying it in either direction is the
+mistake.
+
+That package also publishes its port rather than using host networking, which
+is the other half of the same lesson. The DNS services need real port 53 on
+distinct loopbacks because glue records carry no port field; Postgres has no
+such constraint, and taking host networking for consistency only means fighting
+whatever already owns 5432 on a developer machine.
+
 Two things genuinely are shared mutable state, and they get the `dns-serial`
 project:
 
