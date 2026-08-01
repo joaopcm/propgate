@@ -112,6 +112,8 @@ export const DiagnosisCode = {
   PROVIDER_APPENDED_ZONE_NAME: "PROVIDER_APPENDED_ZONE_NAME",
   /** A CNAME was expected but an A/AAAA was observed at the same address. */
   PROVIDER_FLATTENED_CNAME: "PROVIDER_FLATTENED_CNAME",
+  /** Records in one RRset carry different TTLs, so the set expires piecemeal. */
+  RRSET_TTL_MISMATCH: "RRSET_TTL_MISMATCH",
 
   // --- SPF ---
   /** No all mechanism, so the result for an unlisted sender is neutral. */
@@ -493,6 +495,13 @@ export const DIAGNOSIS_REGISTRY: Readonly<
     summary:
       "Your provider flattens CNAMEs into address records. The record is correct; it just looks different when queried.",
   },
+  RRSET_TTL_MISMATCH: {
+    code: DiagnosisCode.RRSET_TTL_MISMATCH,
+    severity: "warning",
+    slug: "rrset-ttl-mismatch",
+    summary:
+      "Records that belong together carry different lifetimes, so some will disappear from resolvers before the others.",
+  },
   SPF_ALL_MISSING: {
     code: DiagnosisCode.SPF_ALL_MISSING,
     severity: "warning",
@@ -702,6 +711,8 @@ export const NOT_LOCALLY_REPRODUCIBLE: Readonly<
 > = {
   ANSWER_DIVERGES_BY_VANTAGE_POINT:
     "Needs genuinely divergent authoritative answers across network locations. The dns-divergent fixture reproduces divergent *answers*, which is what the consensus logic consumes, but real GeoDNS and anycast behaviour is not reproducible locally.",
+  RRSET_TTL_MISMATCH:
+    "A zone file cannot express it. Measured: named-checkzone silently rewrites a mismatched TTL to the first one it saw, and nsd-checkzone warns — so a fixture would be normalised before it was served and the test would assert nothing. In the wild it comes from a server assembling an answer from several sources, or a resolver merging cached records. The comparison itself is pure and unit-tested.",
   TCP_SILENTLY_BLOCKED:
     "Requires a middlebox that drops TCP/53 without an RST. Reproducing it needs NET_ADMIN and an iptables DROP rule inside a bridged container; without that we get ECONNREFUSED, which is a different timing profile. Deferred to Phase 1 as an optional fixture.",
 };

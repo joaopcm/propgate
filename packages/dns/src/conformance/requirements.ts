@@ -64,6 +64,8 @@ const DELEGATION = "src/evaluate/delegation.fixture.spec.ts";
 const WIRE_MESSAGE = "src/wire/message.spec.ts";
 const WIRE_READER = "src/wire/reader.spec.ts";
 const ANSWER = "src/evaluate/answer.fixture.spec.ts";
+const ANSWER_UNIT = "src/evaluate/answer.spec.ts";
+const BUDGET = "src/evaluate/budget.fixture.spec.ts";
 const QUERY = "src/transport/query.fixture.spec.ts";
 
 const SPF_REQUIREMENTS: readonly Requirement[] = [
@@ -336,6 +338,20 @@ const SPF_REQUIREMENTS: readonly Requirement[] = [
       "A DNS failure during evaluation is temperror, distinct from permerror",
     rfc: 7208,
     section: "4.4",
+    status: "implemented",
+  },
+  {
+    proof: [
+      { spec: BUDGET, test: "stops spending lookups once the budget is gone" },
+      {
+        spec: BUDGET,
+        test: "is indeterminate, never a verdict about the domain",
+      },
+    ],
+    requirement:
+      "The total time spent evaluating a record is bounded, not only the number of lookups",
+    rfc: 7208,
+    section: "4.6.4",
     status: "implemented",
   },
   {
@@ -866,11 +882,41 @@ const TRANSPORT_REQUIREMENTS: readonly Requirement[] = [
     status: "implemented",
   },
   {
-    note: "Every record in an RRset should carry the same TTL, and a mismatch is a real provider fault. No evaluator compares them yet, so nothing would notice — the resolver keeps per-record TTLs, so this is reachable without new plumbing.",
-    requirement: "All records in an RRset carry the same TTL",
+    proof: [
+      {
+        spec: QUERY,
+        test: "sets TC for a 4096-bit key when no OPT record is sent",
+      },
+      {
+        spec: QUERY,
+        test: "does NOT truncate a 2048-bit key, whose response is 483 bytes",
+      },
+    ],
+    requirement:
+      "A requestor advertises its receive buffer size in the OPT record, and 512 octets applies when no OPT is sent",
+    rfc: 6891,
+    section: "6.2.3",
+    status: "implemented",
+  },
+  {
+    proof: [
+      {
+        spec: QUERY,
+        test: "still truncates the 4.4 KB TXT even at an advertised 4096",
+      },
+    ],
+    requirement:
+      "A response larger than the advertised buffer is truncated with TC set rather than sent whole",
+    rfc: 6891,
+    section: "6.2.4",
+    status: "implemented",
+  },
+  {
+    proof: [{ spec: ANSWER_UNIT, test: "is true when one record differs" }],
+    requirement: "Every record in an RRset carries the same TTL",
     rfc: 2181,
     section: "5.2",
-    status: "not-implemented",
+    status: "implemented",
   },
   {
     note: "We rely on the resolver we query, and read the AD bit it sets. Validating the chain ourselves would mean shipping a trust anchor and a validator, which is Phase 2 work at the earliest — the fixture tier already carries signed, bogus and insecure-island zones for it.",
@@ -946,6 +992,7 @@ export const RFC_TITLES: Readonly<Record<number, string>> = {
   4343: "Domain name system case insensitivity clarification",
   5321: "Simple Mail Transfer Protocol",
   6376: "DomainKeys Identified Mail (DKIM) signatures",
+  6891: "Extension mechanisms for DNS (EDNS(0))",
   7208: "Sender Policy Framework (SPF)",
   7489: "Domain-based Message Authentication, Reporting and Conformance (DMARC)",
   7505: "A null MX resource record",

@@ -98,6 +98,7 @@ const FAMILIES: ReadonlyArray<{
       "MULTIPLE_",
       "NEGATIVE_",
       "NODATA_",
+      "RRSET_",
       "TCP_",
       "TRUNCATED_",
       "TXT_",
