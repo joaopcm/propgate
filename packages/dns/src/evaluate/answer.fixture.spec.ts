@@ -58,24 +58,24 @@ describe("how long the absence will be remembered", () => {
   it("warns when a negative answer is cached for an hour", async () => {
     // RFC 2308 §5. A customer who adds the record still sees the absence for
     // that long, concludes the fix did not work, and changes something else.
-    const result = await evaluateSpf(context(), {
+    // Against the authoritative server, not the recursive one, and that is the
+    // whole point. Unbound caches the zone's SOA and counts its TTL down, so
+    // asked through the resolver this number shrinks with the age of the tier —
+    // it was 3600 on a cold cache and 3580 twenty seconds later, and once it
+    // falls under the fifteen-minute threshold the finding stops being emitted
+    // at all. A fresh QNAME does not help: the cached rrset is the zone's SOA,
+    // not the name's. The zone's configured value is the fact this asserts.
+    const result = await evaluateSpf(context("auth"), {
       domain: "negcache-high.test",
     });
 
     expect(codes(result)).toContain(DiagnosisCode.NEGATIVE_CACHE_LIKELY);
 
-    // A range, not an exact value: the resolver counts the cached SOA's TTL
-    // down, so asserting 3600 would pass on a cold cache and fail a second
-    // later. The claim that matters is that it is far past the threshold.
     const finding = result.findings.find(
       (entry) => entry.code === DiagnosisCode.NEGATIVE_CACHE_LIKELY
     );
-    const seconds = Number(
-      (finding?.evidence.observed ?? "0s").replace("s", "")
-    );
 
-    expect(seconds).toBeGreaterThan(900);
-    expect(seconds).toBeLessThanOrEqual(3600);
+    expect(finding?.evidence.observed).toBe("3600s");
   });
 
   it("stays quiet at a minute, which nobody notices", async () => {
