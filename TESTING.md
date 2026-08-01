@@ -32,10 +32,11 @@ TC bit, set DO, control the EDNS buffer size, or return RRSIGs. Do not reach for
 | `*.spec.ts` | `dns`, `api`, … | no | yes |
 | `*.fixture.spec.ts` | `dns-fixtures` | yes | yes |
 | `*.serial.spec.ts` | `dns-serial` | yes | **no** |
+| `*.db.spec.ts` | `db-postgres` | yes | **no** |
 
 `*.fixture.spec.ts` and `*.serial.spec.ts` are collected only when
-`PROPGATE_FIXTURES=1`. CI sets it after `docker compose up --wait`, so every PR
-runs them.
+`PROPGATE_FIXTURES=1`; `*.db.spec.ts` only when `PROPGATE_DATABASE=1`. CI sets
+both after `docker compose up --wait`, so every PR runs them.
 
 Gating on an env var rather than on reachability is deliberate: a suite that
 silently skips when the servers are down is worse than one that fails, because
@@ -72,6 +73,17 @@ is the other half of the same lesson. The DNS services need real port 53 on
 distinct loopbacks because glue records carry no port field; Postgres has no
 such constraint, and taking host networking for consistency only means fighting
 whatever already owns 5432 on a developer machine.
+
+## Migrations run in the global setup
+
+`packages/db`'s global setup applies pending migrations after the reachability
+probe. Nobody has to run `pnpm db:migrate` before testing, on a laptop or in CI.
+
+The alternative was a suite whose result depends on whether someone remembered
+to migrate after pulling, and which fails as `relation "tenants" does not exist`
+a long way from that cause. That is exactly how this landed the first time: the
+schema was migrated by hand locally, everything passed, and CI failed on a
+database with no tables in it.
 
 Two things genuinely are shared mutable state, and they get the `dns-serial`
 project:
