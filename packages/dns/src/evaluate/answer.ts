@@ -30,6 +30,28 @@ import type { EvaluationContext } from "./context";
 
 const RCODE_NXDOMAIN = 3;
 
+/**
+ * Whether every record in an RRset carries the same TTL (RFC 2181 §5.2).
+ *
+ * Pure, and tested as such, because the condition cannot be reproduced from a
+ * zone file: `named-checkzone` silently rewrites a mismatched TTL to the first
+ * one it saw, and `nsd-checkzone` warns. Measured, not assumed. It arises in
+ * the wild from a server assembling an answer from more than one source, or a
+ * resolver merging cached records — which is exactly when a customer sees one
+ * record disappear before the others and cannot explain it.
+ */
+export function ttlsDisagree(
+  records: readonly { readonly ttl: number }[]
+): boolean {
+  if (records.length < 2) {
+    return false;
+  }
+
+  const [first] = records;
+
+  return records.some((record) => record.ttl !== first?.ttl);
+}
+
 /** RFC 2308 §5: the negative TTL is the lesser of the SOA minimum and its TTL. */
 export function negativeCacheSeconds(
   outcome: QueryOutcome
@@ -74,6 +96,33 @@ export function reportTransport(
     detail:
       "the answer did not fit in a UDP packet, so it was fetched over TCP; that works, and it stops working behind a middlebox that blocks TCP port 53",
     name,
+  });
+}
+
+/**
+ * An RRset whose records disagree about their TTL.
+ *
+ * §5.2 requires them to be equal, and a receiver "should treat as an error" a
+ * set that is not. The practical harm is that part of the set expires before
+ * the rest, so the answer changes shape with no edit behind it.
+ */
+export function reportTtlDisagreement(
+  context: EvaluationContext,
+  records: readonly { readonly ttl: number }[],
+  name: string
+): void {
+  if (!ttlsDisagree(records)) {
+    return;
+  }
+
+  context.report(DiagnosisCode.RRSET_TTL_MISMATCH, {
+    detail:
+      "RFC 2181 §5.2 requires every record in a set to share a TTL; part of this one will expire before the rest, so the answer changes shape with nothing having been edited",
+    name,
+    observed: [...new Set(records.map((record) => record.ttl))]
+      .sort((a, b) => a - b)
+      .map((ttl) => `${ttl}s`)
+      .join(", "),
   });
 }
 

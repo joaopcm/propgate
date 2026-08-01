@@ -2,6 +2,7 @@ import { isIPv4, isIPv6 } from "node:net";
 import { DiagnosisCode } from "../diagnosis/codes";
 import { RecordType } from "../wire/constants";
 import { recordsOfType } from "../wire/message";
+import { reportTtlDisagreement } from "./answer";
 import type { EvaluationContext } from "./context";
 import type { EvaluationResult, Verdict } from "./types";
 import { verdictFromFindings, worstVerdict } from "./types";
@@ -75,7 +76,13 @@ async function readExchanges(
     return;
   }
 
-  return recordsOfType(outcome.message.answers, "MX").map((record) => ({
+  const mx = recordsOfType(outcome.message.answers, "MX");
+
+  // The MX set is the multi-record RRset most domains have, so it is where a
+  // TTL disagreement is most likely to be seen.
+  reportTtlDisagreement(context, mx, domain);
+
+  return mx.map((record) => ({
     host: normalise(record.rdata.exchange),
     preference: record.rdata.preference,
   }));
