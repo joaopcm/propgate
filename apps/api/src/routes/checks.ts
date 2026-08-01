@@ -102,8 +102,13 @@ function profileFrom(input: z.infer<typeof requestSchema>): DomainProfile {
   return {
     // Everything the caller gave an expectation for, and delegation always.
     checks: (input.checks ?? [...CHECK_KINDS]) as readonly CheckKind[],
-    expectsMail: input.expectsMail ?? true,
     id: "request",
+    // Deliberately not defaulted. A caller who did not say has not asserted
+    // that the domain receives mail, and inventing the assertion here would
+    // report every sending-only domain as broken.
+    ...(input.expectsMail === undefined
+      ? {}
+      : { expectsMail: input.expectsMail }),
     ...(input.caaIssuer === undefined ? {} : { caaIssuer: input.caaIssuer }),
     ...(input.dkimSelectors === undefined
       ? {}

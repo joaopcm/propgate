@@ -33,8 +33,12 @@ export interface MxCheck {
   /**
    * Whether this domain is meant to receive mail.
    *
-   * Defaults to true. Set false for a sending-only domain, where a null MX is
-   * the correct configuration rather than a fault.
+   * Three states, not two: `true`, `false`, and *not stated*. Undeliverable
+   * mail is only a fault if someone said the domain should receive it, and a
+   * caller who did not say — the public checker, a CLI run with no flags — has
+   * not asserted anything. Defaulting either way puts words in their mouth,
+   * and defaulting to `true` in particular reports every correctly configured
+   * sending-only domain as broken.
    */
   readonly expectsMail?: boolean;
 }
@@ -182,9 +186,12 @@ function reportNullMx(
   domain: string,
   exchanges: readonly Exchange[]
 ): boolean {
+  // The detail has to add to the summary rather than restate it: rendered
+  // together in the CLI and the checker, two sentences saying the same thing
+  // read as padding and teach people to skip both.
   context.report(DiagnosisCode.MX_NULL, {
     detail:
-      "RFC 7505: the domain states that it accepts no mail, which is the correct configuration for a domain that only sends",
+      "senders that honour RFC 7505 reject immediately instead of retrying for days, which is the reason to publish it rather than simply having no MX",
     name: domain,
     observed: "0 .",
   });
@@ -250,8 +257,8 @@ export async function evaluateMx(
 
   // The judgement, kept separate from the observations above. Whether any of
   // this is a problem depends on what the domain is for, and only the caller
-  // knows that.
-  if (!deliverable && check.expectsMail !== false) {
+  // knows that — so it is reported only when they said so.
+  if (!deliverable && check.expectsMail === true) {
     context.report(DiagnosisCode.MX_MAIL_NOT_ACCEPTED, {
       detail:
         "this domain is expected to receive mail and nothing can deliver to it; if it only sends, that is correct and the check should say so",

@@ -26,12 +26,13 @@
   "scripts": {
     "build": "tsup",
     "lint": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
     "@propgate/dns": "workspace:*"
   },
   "devDependencies": {
+    "@propgate/dns-fixtures": "workspace:*",
     "@types/node": "^24.13.3",
     "tsup": "^8.5.1",
     "typescript": "^5.7",
