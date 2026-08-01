@@ -3,6 +3,7 @@ import {
   byUrgency,
   type CheckOutcome,
   type CheckResult,
+  docsUrlFor,
   type Finding,
   rankOf,
   recordTypeName,
@@ -94,5 +95,15 @@ describe("recordTypeName", () => {
 
   it("falls back to the number rather than inventing a name", () => {
     expect(recordTypeName(99)).toBe("99");
+  });
+});
+
+const TAXONOMY_PATH = /\/taxonomy\/spf-record-missing$/;
+
+describe("docsUrlFor", () => {
+  it("addresses a finding's own page by its slug", () => {
+    // The API sends a slug on every finding so a consumer can link here without
+    // shipping a copy of the taxonomy. This is that link.
+    expect(docsUrlFor("spf-record-missing")).toMatch(TAXONOMY_PATH);
   });
 });

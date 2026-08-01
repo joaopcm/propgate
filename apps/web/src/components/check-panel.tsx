@@ -6,6 +6,7 @@ import {
   CHECK_LABELS,
   CHECK_QUESTIONS,
   type CheckOutcome,
+  docsUrlFor,
   type Finding,
   recordTypeName,
 } from "@/lib/check";
@@ -69,9 +70,14 @@ function FindingRow({ finding }: { finding: Finding }) {
           </dl>
         ) : null}
 
-        <p className="font-mono text-[0.6875rem] text-muted-foreground/70 tracking-wide">
+        <a
+          className="inline-block font-mono text-[0.6875rem] text-muted-foreground/70 tracking-wide underline decoration-transparent underline-offset-2 transition-colors hover:text-foreground hover:decoration-current"
+          href={docsUrlFor(finding.slug)}
+          rel="noreferrer"
+          target="_blank"
+        >
           {finding.code}
-        </p>
+        </a>
       </div>
     </li>
   );
