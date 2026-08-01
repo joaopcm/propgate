@@ -18,9 +18,14 @@ s1._domainkey   IN TXT ( "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXT
                          "BBBCCCDDDEEEFFFGGGHHHIIIJJJKKKLLLMMMNNNOOOPPPQQQRRRSSSTTTUUU"
                          "VVVWWWXXXYYYZZZ0123456789abcdefghijklmnopqrstuvwxyzIDAQAB" )
 
-; Provider inserted whitespace at the chunk boundary, so the key no longer parses.
-s2._domainkey   IN TXT ( "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTUREAAA "
-                         " BBBCCCDDDEEEFFFGGGIDAQAB" )
+; Split with whitespace at the chunk boundary — and RFC 6376 §2.10 permits
+; exactly this: "a base64string is permitted to include whitespace (FWS) at
+; arbitrary places". Every conforming verifier accepts this key, so a checker
+; that rejects it tells a customer their working DKIM key is broken. The key is
+; the real one from dkim.test, because a made-up value would fail for the other
+; reason and the fixture would prove nothing.
+s2._domainkey   IN TXT ( "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApbBuIv1NwQ/rmgGPN8OufvLBfd2asvyk4ajVkiW2CsC12MohickhGufJPsGNyO/ZXD4b/HnClukz07BZwpJe80wz0w/AfhJCqM8F3v/aVHF7wWnd9wBBPBroTL7kNx5u39NnBZZj8SYJF7zNaQ3rud4ekF+G "
+                         "AyTovT7MUfXHQBgEZn0n5Y4dN7b7VEMi4/97TDCNDJucFywdDmbJ9r6LaCu+l+gWfZGl4rDimTJCw3oCQIpCOGlNrWPwxRLuB0sLR2gR1GT9EqBg3yGforXasq2wqBuZlpI1YXmdldEZh3VRIyft4TeVTHRJAf7/TKuAINb8+LOoXHj5hFYl+C4zUQIDAQAB" )
 
 ; Provider re-emitted the tag prefix on every chunk.
 s3._domainkey   IN TXT ( "v=DKIM1; k=rsa; p=AAAABBBBCCCC"

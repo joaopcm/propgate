@@ -155,16 +155,7 @@ function checkKey(
       observed: raw,
     });
 
-    // A mangled value is also evidence about *how* it broke, which is a
-    // separate, more actionable finding than "the key is unreadable".
-    if (key.issue === "malformed-base64" && key.detail.includes("space")) {
-      context.report(DiagnosisCode.TXT_VALUE_SPLIT_MANGLED, {
-        detail:
-          "the base64 key contains whitespace, which a correct split never produces",
-        name,
-        observed: raw,
-      });
-    }
+    reportRejoin(context, name, raw);
 
     return "fail";
   }
@@ -217,6 +208,35 @@ function checkKey(
  * with the reason it happened. Callers render the derivation; they should not
  * have to re-run anything to explain the result.
  */
+/**
+ * A record whose chunks were rejoined with the tag prefix repeated.
+ *
+ * The signature is a second `v=DKIM1` inside what should be one tag-value list:
+ * the provider emitted the whole prefix on every character-string instead of
+ * splitting the base64. Worth its own finding, because "duplicate tag k=" sends
+ * someone to look at their key when the fault is in how it was stored.
+ *
+ * Whitespace at a chunk boundary is *not* this. RFC 6376 §2.10 permits folding
+ * whitespace inside base64, and reporting it here told people a working key was
+ * broken.
+ */
+function reportRejoin(
+  context: EvaluationContext,
+  name: string,
+  raw: string
+): void {
+  if (raw.toLowerCase().split("v=dkim1").length - 1 < 2) {
+    return;
+  }
+
+  context.report(DiagnosisCode.TXT_VALUE_SPLIT_MANGLED, {
+    detail:
+      "the record contains the v=DKIM1 prefix more than once, so each character-string was stored as a whole record rather than as a piece of one",
+    name,
+    observed: raw,
+  });
+}
+
 export async function evaluateDkim(
   context: EvaluationContext,
   check: DkimCheck
@@ -284,6 +304,11 @@ export async function evaluateDkim(
       name,
       observed: raw,
     });
+
+    // A repeated prefix trips the duplicate-tag check first, and "duplicate tag
+    // k=" sends someone to look at their key when the fault is in how the
+    // provider stored it.
+    reportRejoin(context, name, raw);
 
     return {
       findings: context.findings,

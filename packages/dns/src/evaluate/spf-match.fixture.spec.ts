@@ -150,6 +150,20 @@ describe("qualifiers decide the outcome, not the record's all", () => {
   });
 });
 
+describe("a record that matches nothing", () => {
+  it("is neutral by default when there is no all", async () => {
+    // §4.7. Not a pass and not a fail: the record simply says nothing about
+    // this host. Defaulting either way would invent an opinion the domain
+    // owner did not express.
+    const result = await evaluate({
+      domain: "noall.spf.test",
+      ip: "203.0.113.9",
+    });
+
+    expect(ipOutcome(result)).toBe(DiagnosisCode.SPF_IP_NEUTRAL);
+  });
+});
+
 describe("the a mechanism", () => {
   it("matches the host's own address", async () => {
     const result = await evaluate({

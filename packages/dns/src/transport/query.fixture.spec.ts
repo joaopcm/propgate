@@ -136,7 +136,10 @@ describe("TXT chunk boundaries", () => {
     expect(txt?.rdata.value.slice(18)).not.toContain(" ");
   });
 
-  it("shows the mangled split that inserted whitespace at the boundary", async () => {
+  it("hands the whitespace at a chunk boundary through untouched", async () => {
+    // Not a mangle: RFC 6376 §2.10 permits folding whitespace inside base64,
+    // and the DKIM evaluator strips it. The transport's job is to report what
+    // is on the wire and leave the judging to the layer that knows the rules.
     const outcome = await query({
       name: "s2._domainkey.txt-split.test",
       target: AUTH(),

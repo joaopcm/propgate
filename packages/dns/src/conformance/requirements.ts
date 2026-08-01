@@ -63,6 +63,7 @@ const MX = "src/evaluate/mx.fixture.spec.ts";
 const DELEGATION = "src/evaluate/delegation.fixture.spec.ts";
 const WIRE_MESSAGE = "src/wire/message.spec.ts";
 const WIRE_READER = "src/wire/reader.spec.ts";
+const QUERY = "src/transport/query.fixture.spec.ts";
 
 const SPF_REQUIREMENTS: readonly Requirement[] = [
   {
@@ -337,6 +338,16 @@ const SPF_REQUIREMENTS: readonly Requirement[] = [
     status: "implemented",
   },
   {
+    proof: [
+      { spec: SPF_MATCH, test: "is neutral by default when there is no all" },
+    ],
+    requirement:
+      "A record that matches nothing and has no all evaluates to neutral",
+    rfc: 7208,
+    section: "4.7",
+    status: "implemented",
+  },
+  {
     note: "We audit the record rather than serving a message, so there is no reply to insert a header into.",
     requirement: "Receivers prepend a Received-SPF header",
     rfc: 7208,
@@ -445,6 +456,36 @@ const DKIM_REQUIREMENTS: readonly Requirement[] = [
     requirement: "k=ed25519 keys are a raw 32-byte public key, base64 encoded",
     rfc: 8463,
     section: "3",
+    status: "implemented",
+  },
+  {
+    proof: [
+      {
+        spec: DKIM_RECORD,
+        test: "accepts folding whitespace inside the base64, which §2.10 permits",
+      },
+      {
+        spec: DKIM,
+        test: "accepts a key split with whitespace at the chunk boundary",
+      },
+    ],
+    requirement:
+      "Folding whitespace is permitted at arbitrary places inside a base64 value",
+    rfc: 6376,
+    section: "2.10",
+    status: "implemented",
+  },
+  {
+    proof: [
+      {
+        spec: DKIM,
+        test: "does not treat a key differing only in case as the same key",
+      },
+    ],
+    requirement:
+      "Tag values are case-sensitive unless a tag says otherwise, so base64 key material is compared exactly",
+    rfc: 6376,
+    section: "3.2",
     status: "implemented",
   },
   {
@@ -800,6 +841,37 @@ const TRANSPORT_REQUIREMENTS: readonly Requirement[] = [
     status: "implemented",
   },
   {
+    proof: [{ spec: DKIM, test: "finds a selector published in mixed case" }],
+    requirement: "Domain name comparison is case-insensitive",
+    rfc: 4343,
+    section: "3",
+    status: "implemented",
+  },
+  {
+    proof: [
+      {
+        spec: QUERY,
+        test: "preserves the provider's split rather than silently joining it",
+      },
+      {
+        spec: DKIM,
+        test: "accepts a key split with whitespace at the chunk boundary",
+      },
+    ],
+    requirement:
+      "The character-strings of one TXT rdata concatenate with no separator between them",
+    rfc: 1035,
+    section: "3.3.14",
+    status: "implemented",
+  },
+  {
+    note: "Every record in an RRset should carry the same TTL, and a mismatch is a real provider fault. No evaluator compares them yet, so nothing would notice — the resolver keeps per-record TTLs, so this is reachable without new plumbing.",
+    requirement: "All records in an RRset carry the same TTL",
+    rfc: 2181,
+    section: "5.2",
+    status: "not-implemented",
+  },
+  {
     note: "We rely on the resolver we query, and read the AD bit it sets. Validating the chain ourselves would mean shipping a trust anchor and a validator, which is Phase 2 work at the earliest — the fixture tier already carries signed, bogus and insecure-island zones for it.",
     requirement: "Validating the DNSSEC chain of trust for an answer",
     rfc: 4035,
@@ -833,6 +905,7 @@ export const RFC_TITLES: Readonly<Record<number, string>> = {
   2181: "Clarifications to the DNS specification",
   2308: "Negative caching of DNS queries",
   4035: "Protocol modifications for DNSSEC",
+  4343: "Domain name system case insensitivity clarification",
   5321: "Simple Mail Transfer Protocol",
   6376: "DomainKeys Identified Mail (DKIM) signatures",
   7208: "Sender Policy Framework (SPF)",
