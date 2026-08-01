@@ -32,7 +32,7 @@ TC bit, set DO, control the EDNS buffer size, or return RRSIGs. Do not reach for
 | `*.spec.ts` | `dns`, `api`, … | no | yes |
 | `*.fixture.spec.ts` | `dns-fixtures` | yes | yes |
 | `*.serial.spec.ts` | `dns-serial` | yes | **no** |
-| `*.db.spec.ts` | `db-postgres` | yes | **no** |
+| `*.db.spec.ts` | `db-postgres`, `api-postgres` | yes | **no** |
 
 `*.fixture.spec.ts` and `*.serial.spec.ts` are collected only when
 `PROPGATE_FIXTURES=1`; `*.db.spec.ts` only when `PROPGATE_DATABASE=1`. CI sets
