@@ -33,10 +33,13 @@ TC bit, set DO, control the EDNS buffer size, or return RRSIGs. Do not reach for
 | `*.fixture.spec.ts` | `dns-fixtures` | yes | yes |
 | `*.serial.spec.ts` | `dns-serial` | yes | **no** |
 | `*.db.spec.ts` | `db-postgres`, `api-postgres` | yes | **no** |
+| `*.integration.spec.ts` | `api-integration` | yes, both tiers | **no** |
 
 `*.fixture.spec.ts` and `*.serial.spec.ts` are collected only when
-`PROPGATE_FIXTURES=1`; `*.db.spec.ts` only when `PROPGATE_DATABASE=1`. CI sets
-both after `docker compose up --wait`, so every PR runs them.
+`PROPGATE_FIXTURES=1`; `*.db.spec.ts` only when `PROPGATE_DATABASE=1`;
+`*.integration.spec.ts` needs both, and gets a project of its own rather than a
+flag on one of the others so that running with a single tier up cannot silently
+skip it. CI sets both after `docker compose up --wait`, so every PR runs them.
 
 Gating on an env var rather than on reachability is deliberate: a suite that
 silently skips when the servers are down is worse than one that fails, because
@@ -74,6 +77,25 @@ distinct loopbacks because glue records carry no port field; Postgres has no
 such constraint, and taking host networking for consistency only means fighting
 whatever already owns 5432 on a developer machine.
 
+Two things genuinely are shared mutable state, and they get the `dns-serial`
+project:
+
+- **Unbound's cache.** Most cache-sensitive assertions should use
+  `uniqueLabel()` for a fresh QNAME instead, which needs no coordination at all.
+  Reserve an explicit cache flush for `*.serial.spec.ts`.
+- **Zone mutation.** Anything that rewrites a zone and reloads a server.
+
+## One database per package
+
+`turbo test` runs packages concurrently and every Postgres-backed spec truncates
+from the root of the graph between tests, so two packages pointed at one
+database means each wiping the other's rows mid-test. Each package derives its
+own name from `DATABASE_URL` — `propgate_test_db`, `propgate_test_api` — and the
+global setup creates it on first use. Nothing to provision by hand.
+
+That race passes for as long as both suites stay fast, which is exactly what
+makes it worth removing before it starts failing somewhere unrelated.
+
 ## Migrations run in the global setup
 
 `packages/db`'s global setup applies pending migrations after the reachability
@@ -84,14 +106,6 @@ to migrate after pulling, and which fails as `relation "tenants" does not exist`
 a long way from that cause. That is exactly how this landed the first time: the
 schema was migrated by hand locally, everything passed, and CI failed on a
 database with no tables in it.
-
-Two things genuinely are shared mutable state, and they get the `dns-serial`
-project:
-
-- **Unbound's cache.** Most cache-sensitive assertions should use
-  `uniqueLabel()` for a fresh QNAME instead, which needs no coordination at all.
-  Reserve an explicit cache flush for `*.serial.spec.ts`.
-- **Zone mutation.** Anything that rewrites a zone and reloads a server.
 
 ## Structure
 

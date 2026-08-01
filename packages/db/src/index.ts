@@ -13,6 +13,20 @@ export {
   createApiKey,
   revokeApiKey,
 } from "./queries/api-keys";
+export type {
+  DomainRow,
+  RegisterOutcome,
+  TimelineEntry,
+} from "./queries/domains";
+export {
+  deleteDomain,
+  domainByExternalId,
+  domainById,
+  domainByName,
+  domainTimeline,
+  registerDomain,
+  saveCheck,
+} from "./queries/domains";
 export type { ProfileVersion } from "./queries/profiles";
 export {
   createProfileVersion,
@@ -21,6 +35,13 @@ export {
 } from "./queries/profiles";
 export type { Observation } from "./queries/record-changes";
 export { recordObservation } from "./queries/record-changes";
+export type {
+  DomainResult,
+  DomainState,
+  RequirementResult as StoredRequirementResult,
+  StoredVerdict,
+} from "./schema/domains";
+export { domains } from "./schema/domains";
 export type {
   ProfileDefinition,
   ProfileRequirement,

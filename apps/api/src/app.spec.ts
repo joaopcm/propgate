@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import app from "./app";
+import { createApp } from "./app";
+
+// No database: the public checker is the whole product without one, and these
+// specs prove the app still stands up that way.
+const app = createApp({ resolver: { address: "127.0.0.1", port: 53 } });
 
 describe("GET /health", () => {
   it("reports ok so the container healthcheck has something to hit", async () => {

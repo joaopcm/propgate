@@ -8,7 +8,17 @@ import type { Context } from "hono";
 
 export type ResourceObject = "check" | "lookup" | "diagnosis";
 
-export type ErrorStatus = 400 | 401 | 403 | 404 | 408 | 422 | 429 | 500 | 502;
+export type ErrorStatus =
+  | 400
+  | 401
+  | 403
+  | 404
+  | 408
+  | 409
+  | 422
+  | 429
+  | 500
+  | 502;
 
 export function success<T>(
   c: Context,

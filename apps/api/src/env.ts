@@ -5,6 +5,14 @@ export const env = createEnv({
   emptyStringAsUndefined: true,
   runtimeEnv: process.env,
   server: {
+    /**
+     * Required at boot, unlike the resolver's defaults.
+     *
+     * The authenticated routes are the product; starting without a database and
+     * discovering it on the first request is the kind of failure that reaches a
+     * partner before it reaches us.
+     */
+    DATABASE_URL: z.string().url(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),

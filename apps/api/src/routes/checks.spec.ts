@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createApp } from "../app";
-import { CHECKS_PER_MINUTE, rejectDomain } from "./checks";
+import { rejectDomain } from "../utils/domain-name";
+import { CHECKS_PER_MINUTE } from "./checks";
 
 /**
  * Everything about the route that does not need DNS.
