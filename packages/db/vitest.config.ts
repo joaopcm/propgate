@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { testDatabaseUrl } from "./src/test/database-url";
 
 /**
  * Two projects, split by what they need — the same shape as `packages/dns`.
@@ -14,6 +15,18 @@ import { defineConfig } from "vitest/config";
  * warns against copying that setting into the DNS specs, where the fixtures are
  * read-only and nothing contends. The warning runs both ways.
  */
+/**
+ * A database of this package's own, so `turbo test` running packages
+ * concurrently cannot have one truncating another's rows mid-test. Set on
+ * `process.env` for globalSetup, which runs here in the main process, and
+ * passed through `test.env` for the workers.
+ */
+const DATABASE_URL = testDatabaseUrl("db");
+
+if (DATABASE_URL !== "") {
+  process.env.DATABASE_URL = DATABASE_URL;
+}
+
 const projects = [
   {
     extends: true,
@@ -29,6 +42,7 @@ if (process.env.PROPGATE_DATABASE === "1") {
   projects.push({
     extends: true,
     test: {
+      env: { DATABASE_URL },
       fileParallelism: false,
       globalSetup: ["./src/test/global-setup.ts"],
       include: ["src/**/*.db.spec.ts"],

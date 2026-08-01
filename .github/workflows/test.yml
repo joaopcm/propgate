@@ -80,6 +80,7 @@ jobs:
           pnpm --filter @propgate/cli exec vitest run --project cli-fixtures
           pnpm --filter @propgate/db exec vitest run --project db-postgres
           pnpm --filter @propgate/api exec vitest run --project api-postgres
+          pnpm --filter @propgate/api exec vitest run --project api-integration
 
       # Turns a mystery DNS timeout into a 30-second diagnosis. Worth the six
       # lines every single time it fires.

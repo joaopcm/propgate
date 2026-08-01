@@ -7,6 +7,49 @@ const MIGRATIONS_FOLDER = fileURLToPath(
   new URL("../../drizzle", import.meta.url)
 );
 
+/** Postgres' "database already exists", which is a concurrent create winning. */
+const DUPLICATE_DATABASE = "42P04";
+
+function isDuplicateDatabase(cause: unknown): boolean {
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    "code" in cause &&
+    cause.code === DUPLICATE_DATABASE
+  );
+}
+
+/**
+ * Create the per-package database if it is not there yet.
+ *
+ * The compose service ships one database; each package appends its own suffix
+ * to it (see `database-url.ts`), so the rest have to be made on first use.
+ * Interpolated rather than parameterised because `CREATE DATABASE` takes no
+ * parameters — the name comes from our own vitest config, never from input.
+ */
+async function ensureDatabase(url: string): Promise<void> {
+  const target = new URL(url);
+  const name = decodeURIComponent(target.pathname.slice(1));
+  const admin = new URL(url);
+
+  admin.pathname = "/postgres";
+
+  const client = postgres(admin.toString(), {
+    max: 1,
+    onnotice: () => undefined,
+  });
+
+  try {
+    await client.unsafe(`create database "${name.replace(/"/g, '""')}"`);
+  } catch (cause) {
+    if (!isDuplicateDatabase(cause)) {
+      throw cause;
+    }
+  } finally {
+    await client.end();
+  }
+}
+
 /**
  * Fails loudly when the database is missing, then brings it up to date.
  *
@@ -27,6 +70,14 @@ export default async function setup(): Promise<void> {
     throw new Error(
       "PROPGATE_DATABASE=1 but DATABASE_URL is unset. Run `pnpm db:up`."
     );
+  }
+
+  try {
+    await ensureDatabase(url);
+  } catch (cause) {
+    throw new Error(`Postgres unreachable at ${url} — run \`pnpm db:up\``, {
+      cause,
+    });
   }
 
   const client = postgres(url, { max: 1, onnotice: () => undefined });
