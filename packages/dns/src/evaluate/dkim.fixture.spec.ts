@@ -186,15 +186,57 @@ describe("the wrong key", () => {
 });
 
 describe("a mangled split", () => {
-  it("names whitespace in the key as the cause", async () => {
+  it("accepts a key split with whitespace at the chunk boundary", async () => {
+    // RFC 6376 §2.10 permits folding whitespace at arbitrary places inside a
+    // base64 value, and every 2048-bit key is split by necessity. Rejecting
+    // this told a customer their working key was broken.
     const result = await evaluate({
       domain: "txt-split.test",
       selector: "s2",
     });
 
+    expect(result.verdict).toBe("pass");
+    expect(codes(result)).not.toContain(DiagnosisCode.DKIM_KEY_UNPARSEABLE);
+    expect(codes(result)).not.toContain(DiagnosisCode.TXT_VALUE_SPLIT_MANGLED);
+  });
+
+  it("finds a selector published in mixed case", async () => {
+    // RFC 4343: DNS name comparison is case-insensitive, so a provider that
+    // stored the selector as S6._DomainKey must still be found by the
+    // lowercase name every generator emits.
+    const result = await evaluate({
+      domain: "txt-split.test",
+      selector: "s6",
+    });
+
+    expect(codes(result)).not.toContain(DiagnosisCode.DKIM_RECORD_MISSING);
+  });
+
+  it("does not treat a key differing only in case as the same key", async () => {
+    // The other half of the rule, and the reason it is worth a test: names fold
+    // case and base64 payloads do not. Comparing them case-insensitively would
+    // pass a domain that published somebody else's key.
+    // s5 publishes the lowercase of this. If the comparison folded case, the
+    // two would match.
+    const result = await evaluate({
+      domain: "txt-split.test",
+      expectedPublicKey: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTUREAAA",
+      selector: "s5",
+    });
+
     expect(result.verdict).toBe("fail");
-    expect(codes(result)).toContain(DiagnosisCode.DKIM_KEY_UNPARSEABLE);
-    // The second finding is the more actionable one: how it broke.
+  });
+
+  it("reports a rejoin that repeated the tag prefix on every chunk", async () => {
+    // s3 is the mangle that is actually a mangle: the provider stored each
+    // character-string as a whole record. "duplicate tag k=" would send someone
+    // to look at their key when the fault is in how it was stored.
+    const result = await evaluate({
+      domain: "txt-split.test",
+      selector: "s3",
+    });
+
+    expect(result.verdict).toBe("fail");
     expect(codes(result)).toContain(DiagnosisCode.TXT_VALUE_SPLIT_MANGLED);
   });
 

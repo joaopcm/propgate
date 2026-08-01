@@ -151,16 +151,41 @@ describe("parseDkimKey", () => {
     }
   });
 
-  it("names whitespace as the cause when a split was rejoined badly", () => {
-    const mangled = `${RSA_2048.slice(0, 100)} ${RSA_2048.slice(100)}`;
-    const key = parseDkimKey(record(`v=DKIM1; p=${mangled}`));
+  it("accepts folding whitespace inside the base64, which §2.10 permits", () => {
+    // Every 2048-bit key is split across character-strings by necessity, and a
+    // provider that rejoins the chunks with a space has produced a record every
+    // conforming verifier accepts. This used to be rejected, which meant telling
+    // a customer their working key was broken.
+    const split = `${RSA_2048.slice(0, 100)} ${RSA_2048.slice(100)}`;
+    const key = parseDkimKey(record(`v=DKIM1; p=${split}`));
+
+    expect(key.ok).toBe(true);
+  });
+
+  it("reads the same key whether or not it was folded", () => {
+    const folded = parseDkimKey(
+      record(`v=DKIM1; p=${RSA_2048.slice(0, 60)}\t${RSA_2048.slice(60)}`)
+    );
+    const whole = parseDkimKey(record(`v=DKIM1; p=${RSA_2048}`));
+
+    expect(folded.ok && whole.ok).toBe(true);
+    if (folded.ok && whole.ok) {
+      expect(folded.type).toBe(whole.type);
+      expect(folded.type === "rsa" && whole.type === "rsa").toBe(true);
+    }
+  });
+
+  it("still rejects a character that is not base64 and names it", () => {
+    // Not a semicolon: that would be eaten by the tag-list split before the
+    // key parser ever sees it.
+    const key = parseDkimKey(
+      record(`v=DKIM1; p=${RSA_2048.slice(0, 40)}*oops`)
+    );
 
     expect(key.ok).toBe(false);
     if (!key.ok) {
       expect(key.issue).toBe("malformed-base64");
-      // The detail is the actionable part — "invalid base64" alone sends people
-      // looking at the wrong thing.
-      expect(key.detail).toContain("split and rejoined");
+      expect(key.detail).toContain('"*"');
     }
   });
 

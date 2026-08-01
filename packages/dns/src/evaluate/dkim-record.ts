@@ -65,17 +65,32 @@ export type DkimKeyResult =
       readonly detail: string;
     };
 
-/** Strict base64: DKIM keys are base64, and folding whitespace hides mangling. */
 const STRICT_BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
+
+/**
+ * Folding whitespace, which RFC 6376 §2.10 permits *inside* a base64 value:
+ *
+ *   base64string = ALPHADIGITPS *([FWS] ALPHADIGITPS)
+ *                  [ [FWS] "=" [ [FWS] "=" ] ]
+ *
+ * and the note under key-p-tag says it outright — "a base64string is permitted
+ * to include whitespace (FWS) at arbitrary places". Every 2048-bit key is split
+ * across character-strings by necessity, and a provider that rejoins the chunks
+ * with a space has produced a record every conforming verifier accepts.
+ *
+ * This file used to reject those, which meant telling a customer their working
+ * DKIM key was broken. Stripped before validating, never before comparing: two
+ * keys differing only in whitespace are the same key.
+ */
+const FOLDING_WHITESPACE = /[\t\n\r ]/g;
 const ED25519_KEY_BYTES = 32;
 
 /**
  * Split a tag-value list on semicolons.
  *
- * Whitespace *around* tags and values is legal and ignored (RFC 6376 §3.2), so
- * it is stripped here. Whitespace *inside* a base64 value is not legal, which is
- * why `parseKey` uses a strict pattern rather than stripping again — that is the
- * whole TXT_VALUE_SPLIT_MANGLED signal, and washing it out here would lose it.
+ * Whitespace around tags and values is legal and ignored (RFC 6376 §3.2), so it
+ * is stripped here. Whitespace *inside* a base64 value is legal too — see
+ * FOLDING_WHITESPACE — and `parseDkimKey` strips that before decoding.
  */
 export function parseDkimRecord(value: string): DkimParseResult {
   const trimmed = value.trim();
@@ -180,7 +195,9 @@ export function parseDkimRecord(value: string): DkimParseResult {
  * deliberately, so it gets its own issue and its own diagnosis code.
  */
 export function parseDkimKey(record: DkimRecord): DkimKeyResult {
-  const base64 = record.publicKeyBase64;
+  // §2.10 permits FWS at arbitrary places inside the value, so it is removed
+  // before anything judges the encoding.
+  const base64 = record.publicKeyBase64.replace(FOLDING_WHITESPACE, "");
 
   if (base64.length === 0) {
     return {
@@ -191,16 +208,14 @@ export function parseDkimKey(record: DkimRecord): DkimKeyResult {
   }
 
   if (!STRICT_BASE64.test(base64)) {
-    // Almost always a provider that split the value and rejoined it with a
-    // space, or wrapped it across lines. The character that broke it is worth
-    // naming, since "invalid base64" alone sends people looking in the wrong place.
+    // Naming the character that broke it: "invalid base64" alone sends people
+    // looking in the wrong place. A ";" or a mid-string "=" here almost always
+    // means the provider re-emitted the tag prefix on every chunk, which the
+    // evaluator reports separately as a mangled split.
     const offender = [...base64].find((char) => !STRICT_BASE64.test(char));
 
     return {
-      detail:
-        offender === " "
-          ? "contains a space, which usually means the value was split and rejoined incorrectly"
-          : `contains ${JSON.stringify(offender ?? "?")}, which is not valid base64`,
+      detail: `contains ${JSON.stringify(offender ?? "?")}, which is not valid base64`,
       issue: "malformed-base64",
       ok: false,
     };
