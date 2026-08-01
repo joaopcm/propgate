@@ -1,10 +1,17 @@
 // biome-ignore-all lint/performance/noBarrelFile: intentional package entry point
 
-export type { CheckKind, DomainProfile } from "./check/profile";
-export { CHECK_KINDS, fullMail, sendingOnly, webOnly } from "./check/profile";
+export type { CheckKind, DkimSelector, DomainProfile } from "./check/profile";
+export {
+  CHECK_KINDS,
+  dkimSelectorName,
+  fullMail,
+  sendingOnly,
+  webOnly,
+} from "./check/profile";
 export type {
   CheckOutcome,
   CheckResult,
+  DkimSelectorOutcome,
   RunOptions,
 } from "./check/run";
 export { outcomeFor, runChecks } from "./check/run";

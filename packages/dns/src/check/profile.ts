@@ -25,6 +25,26 @@ export const CHECK_KINDS = [
 
 export type CheckKind = (typeof CHECK_KINDS)[number];
 
+/**
+ * A selector, or a selector with the key that was issued for it.
+ *
+ * The bare string asks whether a valid key is published there. The object asks
+ * whether the key we issued is the one published, which is the difference
+ * between passing a domain that pasted a competitor's record and catching it.
+ * Most callers want the first, so it stays the cheap spelling.
+ */
+export type DkimSelector =
+  | string
+  | {
+      readonly expectedPublicKey?: string;
+      readonly selector: string;
+    };
+
+/** The selector name, whichever spelling was used. */
+export function dkimSelectorName(selector: DkimSelector): string {
+  return typeof selector === "string" ? selector : selector.selector;
+}
+
 export interface DomainProfile {
   /**
    * The certificate authority that must be authorised.
@@ -37,7 +57,7 @@ export interface DomainProfile {
   /** Which checks to run. Anything absent is not merely passing — it is unasked. */
   readonly checks: readonly CheckKind[];
   /** Selectors the platform issued. Empty means DKIM is not expected here. */
-  readonly dkimSelectors?: readonly string[];
+  readonly dkimSelectors?: readonly DkimSelector[];
   /**
    * Whether this domain is meant to receive mail.
    *
@@ -60,7 +80,7 @@ export interface DomainProfile {
  * MX is the right answer rather than a fault.
  */
 export function sendingOnly(options: {
-  dkimSelectors?: readonly string[];
+  dkimSelectors?: readonly DkimSelector[];
   spfInclude?: string;
 }): DomainProfile {
   return {
@@ -78,7 +98,7 @@ export function sendingOnly(options: {
 
 /** A domain that both sends and receives. */
 export function fullMail(options: {
-  dkimSelectors?: readonly string[];
+  dkimSelectors?: readonly DkimSelector[];
   spfInclude?: string;
 }): DomainProfile {
   return {

@@ -13,8 +13,19 @@ export {
   createApiKey,
   revokeApiKey,
 } from "./queries/api-keys";
+export type { ProfileVersion } from "./queries/profiles";
+export {
+  createProfileVersion,
+  currentProfileVersion,
+  profileVersionById,
+} from "./queries/profiles";
 export type { Observation } from "./queries/record-changes";
 export { recordObservation } from "./queries/record-changes";
+export type {
+  ProfileDefinition,
+  ProfileRequirement,
+} from "./schema/profiles";
+export { profiles } from "./schema/profiles";
 export { tenants } from "./schema/tenants";
 // A test helper on the entry point, deliberately: the package is private and
 // never published, and every consumer with a Postgres-backed spec needs the

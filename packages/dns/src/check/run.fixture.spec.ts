@@ -196,3 +196,69 @@ describe("the verdict is the worst of the parts", () => {
     expect(result.verdict).toBe("fail");
   });
 });
+
+describe("DKIM outcomes, per selector", () => {
+  it("keeps each selector's answer alongside the merged one", async () => {
+    // Both questions are real. "Is DKIM set up" is what a human is shown; a
+    // platform that issued two keys tracks two requirements and cannot recover
+    // which one is missing from a merged verdict.
+    const result = await run("dkim.test", {
+      checks: ["dkim"],
+      dkimSelectors: ["valid", "revoked"],
+      id: "two-selectors",
+    });
+    const dkim = outcomeFor(result, "dkim");
+
+    expect(dkim?.selectors?.map((entry) => entry.selector)).toEqual([
+      "valid",
+      "revoked",
+    ]);
+    expect(dkim?.selectors?.[0]?.verdict).toBe("pass");
+    expect(dkim?.selectors?.[1]?.verdict).not.toBe("pass");
+    // The merged verdict is still the worst of the parts.
+    expect(dkim?.verdict).toBe(dkim?.selectors?.[1]?.verdict);
+  });
+
+  it("attributes a finding to the selector that produced it", async () => {
+    const result = await run("dkim.test", {
+      checks: ["dkim"],
+      dkimSelectors: ["valid", "short"],
+      id: "two-selectors",
+    });
+    const selectors = outcomeFor(result, "dkim")?.selectors;
+
+    expect(selectors?.[0]?.findings).toEqual([]);
+    expect(selectors?.[1]?.findings.map((finding) => finding.code)).toContain(
+      DiagnosisCode.DKIM_KEY_TOO_SHORT
+    );
+  });
+
+  it("carries the expected key through, so the wrong key is caught", async () => {
+    // A selector given as a bare string asks "is a valid key published". Given
+    // with the key we issued it asks "is *our* key published", which is what
+    // catches a domain that pasted a competitor's record.
+    const result = await run("dkim.test", {
+      checks: ["dkim"],
+      dkimSelectors: [
+        {
+          expectedPublicKey: "not-the-key-that-is-published",
+          selector: "valid",
+        },
+      ],
+      id: "expected-key",
+    });
+
+    expect(
+      outcomeFor(result, "dkim")?.selectors?.[0]?.findings.map(
+        (finding) => finding.code
+      )
+    ).toContain(DiagnosisCode.DKIM_KEY_MISMATCH);
+  });
+
+  it("leaves selectors off every other check", async () => {
+    const result = await run("customer.test", sendingOnly(PLATFORM));
+
+    expect(outcomeFor(result, "spf")?.selectors).toBeUndefined();
+    expect(outcomeFor(result, "dkim")?.selectors).toHaveLength(1);
+  });
+});
