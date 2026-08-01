@@ -2,6 +2,9 @@ import { DIAGNOSIS_REGISTRY } from "@propgate/dns";
 import { describe, expect, it } from "vitest";
 import { allEntries, entryBySlug, families, unfiled } from "./taxonomy";
 
+/** Lowercase words joined by single hyphens, and nothing else. */
+const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
 /**
  * Guards on the published taxonomy.
  *
@@ -24,18 +27,20 @@ describe("slugs", () => {
 
   it("are safe in a URL without escaping", () => {
     for (const definition of Object.values(DIAGNOSIS_REGISTRY)) {
-      expect(definition.slug, definition.code).toMatch(
-        /^[a-z0-9]+(-[a-z0-9]+)*$/
-      );
+      expect(definition.slug, definition.code).toMatch(SLUG);
       expect(encodeURIComponent(definition.slug)).toBe(definition.slug);
     }
   });
 
   it("resolve to the code they belong to", () => {
     for (const definition of Object.values(DIAGNOSIS_REGISTRY)) {
-      expect(entryBySlug(definition.slug)?.definition.code).toBe(
-        definition.code
-      );
+      const found = entryBySlug(definition.slug);
+
+      if (found === undefined) {
+        throw new Error(`no page resolves for ${definition.code}`);
+      }
+
+      expect(found.definition.code).toBe(definition.code);
     }
   });
 
