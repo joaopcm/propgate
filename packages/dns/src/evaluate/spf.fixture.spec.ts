@@ -277,7 +277,11 @@ describe("permanent errors", () => {
     const result = await evaluate({ domain: "norecord.spf.test" });
 
     expect(result.verdict).toBe("fail");
-    expect(codes(result)).toEqual([DiagnosisCode.SPF_RECORD_MISSING]);
+    expect(codes(result)).toContain(DiagnosisCode.SPF_RECORD_MISSING);
+    // norecord.spf.test has an address and no TXT, so the name exists and the
+    // shape of the absence is worth saying: this is a record published at the
+    // wrong name, not one that was never added.
+    expect(codes(result)).toContain(DiagnosisCode.NODATA_NOT_NXDOMAIN);
   });
 });
 

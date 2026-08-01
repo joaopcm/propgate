@@ -705,3 +705,32 @@ export const NOT_LOCALLY_REPRODUCIBLE: Readonly<
   TCP_SILENTLY_BLOCKED:
     "Requires a middlebox that drops TCP/53 without an RST. Reproducing it needs NET_ADMIN and an iptables DROP rule inside a bridged container; without that we get ECONNREFUSED, which is a different timing profile. Deferred to Phase 1 as an optional fixture.",
 };
+
+/**
+ * Codes that are published but that no evaluator can produce yet.
+ *
+ * A code in the taxonomy with nothing behind it is a promise we do not keep: it
+ * is on the docs site, in the API's registry, and a consumer switching on it
+ * waits forever. `emission.spec.ts` requires every code to be reported
+ * somewhere or listed here with the reason and what it would take.
+ *
+ * This is deliberately separate from `NOT_LOCALLY_REPRODUCIBLE`, which is about
+ * whether a *fixture* can produce a code. A code can be perfectly reproducible
+ * and still unreachable because nothing looks for it — which is exactly how
+ * these nine came to be published.
+ */
+export const NOT_YET_EMITTED: Readonly<Partial<Record<DiagnosisCode, string>>> =
+  {
+    ANSWER_DIVERGES_BY_VANTAGE_POINT:
+      "Needs more than one vantage point to compare, which arrives with the consensus and hysteresis work in Phase 2. One resolver cannot disagree with itself.",
+    DNSSEC_BOGUS:
+      "Needs a validating resolver and a permissive one answering the same question, so that SERVFAIL can be attributed to validation rather than to the zone being down. The fixture tier has both; a single configured target cannot tell them apart.",
+    DNSSEC_INSECURE_ISLAND:
+      "Needs a DS lookup at the parent and a DNSKEY lookup at the child, walked as a pair. The insecure-island.test fixture is ready and no evaluator asks for either record yet.",
+    PROVIDER_FLATTENED_CNAME:
+      "Needs the addresses of our own infrastructure to compare against, so a flattened CNAME can be told from a genuinely wrong target. That is a deployment fact rather than a DNS one, and there is no deployment yet.",
+    TCP_SILENTLY_BLOCKED:
+      "See NOT_LOCALLY_REPRODUCIBLE: distinguishing a silent drop from a refusal needs a middlebox, and the timing profile is what identifies it.",
+    WILDCARD_FALSE_POSITIVE:
+      "Needs a behavioural probe — query a name nobody would publish and see whether it answers — which costs a lookup on every check. Worth adding with the check pipeline's budget in view rather than bolted onto one evaluator.",
+  };

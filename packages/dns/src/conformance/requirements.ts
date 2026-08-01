@@ -63,6 +63,7 @@ const MX = "src/evaluate/mx.fixture.spec.ts";
 const DELEGATION = "src/evaluate/delegation.fixture.spec.ts";
 const WIRE_MESSAGE = "src/wire/message.spec.ts";
 const WIRE_READER = "src/wire/reader.spec.ts";
+const ANSWER = "src/evaluate/answer.fixture.spec.ts";
 const QUERY = "src/transport/query.fixture.spec.ts";
 
 const SPF_REQUIREMENTS: readonly Requirement[] = [
@@ -879,12 +880,49 @@ const TRANSPORT_REQUIREMENTS: readonly Requirement[] = [
     status: "not-implemented",
   },
   {
-    note: "The negcache-low fixture exists and no evaluator reads the authority-section SOA yet, so TTL behaviour under negative answers is untested.",
+    proof: [
+      {
+        spec: ANSWER,
+        test: "warns when a negative answer is cached for an hour",
+      },
+      { spec: ANSWER, test: "stays quiet at a minute, which nobody notices" },
+    ],
     requirement:
-      "Negative answers are cached for the lesser of the SOA minimum and the SOA TTL",
+      "A negative answer is remembered for the lesser of the SOA minimum and the SOA TTL",
     rfc: 2308,
     section: "5",
-    status: "not-implemented",
+    status: "implemented",
+  },
+  {
+    proof: [
+      { spec: ANSWER, test: "says the name exists when it does" },
+      {
+        spec: ANSWER,
+        test: "stays quiet when the name genuinely does not exist",
+      },
+    ],
+    requirement:
+      "NODATA and NXDOMAIN are distinct: one says the type is absent, the other that the name is",
+    rfc: 2308,
+    section: "2",
+    status: "implemented",
+  },
+  {
+    proof: [
+      {
+        spec: ANSWER,
+        test: "is reported, because it is a hair away from not arriving",
+      },
+      {
+        spec: QUERY,
+        test: "retrieves the whole 4096-bit key by retrying over TCP",
+      },
+    ],
+    requirement:
+      "A truncated answer is retried over TCP rather than used as received",
+    rfc: 1035,
+    section: "4.2.2",
+    status: "implemented",
   },
 ];
 

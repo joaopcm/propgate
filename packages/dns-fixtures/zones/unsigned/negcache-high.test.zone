@@ -1,0 +1,21 @@
+; NEGATIVE_CACHE_LIKELY.
+;
+; RFC 2308 §5: a negative answer is cached for the lesser of the SOA minimum and
+; the SOA's own TTL. This zone sets both to an hour, so a customer who adds the
+; missing record still sees the absence for that long — long enough to conclude
+; the fix did not work, short enough that nobody suspects caching.
+;
+; The counterpart is negcache-low.test at 60 seconds, which nobody notices and
+; which must therefore produce no finding.
+$ORIGIN negcache-high.test.
+$TTL 3600
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 3600 )
+@       IN NS   ns1.test.
+
+; An address and no TXT, so a TXT query is NODATA rather than NXDOMAIN: the name
+; exists, the type does not, and the answer carries the SOA that says how long
+; that will be remembered. Both findings arrive together, which is realistic —
+; and an apex TXT here would make the answer positive and carry no SOA at all.
+@       IN A    198.51.100.90

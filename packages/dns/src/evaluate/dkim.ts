@@ -1,6 +1,8 @@
 import { DiagnosisCode } from "../diagnosis/codes";
+import type { QueryOutcome } from "../transport/types";
 import { RecordType } from "../wire/constants";
 import { recordsOfType } from "../wire/message";
+import { reportAnswerShape, reportTransport } from "./answer";
 import type { EvaluationContext } from "./context";
 import {
   type DkimRecord,
@@ -69,9 +71,16 @@ async function findRecords(
   context: EvaluationContext,
   check: DkimCheck
 ): Promise<
-  | { readonly kind: "found"; readonly values: string[]; readonly name: string }
+  | {
+      readonly kind: "found";
+      readonly name: string;
+      readonly outcome: QueryOutcome;
+      readonly values: string[];
+    }
   | { readonly kind: "appended"; readonly name: string }
-  | { readonly kind: "absent" }
+  // The outcome travels with the absence: the *shape* of the nothing that came
+  // back is as actionable as the nothing. See `reportAnswerShape`.
+  | { readonly kind: "absent"; readonly outcome: QueryOutcome }
   | { readonly kind: "indeterminate"; readonly detail: string }
 > {
   const name = dkimRecordName(check);
@@ -87,7 +96,7 @@ async function findRecords(
     ).filter(looksLikeDkim);
 
     if (values.length > 0) {
-      return { kind: "found", name, values };
+      return { kind: "found", name, outcome, values };
     }
   }
 
@@ -127,7 +136,7 @@ async function findRecords(
     }
   }
 
-  return { kind: "absent" };
+  return { kind: "absent", outcome };
 }
 
 function checkKey(
@@ -272,6 +281,7 @@ export async function evaluateDkim(
 
   if (found.kind === "absent") {
     context.report(DiagnosisCode.DKIM_RECORD_MISSING, { name });
+    reportAnswerShape(context, found.outcome, name);
 
     return {
       findings: context.findings,
@@ -294,6 +304,10 @@ export async function evaluateDkim(
       verdict: "fail",
     };
   }
+
+  // Working today, and one middlebox away from not working — worth saying even
+  // when the record itself is perfect.
+  reportTransport(context, found.outcome, found.name);
 
   const raw = found.values[0] ?? "";
   const parsed = parseDkimRecord(raw);
