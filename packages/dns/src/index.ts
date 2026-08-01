@@ -8,6 +8,21 @@ export type {
   RunOptions,
 } from "./check/run";
 export { outcomeFor, runChecks } from "./check/run";
+export type {
+  Proof,
+  Requirement,
+  RequirementStatus,
+} from "./conformance/requirements";
+export { REQUIREMENTS, RFC_TITLES } from "./conformance/requirements";
+export type {
+  ConformanceSummary,
+  RfcCoverage,
+} from "./conformance/summary";
+export {
+  coverageByRfc,
+  percentage,
+  summary,
+} from "./conformance/summary";
 export type { DiagnosisDefinition, DiagnosisSeverity } from "./diagnosis/codes";
 export {
   DIAGNOSIS_REGISTRY,

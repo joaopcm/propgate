@@ -87,3 +87,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm --filter @propgate/dns psl:check
+
+  conformance:
+    name: RFC conformance
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The ledger is data; this asserts the README table still matches it.
+      # Without the check the published figure is a snapshot of whenever someone
+      # last remembered to regenerate, which is worse than no figure.
+      - name: README conformance table matches the ledger
+        run: pnpm --filter @propgate/dns conformance:check

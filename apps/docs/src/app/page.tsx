@@ -15,6 +15,11 @@ export default function DocsHome() {
             DNS diagnosis taxonomy
           </Link>
         </li>
+        <li>
+          <Link className="underline" href="/conformance">
+            RFC conformance
+          </Link>
+        </li>
       </ul>
     </>
   );

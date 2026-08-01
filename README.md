@@ -98,6 +98,50 @@ Delegation is deliberately **not** in v1. It requires enormous trust (our namese
 | MTA-STS, BIMI, DMARC external report authorization | Nobody is asking yet |
 | 200-provider deep links | Ship ~15 providers for ~90% coverage |
 
+## RFC conformance
+
+<!-- conformance:start -->
+
+**57 of 63 catalogued requirements** (90%).
+
+| RFC | | Implemented | |
+| --- | --- | --- | --- |
+| [RFC 1034](https://www.rfc-editor.org/rfc/rfc1034) | Domain names — concepts and facilities | 4 / 4 | 100% |
+| [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035) | Domain names — implementation and specification | 3 / 3 | 100% |
+| [RFC 2181](https://www.rfc-editor.org/rfc/rfc2181) | Clarifications to the DNS specification | 1 / 1 | 100% |
+| [RFC 2308](https://www.rfc-editor.org/rfc/rfc2308) | Negative caching of DNS queries | 0 / 1 | 0% |
+| [RFC 4035](https://www.rfc-editor.org/rfc/rfc4035) | Protocol modifications for DNSSEC | 0 / 1 | 0% |
+| [RFC 5321](https://www.rfc-editor.org/rfc/rfc5321) | Simple Mail Transfer Protocol | 1 / 1 | 100% |
+| [RFC 6376](https://www.rfc-editor.org/rfc/rfc6376) | DomainKeys Identified Mail (DKIM) signatures | 8 / 8 | 100% |
+| [RFC 7208](https://www.rfc-editor.org/rfc/rfc7208) | Sender Policy Framework (SPF) | 23 / 26 | 88% |
+| [RFC 7489](https://www.rfc-editor.org/rfc/rfc7489) | Domain-based Message Authentication, Reporting and Conformance (DMARC) | 8 / 8 | 100% |
+| [RFC 7505](https://www.rfc-editor.org/rfc/rfc7505) | A null MX resource record | 2 / 2 | 100% |
+| [RFC 8463](https://www.rfc-editor.org/rfc/rfc8463) | Ed25519 signatures for DKIM | 1 / 1 | 100% |
+| [RFC 8659](https://www.rfc-editor.org/rfc/rfc8659) | DNS Certification Authority Authorization (CAA) | 6 / 7 | 85% |
+
+The denominator is our reading of which normative statements apply to a
+verifier — something that inspects a domain's records and reports on them.
+It is not a percentage of an RFC's text, which is not a computable number:
+most of RFC 7208 instructs senders and receiving MTAs, and none of that is
+ours to implement. Requirements that do not apply are listed in the ledger
+with a reason and excluded from the denominator, so cataloguing more of what
+an MTA does cannot improve the figure.
+
+Every requirement marked implemented names a test that must exist and must
+assert it; `conformance.spec.ts` fails the build otherwise. The table is
+generated from that ledger and CI rejects the README if it has drifted.
+
+### What we do not do
+
+- **RFC 2308 §5** — Negative answers are cached for the lesser of the SOA minimum and the SOA TTL. The negcache-low fixture exists and no evaluator reads the authority-section SOA yet, so TTL behaviour under negative answers is untested.
+- **RFC 4035 §5** — Validating the DNSSEC chain of trust for an answer. We rely on the resolver we query, and read the AD bit it sets. Validating the chain ourselves would mean shipping a trust anchor and a validator, which is Phase 2 work at the earliest — the fixture tier already carries signed, bogus and insecure-island zones for it.
+- **RFC 7208 §5.5** — Evaluating whether a ptr mechanism matches a given client. Deciding one needs a reverse lookup of the connecting address and a forward confirmation of every name it returns. We report the term as undetermined for a specific sender rather than guessing, which is visible as SPF_IP_UNDETERMINED.
+- **RFC 7208 §6.2** — Fetching and macro-expanding exp= text on a fail. exp= text is fetched only to build a rejection message after the outcome is already decided, so it changes no verdict. Parsing the modifier is implemented; retrieving and expanding the explanation string is not.
+- **RFC 7208 §7.3** — Expanding the %{p} macro. It is the validated domain name of the connecting address, which needs the same reverse lookup and forward confirmation as the ptr mechanism. §7.3 advises against publishing it. Reported as unevaluable rather than guessed.
+- **RFC 8659 §5** — A CA must consider the DNSSEC validation state of the RRset. The DNSSEC state of the CAA RRset is what a CA must consider. We rely on the resolver's validation rather than validating ourselves — see the DNSSEC entries.
+
+<!-- conformance:end -->
+
 ## Design principles
 
 1. **Diagnosis codes are the product.** `PROVIDER_APPENDED_ZONE_NAME` deflects a support ticket; "record not found" creates one. The taxonomy is the thing competitors can't copy quickly and it doubles as our content marketing.
