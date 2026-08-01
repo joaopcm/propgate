@@ -86,4 +86,16 @@ export class RateLimiter {
   get size(): number {
     return this.windows.size;
   }
+
+  /**
+   * The configured numbers, so a 429 can name the limit it enforced rather than
+   * a constant that may not be the one this instance was built with.
+   */
+  get limit(): number {
+    return this.options.limit;
+  }
+
+  get windowMs(): number {
+    return this.options.windowMs;
+  }
 }

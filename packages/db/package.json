@@ -8,6 +8,7 @@
   "scripts": {
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:mint": "tsx src/scripts/mint-key.ts",
     "lint": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@types/node": "^24.13.3",
     "drizzle-kit": "^0.31.10",
+    "tsx": "^4",
     "typescript": "^5.7",
     "vitest": "^4"
   }

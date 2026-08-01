@@ -1,5 +1,22 @@
 // biome-ignore-all lint/performance/noBarrelFile: intentional package entry point
 export type { Database } from "./client";
 export { createDb } from "./client";
+export type { GeneratedApiKey } from "./keys";
+export { API_KEY_PREFIX, generateApiKey, hashApiKey } from "./keys";
+export type {
+  Authenticated,
+  AuthFailure,
+  AuthOutcome,
+} from "./queries/api-keys";
+export {
+  authenticateApiKey,
+  createApiKey,
+  revokeApiKey,
+} from "./queries/api-keys";
 export type { Observation } from "./queries/record-changes";
 export { recordObservation } from "./queries/record-changes";
+export { tenants } from "./schema/tenants";
+// A test helper on the entry point, deliberately: the package is private and
+// never published, and every consumer with a Postgres-backed spec needs the
+// same one line between tests.
+export { truncateAll } from "./test/truncate";
