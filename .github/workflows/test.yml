@@ -40,7 +40,7 @@ jobs:
       #
       # A prebuilt image is still worth adding later as a pure cache, keyed on
       # sha256(docker/dns + zones), with compose falling back to `image:` on a hit.
-      - name: Start DNS fixtures
+      - name: Start DNS fixtures and Postgres
         run: docker compose up -d --build --wait
 
       - uses: pnpm/action-setup@v4
@@ -72,10 +72,13 @@ jobs:
       - name: Assert the fixture-backed specs actually ran
         env:
           PROPGATE_FIXTURES: "1"
+          PROPGATE_DATABASE: "1"
+          DATABASE_URL: postgres://propgate:propgate@127.0.0.1:5442/propgate_test
         run: |
           pnpm --filter @propgate/dns exec vitest run --project dns-fixtures
           pnpm --filter @propgate/api exec vitest run --project api-fixtures
           pnpm --filter @propgate/cli exec vitest run --project cli-fixtures
+          pnpm --filter @propgate/db exec vitest run --project db-postgres
 
       # Turns a mystery DNS timeout into a 30-second diagnosis. Worth the six
       # lines every single time it fires.
@@ -84,4 +87,5 @@ jobs:
         run: |
           docker compose ps
           docker compose logs --no-color \
-            dns-root dns-auth dns-decoy dns-resolver dns-permissive dns-divergent
+            dns-root dns-auth dns-decoy dns-resolver dns-permissive dns-divergent \
+            postgres

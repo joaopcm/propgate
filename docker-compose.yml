@@ -128,3 +128,24 @@ services:
       timeout: 5s
       retries: 15
       start_period: 3s
+
+  postgres:
+    image: postgres:17-alpine
+    # A published port, not host networking — and the difference from the DNS
+    # services above is deliberate. Those need real port 53 on distinct
+    # loopbacks because glue records carry no port field, so a resolver cannot
+    # follow a delegation to anywhere else. Postgres has no such constraint, and
+    # host networking here only means fighting whatever already owns 5432 on the
+    # developer's machine. 5442 stays clear of the usual range.
+    ports:
+      - "127.0.0.1:5442:5432"
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: propgate
+      POSTGRES_PASSWORD: propgate
+      POSTGRES_DB: propgate_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U propgate -d propgate_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
