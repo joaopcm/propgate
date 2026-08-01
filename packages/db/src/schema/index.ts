@@ -9,4 +9,5 @@ export type {
 export { domainState, domains } from "./domains";
 export type { ProfileDefinition, ProfileRequirement } from "./profiles";
 export { profiles } from "./profiles";
+export { recordChanges } from "./record-changes";
 export { tenants } from "./tenants";
