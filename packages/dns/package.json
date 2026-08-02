@@ -1,6 +1,6 @@
 {
   "name": "@propgate/dns",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DNS resolver, semantic record evaluators, and a machine-readable diagnosis taxonomy. Zero runtime dependencies.",
   "license": "MIT",
   "type": "module",
