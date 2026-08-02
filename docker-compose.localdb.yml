@@ -1,0 +1,38 @@
+# Postgres on a socket you can point a GUI at.
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.localdb.yml up -d
+#
+# The base stack keeps Postgres on the compose network and nowhere else, which
+# is right for serving traffic and useless for looking at data with TablePlus or
+# `drizzle-kit studio`. This overlay publishes it — but only where
+# DB_BIND_ADDRESS says, and that defaults to loopback.
+#
+# Two ways to use it, both of which keep the database off the public internet:
+#
+#   1. Leave the default and tunnel:
+#        ssh -L 5432:127.0.0.1:5432 you@vps      # over Tailscale SSH
+#        …then connect the GUI to localhost:5432
+#      Nothing listens outside the box at all. The safest option, and the one
+#      that needs no decisions.
+#
+#   2. Bind to the machine's own Tailscale address:
+#        DB_BIND_ADDRESS=100.x.y.z               # `tailscale ip -4`
+#      …then connect the GUI straight to 100.x.y.z:5432, no tunnel. Every device
+#      on your tailnet can now reach Postgres, so this trades a tunnel for
+#      trusting your tailnet ACLs. That is a real trade, not a formality.
+#
+# **Never set this to 0.0.0.0.** That publishes Postgres to the internet, where
+# it will be found — scanners sweep 5432 continuously — and the only thing left
+# between a stranger and every tenant's data is POSTGRES_PASSWORD. The variable
+# is named for the bind address rather than a boolean precisely so that choice
+# has to be typed out.
+
+# DB_BIND_PORT exists because a box that already runs Postgres — which is most
+# boxes running a PaaS — has 5432 taken, and a hardcoded host port makes this
+# overlay simply refuse to start. Set it to anything free; the container still
+# listens on 5432 internally and nothing else in the stack notices.
+
+services:
+  postgres:
+    ports:
+      - "${DB_BIND_ADDRESS:-127.0.0.1}:${DB_BIND_PORT:-5432}:5432"
