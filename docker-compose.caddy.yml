@@ -1,0 +1,34 @@
+# TLS for a bare VPS, as an overlay.
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.caddy.yml up -d
+#
+# Separate from the base stack because a reverse proxy is a property of the
+# environment, not of the application. On a box with nothing else on it, this is
+# what gets a certificate and keeps it renewed. On a platform that already runs
+# one — Coolify, Dokploy, CapRover, a Kubernetes ingress — leave this file out;
+# a second proxy binding :443 collides with theirs, and their routing is the one
+# their dashboard knows about.
+#
+# Caddy does TLS and proxying only. CORS lives in the application, where it is
+# tested and present in development.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  caddy-data:
+  caddy-config:
