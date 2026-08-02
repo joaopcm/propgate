@@ -1,0 +1,18 @@
+# TLS for the API, and nothing else.
+#
+# Caddy is here for one reason: certificates that renew without anyone
+# remembering. The API speaks plain HTTP on a network nothing else can reach,
+# and this is the only container with a published port.
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	# CORS is the application's business, not this file's — see
+	# apps/api/src/app.ts. Putting it here would mean the header a browser
+	# depends on is untested and absent in local development.
+	reverse_proxy api:3001
+
+	log {
+		output stdout
+		format json
+	}
+}

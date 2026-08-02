@@ -3,8 +3,15 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "env": ["API_URL", "NEXT_PUBLIC_API_URL", "PORT", "SENTRY_DSN"],
-      "outputs": ["dist/**", ".next/**"]
+      "env": [
+        "API_URL",
+        "DATABASE_URL",
+        "NEXT_PUBLIC_API_URL",
+        "NEXT_PUBLIC_DOCS_URL",
+        "PORT",
+        "SENTRY_DSN"
+      ],
+      "outputs": ["dist/**", ".next/**", "out/**"]
     },
     "dev": {
       "dependsOn": ["^build"],

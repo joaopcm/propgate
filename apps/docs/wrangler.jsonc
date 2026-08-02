@@ -1,0 +1,13 @@
+// Static assets on Cloudflare Workers. No `main`: there is no Worker
+// script, only the prerendered output, so requests never invoke compute.
+//
+//   pnpm --filter @propgate/docs deploy:cf
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "propgate-docs",
+  "compatibility_date": "2026-01-01",
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page"
+  }
+}

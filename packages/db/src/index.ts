@@ -3,6 +3,7 @@ export type { Database } from "./client";
 export { createDb } from "./client";
 export type { GeneratedApiKey } from "./keys";
 export { API_KEY_PREFIX, generateApiKey, hashApiKey } from "./keys";
+export { runMigrations } from "./migrate";
 export type {
   Authenticated,
   AuthFailure,
@@ -29,6 +30,8 @@ export {
   registerDomain,
   saveCheck,
 } from "./queries/domains";
+export type { MintedKey } from "./queries/onboard";
+export { mintTenantKey } from "./queries/onboard";
 export type { ProfileVersion } from "./queries/profiles";
 export {
   createProfileVersion,
