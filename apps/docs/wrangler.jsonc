@@ -6,6 +6,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "propgate-docs",
   "compatibility_date": "2026-01-01",
+  // The custom domain, declared here rather than clicked in the dashboard.
+  // Cloudflare creates and maintains the DNS record for it, so this is the only
+  // place the hostname is written down. Requires the zone to already be on
+  // Cloudflare; without that the deploy fails loudly rather than publishing to
+  // a workers.dev URL nobody is looking at.
+  "routes": [{ "pattern": "docs.propgate.dev", "custom_domain": true }],
   "assets": {
     "directory": "./out",
     "not_found_handling": "404-page"
