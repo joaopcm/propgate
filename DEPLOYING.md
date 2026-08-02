@@ -28,6 +28,7 @@ to the API belongs to the environment, and environments disagree about how:
 | Where | What to run |
 |---|---|
 | A bare VPS | `-f docker-compose.prod.yml -f docker-compose.caddy.yml` — the overlay adds Caddy, which gets a certificate and renews it |
+| Anywhere, when you want a GUI on the database | add `-f docker-compose.localdb.yml`, which publishes Postgres on loopback. See *Looking at the database* |
 | Coolify, Dokploy, CapRover, Kamal, a Kubernetes ingress | `docker-compose.prod.yml` alone. They already run a proxy; a second one binding `:443` collides with it, and their routing is the one their dashboard knows about |
 
 That split is not a courtesy to any particular platform. A compose file which
@@ -206,6 +207,66 @@ Deliberately not an API route. A key that can revoke keys is a
 privilege-escalation question, and the control plane is out of scope — but
 handing an operator raw `UPDATE` statements against the auth table is how
 someone eventually forgets a `WHERE` clause under pressure.
+
+## Looking at the database
+
+`psql` needs nothing:
+
+```sh
+tailscale ssh vps
+docker compose -f docker-compose.prod.yml exec postgres psql -U propgate -d propgate
+```
+
+A GUI client or `drizzle-kit studio` needs a TCP socket, which the base stack
+does not publish. Add the overlay:
+
+```sh
+docker compose -f docker-compose.prod.yml -f docker-compose.localdb.yml up -d
+```
+
+That binds Postgres to `DB_BIND_ADDRESS`, which defaults to `127.0.0.1` — still
+unreachable from anywhere but the box itself. Then either:
+
+If something already owns 5432 on the box — common wherever a PaaS is running —
+set `DB_BIND_PORT` to anything free. The container still listens on 5432
+internally and nothing else in the stack notices.
+
+**Tunnel over Tailscale.** Nothing listens outside the machine.
+
+```sh
+ssh -L 5432:127.0.0.1:5432 you@vps       # Tailscale SSH works fine here
+# GUI → localhost:5432, user propgate, database propgate
+```
+
+**Or bind to the tailnet** and skip the tunnel:
+
+```sh
+tailscale ip -4                          # 100.x.y.z
+# .env: DB_BIND_ADDRESS=100.x.y.z
+# GUI → 100.x.y.z:5432
+```
+
+Every device on your tailnet can then reach Postgres, so this trades a tunnel
+for trusting your tailnet ACLs — a real trade, worth making deliberately.
+
+> **Never set `DB_BIND_ADDRESS=0.0.0.0`.** That publishes Postgres to the
+> internet, where it will be found: scanners sweep 5432 continuously. The only
+> thing between a stranger and every tenant's data would be
+> `POSTGRES_PASSWORD`. The variable names a bind address rather than taking a
+> boolean so that this has to be typed out on purpose.
+
+### On a platform that manages the compose file
+
+Coolify and friends deploy one compose file and will not apply an overlay. Add
+the same two lines to the `postgres` service in their editor:
+
+```yaml
+    ports:
+      - "127.0.0.1:5432:5432"
+```
+
+Then tunnel as above. Remember it is now part of *their* stored config rather
+than this repository, so it will not travel with a redeploy from git.
 
 ## Backups
 
