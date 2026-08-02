@@ -68,15 +68,18 @@ is why the DNS wire codec is hand-rolled rather than pulling in `dns-packet`.
 ```
 apps/api    Hono resolver service. Long-running by design.
 apps/web    Next.js — marketing plus the public checker.
-apps/docs   Next.js + MDX — the published taxonomy, rendered from the registry.
+apps/docs   Next.js + MDX — the taxonomy and the API reference, both rendered
+            from the code they describe.
 packages/dns           @propgate/dns — resolver, evaluators, taxonomy. MIT.
 packages/dns-fixtures  Zone files, signing pipeline, test harness. Private.
+packages/db            Drizzle schema, migrations, and the queries. Private.
 packages/cli           @propgate/cli. MIT.
 ```
 
-`db`, `auth`, `jobs`, `webhooks`, `sdk`, `ui`, and `emails` arrive in Phase 2.
-Do not add them early — issue #3's gate may end the project, and the whole point
-of the phasing is not to pre-build a control plane that may never ship.
+`packages/db` and the authenticated routes in `apps/api` arrived with Phase 2
+milestone 1. `jobs`, `webhooks`, `sdk`, `ui`, and `emails` have not. Do not add
+them early — the phasing exists so a control plane that may never ship is not
+pre-built, and that reasoning still holds for everything on that list.
 
 ## Commands
 

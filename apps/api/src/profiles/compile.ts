@@ -26,6 +26,14 @@ import { outcomeFor, worstVerdict } from "@propgate/dns";
 export interface RequirementFinding {
   readonly code: string;
   readonly expected?: string;
+  /**
+   * The DNS name the finding is about.
+   *
+   * Carried because it is the most actionable part of a missing record: a bare
+   * DKIM_RECORD_MISSING tells a partner something is absent, and the name tells
+   * their customer where it goes.
+   */
+  readonly name?: string;
   readonly observed?: string;
 }
 
@@ -188,6 +196,9 @@ function toRequirementFinding(finding: Finding): RequirementFinding {
     ...(finding.evidence.expected === undefined
       ? {}
       : { expected: finding.evidence.expected }),
+    ...(finding.evidence.name === undefined
+      ? {}
+      : { name: finding.evidence.name }),
     ...(finding.evidence.observed === undefined
       ? {}
       : { observed: finding.evidence.observed }),

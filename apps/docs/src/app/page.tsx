@@ -11,6 +11,11 @@ export default function DocsHome() {
       </p>
       <ul className="list-inside list-disc text-muted-foreground leading-8">
         <li>
+          <Link className="underline" href="/api">
+            API reference
+          </Link>
+        </li>
+        <li>
           <Link className="underline" href="/taxonomy">
             DNS diagnosis taxonomy
           </Link>
