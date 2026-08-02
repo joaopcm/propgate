@@ -14,6 +14,7 @@ export {
   revokeApiKey,
 } from "./queries/api-keys";
 export type {
+  DomainPage,
   DomainRow,
   RegisterOutcome,
   TimelineEntry,
@@ -24,6 +25,7 @@ export {
   domainById,
   domainByName,
   domainTimeline,
+  listDomains,
   registerDomain,
   saveCheck,
 } from "./queries/domains";
@@ -39,6 +41,7 @@ export type {
   DomainResult,
   DomainState,
   RequirementResult as StoredRequirementResult,
+  StoredLookup,
   StoredVerdict,
 } from "./schema/domains";
 export { domains } from "./schema/domains";

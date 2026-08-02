@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gt } from "drizzle-orm";
 import type { Database } from "../client";
 import type { DomainResult, DomainState } from "../schema/domains";
 import { domains } from "../schema/domains";
@@ -184,6 +184,66 @@ export async function saveCheck(
     .where(
       and(eq(domains.tenantId, input.tenantId), eq(domains.id, input.domainId))
     );
+}
+
+export interface DomainPage {
+  readonly domains: readonly DomainRow[];
+  /** Pass back as `cursor` to continue. Null when the walk is finished. */
+  readonly nextCursor: string | null;
+}
+
+/**
+ * A tenant's domains, oldest first, by keyset rather than by offset.
+ *
+ * Two decisions worth stating. `OFFSET` makes page N cost N pages of scanning,
+ * which at tens of thousands of domains turns a reconciliation walk into a
+ * quadratic one; the id is a uuidv7 and therefore sorts by insertion time, so
+ * `where id > cursor` is an index seek regardless of depth.
+ *
+ * Ascending, not newest-first, because the caller walking this is reconciling
+ * their list against ours. Rows registered *during* the walk land after the
+ * cursor and are simply included at the end — with descending order they would
+ * shift every later page and the walk could miss rows it had not reached yet.
+ */
+export async function listDomains(
+  db: Database,
+  tenantId: string,
+  options: {
+    readonly cursor?: string;
+    readonly externalId?: string;
+    readonly limit: number;
+    readonly state?: DomainState;
+  }
+): Promise<DomainPage> {
+  const filters = [eq(domains.tenantId, tenantId)];
+
+  if (options.cursor !== undefined) {
+    filters.push(gt(domains.id, options.cursor));
+  }
+
+  if (options.state !== undefined) {
+    filters.push(eq(domains.state, options.state));
+  }
+
+  if (options.externalId !== undefined) {
+    filters.push(eq(domains.externalId, options.externalId));
+  }
+
+  // One more than asked for, so "is there another page" needs no second query
+  // and no count(*) over the whole table.
+  const rows = await db
+    .select(COLUMNS)
+    .from(domains)
+    .where(and(...filters))
+    .orderBy(asc(domains.id))
+    .limit(options.limit + 1);
+
+  const page = rows.slice(0, options.limit);
+
+  return {
+    domains: page,
+    nextCursor: rows.length > options.limit ? (page.at(-1)?.id ?? null) : null,
+  };
 }
 
 export interface TimelineEntry {

@@ -147,8 +147,15 @@ export const ENDPOINTS: readonly Endpoint[] = [
   },
   {
     method: "GET",
+    path: "/v1/domains",
+    summary:
+      "Your domains, oldest first. Cursor paging, filterable by state and by your own external id.",
+  },
+  {
+    method: "GET",
     path: "/v1/domains/:id",
-    summary: "The last known state and per-requirement results.",
+    summary:
+      "The last known state, per-requirement results, and every lookup behind them.",
   },
   {
     method: "GET",
