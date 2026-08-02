@@ -278,6 +278,53 @@ export default function ApiReferencePage() {
         </p>
       </Section>
 
+      <Section id="listing" title="Listing and reconciling">
+        <Code>{`GET /v1/domains?limit=200&cursor=019fbf...&state=failed
+GET /v1/domains?externalId=cust_1841
+
+{ "data": [ { "object": "domain", ... } ],
+  "meta": { "nextCursor": "019fbf..." } }`}</Code>
+        <p className="mb-4 text-muted-foreground leading-7">
+          Paging is by cursor, not offset, and ordered oldest first. Pass{" "}
+          <code className="font-mono text-sm">meta.nextCursor</code> back until
+          it is null. Domains registered while you are walking land after the
+          cursor and appear at the end, so a full walk never misses a row it had
+          not reached yet.
+        </p>
+        <p className="mb-4 text-muted-foreground leading-7">
+          <code className="font-mono text-sm">externalId</code> is the filter to
+          reach for if you did not keep our ids — your own identifier is enough
+          to find a domain again.
+        </p>
+        <p className="text-muted-foreground leading-7">
+          The list omits <code className="font-mono text-sm">lookups</code>,
+          which would multiply a page by roughly four. Fetch a single domain to
+          get them. At the maximum{" "}
+          <code className="font-mono text-sm">limit</code> of 200, reconciling
+          ten thousand domains is fifty requests — well inside the rate limit.
+        </p>
+      </Section>
+
+      <Section id="derivation" title="Why we said that">
+        <p className="mb-4 text-muted-foreground leading-7">
+          Every check carries the lookups that produced it, on the check
+          response and on{" "}
+          <code className="font-mono text-sm">GET /v1/domains/:id</code>{" "}
+          afterwards. A verdict you cannot audit is a verdict you have to take
+          on faith, and we would rather you did not have to.
+        </p>
+        <Code>{`"lookups": [
+  { "name": "customer.example", "type": 16,
+    "purpose": "SPF record", "server": "9.9.9.9:53", "status": "answered" },
+  { "name": "pg1._domainkey.customer.example", "type": 16,
+    "purpose": "expected selector", "server": "9.9.9.9:53", "status": "nxdomain" }
+]`}</Code>
+        <p className="text-muted-foreground leading-7">
+          Which server was asked matters: a lame delegation is a fact about one
+          nameserver, not about the zone.
+        </p>
+      </Section>
+
       <Section id="verdicts" title="Verdicts">
         <p className="mb-6 text-muted-foreground leading-7">
           Four, not two. The distinction between <em>this is broken</em> and{" "}

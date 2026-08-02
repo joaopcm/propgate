@@ -27,6 +27,8 @@ const app = createApp({
 /** A resolver with nothing behind it, for the indeterminate path. */
 const deadApp = createApp({ db, resolver: { address: "127.0.0.1", port: 1 } });
 
+const ADDRESS_AND_PORT = /^\d+\.\d+\.\d+\.\d+:\d+$/;
+
 const SENDING = {
   key: "sending",
   requirements: [
@@ -205,5 +207,42 @@ describe("the timeline", () => {
     ).json();
 
     expect(timeline.data).toHaveLength(3);
+  });
+});
+
+describe("the derivation behind a verdict", () => {
+  it("returns every lookup the check made", async () => {
+    // "Why did you say that" is the question a disputed verdict produces. The
+    // free public checker has always answered it; before this the paid path
+    // could not, which is exactly backwards.
+    const { domainId, key } = await partner("partner");
+
+    const body = await (await check(key, domainId)).json();
+
+    expect(body.data.lookups.length).toBeGreaterThan(0);
+    expect(body.data.lookups[0]).toMatchObject({
+      name: expect.any(String),
+      purpose: expect.any(String),
+      server: expect.any(String),
+      status: expect.any(String),
+    });
+  });
+
+  it("keeps it, so a dispute a week later can still be answered", async () => {
+    const { domainId, key } = await partner("partner");
+
+    await check(key, domainId);
+    const reread = await (await request(key, `/v1/domains/${domainId}`)).json();
+
+    expect(reread.data.lookups.length).toBeGreaterThan(0);
+  });
+
+  it("names the server that was asked", async () => {
+    // A lame delegation is a fact about one nameserver, not about the zone.
+    const { domainId, key } = await partner("partner");
+
+    const body = await (await check(key, domainId)).json();
+
+    expect(body.data.lookups[0].server).toMatch(ADDRESS_AND_PORT);
   });
 });

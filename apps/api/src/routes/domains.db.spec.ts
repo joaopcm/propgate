@@ -334,3 +334,125 @@ describe("GET /v1/domains/:id/timeline", () => {
     expect((await response.json()).data).toEqual([]);
   });
 });
+
+describe("GET /v1/domains", () => {
+  async function registerMany(key: string, count: number): Promise<void> {
+    for (let index = 0; index < count; index += 1) {
+      // Sequential on purpose: uuidv7 orders by insertion time, and the walk
+      // below asserts that order.
+      // biome-ignore lint/performance/noAwaitInLoops: ordering is the assertion
+      await register(key, {
+        externalId: `cust_${index}`,
+        name: `d${index}.example.com`,
+      });
+    }
+  }
+
+  it("walks a tenant's domains oldest first", async () => {
+    const key = await tenantKey("partner");
+    await withProfile(key);
+    await registerMany(key, 3);
+
+    const body = await (await request(key, "/v1/domains")).json();
+
+    expect(body.data.map((entry: { name: string }) => entry.name)).toEqual([
+      "d0.example.com",
+      "d1.example.com",
+      "d2.example.com",
+    ]);
+    expect(body.meta.nextCursor).toBeNull();
+  });
+
+  it("pages with a cursor, and finishes", async () => {
+    // Keyset rather than offset: page N must not cost N pages of scanning when
+    // a partner reconciles tens of thousands of domains.
+    const key = await tenantKey("partner");
+    await withProfile(key);
+    await registerMany(key, 5);
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+
+    for (let page = 0; page < 5; page += 1) {
+      const query: string = cursor === null ? "" : `&cursor=${cursor}`;
+      // biome-ignore lint/performance/noAwaitInLoops: paging is sequential
+      const body = await (
+        await request(key, `/v1/domains?limit=2${query}`)
+      ).json();
+
+      seen.push(...body.data.map((entry: { name: string }) => entry.name));
+      cursor = body.meta.nextCursor;
+
+      if (cursor === null) {
+        break;
+      }
+    }
+
+    expect(seen).toHaveLength(5);
+    expect(new Set(seen).size).toBe(5);
+    expect(cursor).toBeNull();
+  });
+
+  it("finds a domain by the partner's own identifier", async () => {
+    // Without this a partner who loses our ids cannot find anything again.
+    const key = await tenantKey("partner");
+    await withProfile(key);
+    await registerMany(key, 3);
+
+    const body = await (
+      await request(key, "/v1/domains?externalId=cust_1")
+    ).json();
+
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].name).toBe("d1.example.com");
+  });
+
+  it("filters by state", async () => {
+    const key = await tenantKey("partner");
+    await withProfile(key);
+    await registerMany(key, 2);
+
+    const pending = await (
+      await request(key, "/v1/domains?state=pending")
+    ).json();
+    const verified = await (
+      await request(key, "/v1/domains?state=verified")
+    ).json();
+
+    expect(pending.data).toHaveLength(2);
+    expect(verified.data).toEqual([]);
+  });
+
+  it("names the states it accepts rather than ignoring a typo", async () => {
+    const key = await tenantKey("partner");
+
+    const response = await request(key, "/v1/domains?state=broken");
+
+    expect(response.status).toBe(422);
+    expect((await response.json()).error.message).toContain("pending");
+  });
+
+  it("never pages into another tenant's domains", async () => {
+    const owner = await tenantKey("owner");
+    const other = await tenantKey("other");
+    await withProfile(owner);
+    await withProfile(other);
+    await registerMany(owner, 3);
+
+    const body = await (await request(other, "/v1/domains")).json();
+
+    expect(body.data).toEqual([]);
+  });
+
+  it("leaves lookups out of the list", async () => {
+    // 389 bytes a domain without them, 1,728 with. The list is the one path
+    // where that multiplies.
+    const key = await tenantKey("partner");
+    await withProfile(key);
+    await registerMany(key, 1);
+
+    const body = await (await request(key, "/v1/domains")).json();
+
+    expect("lookups" in body.data[0]).toBe(false);
+  });
+});

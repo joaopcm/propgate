@@ -1,15 +1,22 @@
-import type { Database, DomainResult, DomainRow } from "@propgate/db";
+import type {
+  Database,
+  DomainResult,
+  DomainRow,
+  DomainState,
+  StoredLookup,
+} from "@propgate/db";
 import {
   currentProfileVersion,
   deleteDomain,
   domainById,
   domainTimeline,
+  listDomains,
   profileVersionById,
   recordObservation,
   registerDomain,
   saveCheck,
 } from "@propgate/db";
-import type { ServerAddress } from "@propgate/dns";
+import type { CheckResult, ServerAddress } from "@propgate/dns";
 import { runChecks } from "@propgate/dns";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -66,13 +73,54 @@ const MAX_PROFILE_KEY_LENGTH = 64;
 const DEFAULT_TIMELINE_LIMIT = 50;
 const MAX_TIMELINE_LIMIT = 200;
 
+/**
+ * Measured on this schema: a stored result is 389 bytes without its lookups.
+ * Two hundred of those is a 78 KB page, and reconciling ten thousand domains
+ * takes fifty round trips — comfortably inside the per-tenant rate limit. The
+ * list deliberately omits `lookups`, which would multiply the page by 4.4.
+ */
+const DEFAULT_PAGE_LIMIT = 50;
+const MAX_PAGE_LIMIT = 200;
+
+const DOMAIN_STATES: readonly DomainState[] = [
+  "pending",
+  "verifying",
+  "verified",
+  "degraded",
+  "failed",
+];
+
+function boundedLimit(raw: string | undefined, fallback: number, max: number) {
+  const requested = Number(raw ?? fallback);
+
+  return Number.isFinite(requested) && requested > 0
+    ? Math.min(requested, max)
+    : fallback;
+}
+
 const registerSchema = z.object({
   externalId: z.string().min(1).max(MAX_EXTERNAL_ID_LENGTH).optional(),
   name: z.string().min(1).max(MAX_DOMAIN_LENGTH),
   profile: z.string().min(1).max(MAX_PROFILE_KEY_LENGTH),
 });
 
-function serialise(domain: DomainRow) {
+/**
+ * `lookups` is opt-in because the list endpoint is the size-sensitive path:
+ * 389 bytes a domain without them, 1,728 with.
+ */
+function storedLookups(checked: CheckResult): readonly StoredLookup[] {
+  return checked.checks.flatMap((check) =>
+    check.lookups.map((lookup) => ({
+      name: lookup.name,
+      purpose: lookup.purpose,
+      server: `${lookup.server.address}:${lookup.server.port}`,
+      status: lookup.outcome.status,
+      type: lookup.type,
+    }))
+  );
+}
+
+function serialise(domain: DomainRow, includeLookups = false) {
   const result = domain.lastResult;
 
   return {
@@ -80,6 +128,9 @@ function serialise(domain: DomainRow) {
     externalId: domain.externalId,
     id: domain.id,
     lastCheckedAt: domain.lastCheckedAt?.toISOString() ?? null,
+    // The derivation, on request. "Why did you say that" is the question a
+    // disputed verdict produces, and a verdict alone cannot answer it.
+    ...(includeLookups ? { lookups: result?.lookups ?? null } : {}),
     name: domain.name,
     object: "domain" as const,
     profileVersionId: domain.profileVersionId,
@@ -241,6 +292,7 @@ export function createDomainsRoute(options: {
     const now = new Date();
     const result: DomainResult = {
       checkedAt: now.toISOString(),
+      lookups: storedLookups(checked),
       requirements,
       verdict: overall,
     };
@@ -258,13 +310,44 @@ export function createDomainsRoute(options: {
 
     return success(
       c,
-      serialise({
-        ...domain,
-        lastCheckedAt: now,
-        lastResult: result,
-        state,
-      }),
+      serialise(
+        { ...domain, lastCheckedAt: now, lastResult: result, state },
+        true
+      ),
       { resolver: `${options.resolver.address}:${options.resolver.port}` }
+    );
+  });
+
+  route.get("/", async (c) => {
+    const state = c.req.query("state");
+
+    if (state !== undefined && !DOMAIN_STATES.includes(state as DomainState)) {
+      return error(
+        c,
+        422,
+        `state must be one of ${DOMAIN_STATES.join(", ")}, got "${state}"`
+      );
+    }
+
+    const page = await listDomains(db, c.get("tenantId"), {
+      ...(c.req.query("cursor") === undefined
+        ? {}
+        : { cursor: c.req.query("cursor") as string }),
+      ...(c.req.query("externalId") === undefined
+        ? {}
+        : { externalId: c.req.query("externalId") as string }),
+      limit: boundedLimit(
+        c.req.query("limit"),
+        DEFAULT_PAGE_LIMIT,
+        MAX_PAGE_LIMIT
+      ),
+      ...(state === undefined ? {} : { state: state as DomainState }),
+    });
+
+    return success(
+      c,
+      page.domains.map((domain) => serialise(domain)),
+      { nextCursor: page.nextCursor }
     );
   });
 
@@ -275,7 +358,7 @@ export function createDomainsRoute(options: {
       return error(c, 404, "no such domain");
     }
 
-    return success(c, serialise(domain));
+    return success(c, serialise(domain, true));
   });
 
   route.get("/:id/timeline", async (c) => {
@@ -285,13 +368,15 @@ export function createDomainsRoute(options: {
       return error(c, 404, "no such domain");
     }
 
-    const requested = Number(c.req.query("limit") ?? DEFAULT_TIMELINE_LIMIT);
-    const limit =
-      Number.isFinite(requested) && requested > 0
-        ? Math.min(requested, MAX_TIMELINE_LIMIT)
-        : DEFAULT_TIMELINE_LIMIT;
-
-    const entries = await domainTimeline(db, domain.id, limit);
+    const entries = await domainTimeline(
+      db,
+      domain.id,
+      boundedLimit(
+        c.req.query("limit"),
+        DEFAULT_TIMELINE_LIMIT,
+        MAX_TIMELINE_LIMIT
+      )
+    );
 
     return success(
       c,

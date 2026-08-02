@@ -45,8 +45,27 @@ export interface RequirementResult {
   readonly verdict: StoredVerdict;
 }
 
+/** One DNS query a check made, and why. The derivation behind a verdict. */
+export interface StoredLookup {
+  readonly name: string;
+  readonly purpose: string;
+  readonly server: string;
+  readonly status: string;
+  readonly type: number;
+}
+
 export interface DomainResult {
   readonly checkedAt: string;
+  /**
+   * Every query the check made.
+   *
+   * Kept because "why did you say that" is the question a disputed verdict
+   * produces, and a stored verdict on its own cannot answer it. Measured at
+   * 133 bytes per lookup and ten lookups for a full profile, so this takes one
+   * stored result from 389 bytes to about 1.7 KB — bounded, updated in place,
+   * and never a row per check.
+   */
+  readonly lookups?: readonly StoredLookup[];
   readonly requirements: readonly RequirementResult[];
   readonly verdict: StoredVerdict;
 }
