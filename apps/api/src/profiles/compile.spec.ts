@@ -274,6 +274,41 @@ describe("attributeResults", () => {
     ]);
   });
 
+  it("carries the DNS name a missing record should have been at", () => {
+    // The most actionable part of an absence. Without it a partner can tell
+    // their customer something is missing but not where it goes.
+    const attributed = attributeResults(
+      { requirements: [{ check: "dkim", key: "dkim", selector: "pg1" }] },
+      result([
+        {
+          findings: [],
+          kind: "dkim",
+          lookups: [],
+          selectors: [
+            {
+              findings: [
+                {
+                  code: DiagnosisCode.DKIM_RECORD_MISSING,
+                  evidence: { name: "pg1._domainkey.example.com" },
+                  severity: "error",
+                },
+              ],
+              lookups: [],
+              selector: "pg1",
+              verdict: "fail",
+            },
+          ],
+          verdict: "fail",
+        },
+      ])
+    );
+
+    expect(attributed[0]?.findings[0]).toEqual({
+      code: DiagnosisCode.DKIM_RECORD_MISSING,
+      name: "pg1._domainkey.example.com",
+    });
+  });
+
   it("reports one result per requirement, in the order they were written", () => {
     const attributed = attributeResults(SENDING, result([]));
 

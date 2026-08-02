@@ -36,6 +36,8 @@ export interface RequirementResult {
   readonly findings: readonly {
     readonly code: string;
     readonly expected?: string;
+    /** The DNS name the finding is about, when it has one. */
+    readonly name?: string;
     readonly observed?: string;
   }[];
   readonly key: string;
