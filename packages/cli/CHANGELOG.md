@@ -1,5 +1,12 @@
 # @propgate/cli
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [[`bc4b70e`](https://github.com/joaopcm/propgate/commit/bc4b70e6093fac99b394499741da9abf49203325)]:
+  - @propgate/dns@0.2.0
+
 ## 0.1.0
 
 ### Minor Changes

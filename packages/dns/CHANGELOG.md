@@ -1,5 +1,22 @@
 # @propgate/dns
 
+## 0.2.0
+
+### Minor Changes
+
+- [#34](https://github.com/joaopcm/propgate/pull/34) [`bc4b70e`](https://github.com/joaopcm/propgate/commit/bc4b70e6093fac99b394499741da9abf49203325) Thanks [@joaopcm](https://github.com/joaopcm)! - DKIM outcomes now carry per-selector detail, and a selector can name the key it
+  should be publishing.
+
+  `CheckOutcome.selectors` appears on the `dkim` outcome and lists each selector's
+  own findings, lookups and verdict. The merged verdict is unchanged — "is DKIM
+  set up" is still one question with one answer — but a platform that issued three
+  keys can now tell which of them is missing, which a merged answer cannot express.
+
+  `DomainProfile.dkimSelectors` accepts `{ selector, expectedPublicKey }` as well
+  as a bare string. The bare string asks whether a valid key is published; the
+  object asks whether _your_ key is, which is what catches a domain that pasted
+  someone else's record. Passing strings keeps working exactly as before.
+
 ## 0.1.0
 
 ### Minor Changes
