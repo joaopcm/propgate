@@ -52,10 +52,30 @@ $EDITOR .env                      # POSTGRES_PASSWORD, API_DOMAIN
 docker compose -f docker-compose.prod.yml up -d --wait
 ```
 
+The first bring-up **builds** the images from the checkout, which is why both
+services carry a `build:` alongside their `image:`. That breaks the chicken and
+egg: the registry has nothing until a deploy runs, and a deploy needs a box that
+already works. Afterwards the workflow sets `TAG` and pulls instead.
+
 Only ports 80 and 443 are published. Postgres and Unbound are reachable on the
 compose network and nowhere else, and Unbound additionally refuses anything
 outside it — an open recursive resolver on a public IP is a DNS amplification
 weapon, and one lock on that door is not enough.
+
+### Pulling from the registry
+
+GHCR packages are private by default, so the box cannot pull until one of:
+
+- **Make the two packages public** (`ghcr.io/joaopcm/propgate/api` and
+  `/unbound`, under the repository's *Packages* settings). Reasonable here — the
+  source is already public, and it removes a credential from the box.
+- **Log in on the box** with a personal access token scoped to `read:packages`:
+  ```sh
+  echo "$GHCR_TOKEN" | docker login ghcr.io -u joaopcm --password-stdin
+  ```
+
+Skip this and the first real deploy fails at `docker compose pull` with
+`denied`, which reads like a missing image rather than a missing credential.
 
 ### GitHub
 
@@ -72,15 +92,21 @@ Variables (optional, defaults in the workflows): `NEXT_PUBLIC_API_URL`,
 
 ### DNS
 
-| Name | Type | Value |
-|---|---|---|
-| `propgate.dev` | Worker route | `propgate-web` |
-| `docs` | Worker route | `propgate-docs` |
-| `api` | `A` | the VPS address |
+| Name | Who creates it |
+|---|---|
+| `propgate.dev` | Cloudflare, from `apps/web/wrangler.jsonc` |
+| `docs.propgate.dev` | Cloudflare, from `apps/docs/wrangler.jsonc` |
+| `api.propgate.dev` | **You**, an `A` record to the VPS, before the first deploy |
 
-Leave `api` **unproxied** if you want Caddy to hold the certificate. Proxying it
-through Cloudflare works too, but then two things issue certificates for one
-name and only one of them is in this repository.
+The two Worker hostnames are declared as `custom_domain` routes, so Cloudflare
+creates and maintains those records itself — the only place either hostname is
+written down is the repository. That also means the zone must already be on
+Cloudflare; if it is not, the deploy fails loudly rather than quietly publishing
+to a `workers.dev` URL nobody is looking at.
+
+`api` is yours to create, and leave it **unproxied** if you want Caddy to hold
+the certificate. Proxying it through Cloudflare works too, but then two things
+issue certificates for one name and only one of them is in this repository.
 
 ## Deploying
 
