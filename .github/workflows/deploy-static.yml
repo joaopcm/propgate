@@ -1,0 +1,66 @@
+name: Deploy static
+
+# The marketing site and the docs, as prerendered assets on Cloudflare Workers.
+# Nothing here runs at request time, so there is no adapter and no cold start.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "apps/docs/**"
+      - "packages/dns/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-static.yml"
+  workflow_dispatch:
+
+concurrency:
+  # One deploy at a time per app. Two pushes in quick succession would otherwise
+  # race, and the loser publishes the older build.
+  group: deploy-static
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Web
+            filter: "@propgate/web"
+            directory: apps/web
+          - name: Docs
+            filter: "@propgate/docs"
+            directory: apps/docs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        env:
+          # Public values, baked into the bundle at build time. They are visible
+          # in the shipped JavaScript by design — NEXT_PUBLIC_ says so.
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || 'https://api.propgate.dev' }}
+          NEXT_PUBLIC_DOCS_URL: ${{ vars.NEXT_PUBLIC_DOCS_URL || 'https://docs.propgate.dev' }}
+        run: pnpm --filter ${{ matrix.filter }} build
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: ${{ matrix.directory }}
+          packageManager: pnpm

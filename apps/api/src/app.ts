@@ -2,6 +2,7 @@ import type { Database } from "@propgate/db";
 import type { ServerAddress } from "@propgate/dns";
 import { captureException } from "@sentry/node";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { bearerAuth } from "./middleware/auth";
 import {
@@ -54,6 +55,20 @@ export function createApp(options: { db?: Database; resolver: ServerAddress }) {
   });
 
   app.get("/health", (c) => c.json({ status: "ok" }));
+
+  /**
+   * CORS, on the public checker and nowhere else.
+   *
+   * The checker is a browser calling a different origin, so without this it
+   * cannot work at all. The authenticated routes deliberately get nothing: a
+   * bearer token belongs in a server-to-server call, and a browser able to
+   * reach `/v1/domains` is a browser holding a key that should never have left
+   * a backend. Sending permissive CORS there would invite exactly that.
+   */
+  app.use(
+    "/v1/checks",
+    cors({ allowMethods: ["POST", "OPTIONS"], origin: "*" })
+  );
 
   app.route(
     "/v1/checks",

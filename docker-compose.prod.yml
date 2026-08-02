@@ -1,0 +1,116 @@
+# The production stack: one VPS, four containers, no orchestrator.
+#
+#   caddy ──▶ api ──▶ postgres
+#              └────▶ unbound ──▶ the internet
+#
+# `docker-compose.yml` in the repo root is the DNS *fixture* tier for tests and
+# has nothing to do with this file. They are never run together.
+#
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# See DEPLOYING.md.
+
+name: propgate
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: propgate
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: propgate
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # No published port. The only thing that needs to reach it is on this
+    # network, and a Postgres reachable from the internet is a Postgres someone
+    # else eventually reaches.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U propgate -d propgate"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  unbound:
+    build:
+      context: docker/unbound
+    image: ghcr.io/${GITHUB_REPOSITORY:-joaopcm/propgate}/unbound:${TAG:-latest}
+    restart: unless-stopped
+    # Also unpublished. The config refuses everything outside this network as
+    # well — an open recursive resolver is an amplification weapon, and one lock
+    # on that door is not enough.
+    healthcheck:
+      test:
+        ["CMD", "dig", "+short", "+time=2", "+tries=1", "@127.0.0.1", "a.root-servers.net", "A"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Runs to completion before the API starts, and the API will not start if it
+  # fails. Migrating at boot instead would turn a bad migration into a crash
+  # loop rather than a failed deploy, and becomes a race the moment there are
+  # two replicas.
+  migrate:
+    # `build` so the stack can be brought up from a checkout without a registry,
+    # which is how it gets tested. A deploy sets TAG and pulls instead.
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY:-joaopcm/propgate}/api:${TAG:-latest}
+    command: ["node", "dist/migrate.js"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://propgate:${POSTGRES_PASSWORD:?}@postgres:5432/propgate
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY:-joaopcm/propgate}/api:${TAG:-latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://propgate:${POSTGRES_PASSWORD:?}@postgres:5432/propgate
+      NODE_ENV: production
+      PORT: 3001
+      # Our own resolver, by name on this network. Never a public one: an answer
+      # from someone else's cache is an answer we cannot explain.
+      RESOLVER_ADDRESS: unbound
+      RESOLVER_PORT: 53
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      unbound:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:-api.propgate.dev}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:
