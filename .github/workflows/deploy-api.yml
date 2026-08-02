@@ -70,9 +70,15 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
   deploy:
-    name: Deploy to the VPS
+    name: Deploy over SSH
     needs: build
     runs-on: ubuntu-latest
+    # Opt-in, because pushing the images is universal and shipping them is not.
+    # Set the DEPLOY_TARGET repository variable to `ssh` for a bare VPS. Leave
+    # it unset on a platform that deploys itself — Coolify, Dokploy, Kamal, a
+    # Kubernetes operator watching the registry — and this job simply does not
+    # run rather than failing on secrets that were never going to exist.
+    if: vars.DEPLOY_TARGET == 'ssh'
     # A GitHub environment, so the deploy secrets are not readable by every
     # workflow in the repository.
     environment: production
@@ -94,8 +100,12 @@ jobs:
             git fetch --quiet origin main
             git reset --quiet --hard ${{ github.sha }}
             export TAG=${{ github.sha }}
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --wait
+            # Both files: the base stack plus the Caddy overlay, which is what a
+            # bare VPS needs. A platform with its own proxy uses the base alone
+            # and does not come through this job.
+            COMPOSE="-f docker-compose.prod.yml -f docker-compose.caddy.yml"
+            docker compose $COMPOSE pull
+            docker compose $COMPOSE up -d --wait
             docker image prune -f
 
       - name: Prove it answers

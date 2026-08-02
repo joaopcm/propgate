@@ -1,17 +1,29 @@
-# The production stack: one VPS, four containers, no orchestrator.
+# The production stack: the application, and nothing that terminates TLS.
 #
-#   caddy ──▶ api ──▶ postgres
-#              └────▶ unbound ──▶ the internet
+#   api ──▶ postgres
+#    └────▶ unbound ──▶ the internet
+#
+# Nothing here publishes a port. Getting requests from the internet to the API
+# is the *environment's* job, and environments disagree about how:
+#
+#   bare VPS       docker compose -f docker-compose.prod.yml \
+#                                 -f docker-compose.caddy.yml up -d
+#   Coolify, Dokploy, CapRover, Kamal, Nomad, a Kubernetes ingress
+#                  this file alone — they already run a proxy, and a second one
+#                  binding :443 would collide with it
+#
+# Splitting it that way is not a courtesy to any one platform. A compose file
+# that assumes it owns port 443 is a compose file that only runs where nothing
+# else does, and this is an open-source project people will deploy in places we
+# have never seen.
 #
 # `docker-compose.yml` in the repo root is the DNS *fixture* tier for tests and
 # has nothing to do with this file. They are never run together.
 #
-#   docker compose -f docker-compose.prod.yml pull
-#   docker compose -f docker-compose.prod.yml up -d
+# No top-level `name:` — compose takes the project name from the directory, and
+# platforms that manage their own naming get to do so without a fight.
 #
 # See DEPLOYING.md.
-
-name: propgate
 
 services:
   postgres:
@@ -94,23 +106,5 @@ services:
       retries: 3
       start_period: 10s
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      API_DOMAIN: ${API_DOMAIN:-api.propgate.dev}
-    volumes:
-      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    depends_on:
-      api:
-        condition: service_healthy
-
 volumes:
   postgres-data:
-  caddy-data:
-  caddy-config:

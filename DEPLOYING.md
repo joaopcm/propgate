@@ -19,7 +19,31 @@ Everything below is in the repository. There is no console-only configuration
 except the secrets, which is the point: a deployment nobody can read is a
 deployment nobody can fix at 2am.
 
-## Why this split
+## The proxy is not part of the application
+
+`docker-compose.prod.yml` is the stack — Postgres, Unbound, the migration step
+and the API — and **it publishes no ports**. Getting requests from the internet
+to the API belongs to the environment, and environments disagree about how:
+
+| Where | What to run |
+|---|---|
+| A bare VPS | `-f docker-compose.prod.yml -f docker-compose.caddy.yml` — the overlay adds Caddy, which gets a certificate and renews it |
+| Coolify, Dokploy, CapRover, Kamal, a Kubernetes ingress | `docker-compose.prod.yml` alone. They already run a proxy; a second one binding `:443` collides with it, and their routing is the one their dashboard knows about |
+
+That split is not a courtesy to any particular platform. A compose file which
+assumes it owns port 443 only runs where nothing else does, and this is an
+open-source project people will deploy in places we have never seen.
+
+Two consequences worth knowing:
+
+- **`API_DOMAIN` only matters with the Caddy overlay.** It is the name Caddy
+  requests a certificate for. Elsewhere, the platform holds the hostname.
+- **The SSH deploy job is opt-in.** Set the `DEPLOY_TARGET` repository variable
+  to `ssh` for a bare VPS. Leave it unset and the job does not run — the images
+  are still built and pushed, and whatever watches the registry or the
+  repository takes it from there.
+
+## Why the surfaces live where they do
 
 **Web and docs are static.** Neither has a route handler, a server action, or a
 page that renders at request time — the public checker is a client component
@@ -49,7 +73,7 @@ git clone https://github.com/joaopcm/propgate.git /srv/propgate
 cd /srv/propgate
 cp .env.production.example .env
 $EDITOR .env                      # POSTGRES_PASSWORD, API_DOMAIN
-docker compose -f docker-compose.prod.yml up -d --wait
+docker compose -f docker-compose.prod.yml -f docker-compose.caddy.yml up -d --wait
 ```
 
 The first bring-up **builds** the images from the checkout, which is why both
@@ -115,8 +139,10 @@ hand.
 
 - `deploy-static.yml` builds and `wrangler deploy`s each app.
 - `deploy-api.yml` pushes `api` and `unbound` images to GHCR tagged with the
-  commit sha and `latest`, then `pull && up -d --wait` over SSH, then polls
-  `/health` until it answers or the deploy fails.
+  commit sha and `latest`. If `DEPLOY_TARGET` is `ssh` it then runs
+  `pull && up -d --wait` on the box and polls `/health` until it answers or the
+  deploy fails; otherwise it stops after the push and leaves shipping to
+  whatever is watching.
 
 Migrations run as a one-shot container that must exit successfully before the
 API starts. Not at boot: boot migrations turn a bad migration into a crash loop
@@ -128,8 +154,11 @@ replicas.
 Images are tagged by commit, so:
 
 ```sh
-TAG=<previous-sha> docker compose -f docker-compose.prod.yml up -d --wait
+TAG=<previous-sha> docker compose -f docker-compose.prod.yml \
+  -f docker-compose.caddy.yml up -d --wait
 ```
+
+On a platform that deploys for you, roll back to the previous image tag its way.
 
 Migrations do not roll back. A change that cannot be applied twice, or that an
 older image cannot read, needs to be split into two deploys — expand first, then
@@ -144,6 +173,9 @@ box:
 docker compose -f docker-compose.prod.yml run --rm api \
   node dist/mint.js "Partner name" "production"
 ```
+
+On a platform with a terminal, the same thing is
+`node dist/mint.js "Partner name" "production"` inside the API container.
 
 It prints the key once. Only the hash is stored, so losing it means minting
 another.
