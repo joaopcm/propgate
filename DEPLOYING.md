@@ -180,6 +180,33 @@ On a platform with a terminal, the same thing is
 It prints the key once. Only the hash is stored, so losing it means minting
 another.
 
+### Taking a key away
+
+```sh
+docker compose -f docker-compose.prod.yml run --rm api node dist/keys.js list
+docker compose -f docker-compose.prod.yml run --rm api \
+  node dist/keys.js revoke pg_live_Ab3x
+```
+
+Revoke by the prefix, which is the part of a key still readable after it was
+issued. It takes effect on the next request — `bearerAuth` reads `revoked_at` on
+every lookup, so there is no cache to wait out — and the caller gets
+`401 this API key has been revoked`, told apart from `invalid API key` so they
+know it is not a typo.
+
+Two refusals, both deliberate, both exiting non-zero so a script notices:
+
+- **A prefix matching more than one key.** Four base64url characters carry no
+  unique index, so a collision is unlikely and not impossible. It lists the
+  candidates and asks for an id instead of guessing which partner to cut off.
+- **The last active key for a tenant.** There is no un-revoke; recovering means
+  minting a new key and getting it to them. `--force` when that is the intent.
+
+Deliberately not an API route. A key that can revoke keys is a
+privilege-escalation question, and the control plane is out of scope — but
+handing an operator raw `UPDATE` statements against the auth table is how
+someone eventually forgets a `WHERE` clause under pressure.
+
 ## Backups
 
 `postgres-data` is a Docker volume on one machine, which is not a backup.

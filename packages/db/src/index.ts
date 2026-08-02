@@ -41,6 +41,16 @@ export {
 export type { Observation } from "./queries/record-changes";
 export { recordObservation } from "./queries/record-changes";
 export type {
+  ApiKeySummary,
+  RevokeOutcome,
+} from "./queries/revocation";
+export {
+  activeApiKeyCount,
+  apiKeysMatching,
+  listApiKeys,
+  revokeApiKeyByReference,
+} from "./queries/revocation";
+export type {
   DomainResult,
   DomainState,
   RequirementResult as StoredRequirementResult,
