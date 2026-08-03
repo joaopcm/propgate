@@ -106,6 +106,9 @@ importers:
       '@propgate/dns-fixtures':
         specifier: workspace:*
         version: link:../../packages/dns-fixtures
+      '@propgate/webhooks':
+        specifier: workspace:*
+        version: link:../../packages/webhooks
       '@shikijs/rehype':
         specifier: ^4.0.2
         version: 4.3.1

@@ -29,7 +29,14 @@ export interface DeliverWebhookPayload {
   readonly tenantId: string;
 }
 
-/** Which of the two schedulers fired. Both claim work; only the reason differs. */
+/**
+ * Which scheduler fired.
+ *
+ * `tick` claims due domains; `reconcile` re-derives domain work Redis lost;
+ * `reconcile-deliveries` does the same for webhook deliveries. All three are
+ * scheduled maintenance and share one queue, so a restart replaces three
+ * schedulers rather than accumulating them.
+ */
 export interface SweepTickPayload {
-  readonly reason: "reconcile" | "tick";
+  readonly reason: "reconcile" | "reconcile-deliveries" | "tick";
 }
