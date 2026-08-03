@@ -734,8 +734,6 @@ export const NOT_YET_EMITTED: Readonly<Partial<Record<DiagnosisCode, string>>> =
   {
     ANSWER_DIVERGES_BY_VANTAGE_POINT:
       "Needs more than one vantage point to compare, which arrives with the consensus and hysteresis work in Phase 2. One resolver cannot disagree with itself.",
-    DNSSEC_INSECURE_ISLAND:
-      'Detection is two lookups and was written; the problem is the denominator. `.com` is signed, so *every* unsigned domain beneath it satisfies "unsigned delegation under a signed parent" — a warning on most of the internet, which is how a checker teaches people to ignore it. The finding is only interesting one level down: a subdomain a customer delegated without a DS beneath a zone they signed themselves. That needs a public-suffix guard on the parent and a fixture that is a sub-delegation rather than an org domain, and the existing insecure-island.test is the latter.',
     PROVIDER_FLATTENED_CNAME:
       "Needs the addresses of our own infrastructure to compare against, so a flattened CNAME can be told from a genuinely wrong target. That is a deployment fact rather than a DNS one, and there is no deployment yet.",
     TCP_SILENTLY_BLOCKED:
