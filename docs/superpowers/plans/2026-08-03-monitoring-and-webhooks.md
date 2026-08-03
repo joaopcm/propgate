@@ -411,10 +411,34 @@ exhausted deliveries are dead-lettered with `status = 'failed'` and the last err
 kept, and surfaced through the API rather than only in Workbench — "why did this
 webhook not arrive" is a customer question, not an ops question.
 
-**Routes:** `POST/GET/DELETE /v1/webhook-endpoints`, `POST
-/v1/webhook-endpoints/:id/rotate-secret`, and `GET /v1/webhook-deliveries` with
-the keyset pagination already established in `apps/api/src/routes/domains.ts`.
-Secrets are returned once at creation, the same shape as API keys.
+**Routes: one `/v1/webhooks` family.**
+
+```
+POST   /v1/webhooks                  create (idempotent on url)
+GET    /v1/webhooks                  list
+GET    /v1/webhooks/:id              one
+PATCH  /v1/webhooks/:id              events, disable, re-enable
+DELETE /v1/webhooks/:id
+POST   /v1/webhooks/:id/secret       rotate
+GET    /v1/webhooks/:id/deliveries   the ledger for that endpoint
+```
+
+Revised from an earlier draft that had `webhook-endpoints`, `rotate-secret` and a
+tenant-wide `webhook-deliveries`. Three reasons the family is better: a delivery
+belongs to exactly one endpoint, so nesting it is the honest shape and answers the
+question people actually ask ("did *this* endpoint get it"); `rotate-secret` puts
+a verb in the path, while `POST /:id/secret` is a noun with the verb in the
+method; and a tenant-wide `/v1/webhooks/deliveries` would collide with
+`/v1/webhooks/:id` and resolve by declaration order.
+
+Keyset pagination as established in `apps/api/src/routes/domains.ts`. Secrets are
+returned once at creation and once per rotation, the same shape as API keys — and
+deliberately *not* returned by a retried create, which would turn an idempotent
+call into a way to read a secret somebody else configured.
+
+Any new family must be added to the auth middleware list in `app.ts`. A route
+mounted without one is publicly reachable and reads a tenant-scoped table with
+`tenantId` undefined.
 
 **Docs:** an `apps/docs` page covering the signature, verification code a customer
 can paste, the two-secret rotation window, the retry schedule, and the
