@@ -1,3 +1,4 @@
+; dnssec-signzone version 9.20.26
 bogus-zone.test.	300	IN SOA	ns1.test. hostmaster.propgate.invalid. (
 					1          ; serial
 					7200       ; refresh (2 hours)

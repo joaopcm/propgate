@@ -62,7 +62,12 @@ BIND_IMAGE=internetsystemsconsortium/bind9:9.20
 if [[ "${PROPGATE_SIGN_LOCAL:-}" != "1" ]] && command -v docker >/dev/null 2>&1; then
   echo "signing via $BIND_IMAGE"
   bind_tool() {
-    docker run --rm -u "$(id -u):$(id -g)" -v "$PKG:$PKG" -w "$1" \
+    # $WORK is mounted as well as $PKG. It is a mktemp directory outside the
+    # package, so without this the container cannot see the staged zones and
+    # every run fails with "file not found" — which is why this path had never
+    # actually run, and the local-tools fallback silently covered for it.
+    docker run --rm -u "$(id -u):$(id -g)" \
+      -v "$PKG:$PKG" -v "$WORK:$WORK" -w "$1" \
       --entrypoint "$2" "$BIND_IMAGE" "${@:3}"
   }
 elif command -v dnssec-signzone >/dev/null 2>&1; then

@@ -14,3 +14,8 @@ $TTL 300
 _dmarc              IN TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@secure.test"
 sel._domainkey      IN TXT  "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTURESECURE"
 @                   IN A    198.51.100.100
+
+; Delegated with NS and deliberately **no DS**, which is what makes the child an
+; insecure island. Adding this to a signed source zone is why `pnpm dns:sign`
+; has to run.
+island              IN NS   ns1.test.

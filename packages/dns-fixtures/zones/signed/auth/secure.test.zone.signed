@@ -1,3 +1,4 @@
+; dnssec-signzone version 9.20.26
 secure.test.		300	IN SOA	ns1.test. hostmaster.propgate.invalid. (
 					1          ; serial
 					7200       ; refresh (2 hours)
@@ -82,22 +83,6 @@ secure.test.		300	IN SOA	ns1.test. hostmaster.propgate.invalid. (
 					0q5GoLOAojnvsPvfvu+OQ1uy1UXhSxK6DU9+
 					HfAhTT92aEa/J+MJLiYX4RxooZx0ANbRvxWg
 					+jTI1XYgQ00mmy4Ee9Lq9jmUe8M= )
-sel._domainkey.secure.test. 300	IN TXT	"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTURESECURE"
-			300	RRSIG	TXT 8 4 300 (
-					20400101000000 20260101000000 17941 secure.test.
-					xv87Gc6LtmiUp/BP08FRw8w57zdNXSkcFbcJ
-					5Xl2TaVWGUpgzJ4Pgi7WxL4Wzk6XvpKLK9Qm
-					yikPolsEdYpq7f/s9r5oHuWTQq5tze3kEtZ4
-					sKrQzDBqMgCdV0gHK+ESX2498xggmPXjI8la
-					di+J/2a2BJlocWXqAZryULbmKfo= )
-			300	NSEC	secure.test. TXT RRSIG NSEC
-			300	RRSIG	NSEC 8 4 300 (
-					20400101000000 20260101000000 17941 secure.test.
-					m49Ebl3yVaqyAj7YES6n0MWlorc1KuVljvTS
-					1ZF2KNZcJYLR+k1uAEEmMm8CwS5X4te/B/Za
-					S56rVxySB07j9eRtJgjjaX4aILapd2OruR1h
-					+53qzVner0MTGhmCk5RQmVFnvCGSjSp7VYH7
-					GRL732+Nv6j2bajE+/+nOPFeRxE= )
 _dmarc.secure.test.	300	IN TXT	"v=DMARC1; p=reject; rua=mailto:dmarc@secure.test"
 			300	RRSIG	TXT 8 3 300 (
 					20400101000000 20260101000000 17941 secure.test.
@@ -114,3 +99,28 @@ _dmarc.secure.test.	300	IN TXT	"v=DMARC1; p=reject; rua=mailto:dmarc@secure.test
 					P5CyLWyfTpvu12EJRiTYXO0SSQiQHNGh+UE1
 					DLqUqkuz6WL9USAxNGQNv6WtwNTIN4hWWMGa
 					uaxW6ZG5UA9a8S2w8wt/l6ZBA+k= )
+sel._domainkey.secure.test. 300	IN TXT	"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTURESECURE"
+			300	RRSIG	TXT 8 4 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					xv87Gc6LtmiUp/BP08FRw8w57zdNXSkcFbcJ
+					5Xl2TaVWGUpgzJ4Pgi7WxL4Wzk6XvpKLK9Qm
+					yikPolsEdYpq7f/s9r5oHuWTQq5tze3kEtZ4
+					sKrQzDBqMgCdV0gHK+ESX2498xggmPXjI8la
+					di+J/2a2BJlocWXqAZryULbmKfo= )
+			300	NSEC	island.secure.test. TXT RRSIG NSEC
+			300	RRSIG	NSEC 8 4 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					1ajRWJG6abpC8lsmyPc6OKWA0+fcWP6CMQ0W
+					UM6ag8ePwwCan14w/d8ZiBdt5O9K1U0hgR+P
+					TAGdtTSQeugJYZyo4xMohgMELe5FvZRMYNGJ
+					+xgX3UwP1pVKMXQrDXAAkEmq3lGiLzjSHqgO
+					OuFh5Rsy9dnf0/d50XCejBOvs8M= )
+island.secure.test.	300	IN NS	ns1.test.
+			300	NSEC	secure.test. NS RRSIG NSEC
+			300	RRSIG	NSEC 8 3 300 (
+					20400101000000 20260101000000 17941 secure.test.
+					KxUeacsPlXDrlVtaPn7YQCM87648OK2Jx8S1
+					EBJzVGFDN4uXjeIXXsq8/CnaRwEBJYmZT7Pk
+					s065+ZMcgv2V+fkLx1mYtfRYdTarABxzQ2oi
+					20nCpDp7TioUqKy0SD9TB55cqEd74ilppsb5
+					Hm64rsANNkZOWwXjrUu/aG+ta7w= )

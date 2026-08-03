@@ -1,0 +1,22 @@
+; DNSSEC_INSECURE_ISLAND — a subdomain delegated without a DS beneath a zone its
+; owner signed.
+;
+; The distinction that makes this worth a fixture: secure.test is signed and
+; vouched for by test., and this child is not. Nothing here is broken — every
+; resolver answers it — and the signatures above simply stop protecting anything
+; at this boundary. The remedy is a DS at the registrar.
+;
+; It has to be a *sub*-delegation rather than an org domain. Reported at the org
+; level the finding is true of every unsigned domain under signed .com, which is
+; most of the internet, so the evaluator guards on the parent not being a public
+; suffix. insecure-island.test exists for the org-domain case and correctly
+; produces nothing under that guard — which is itself asserted.
+$ORIGIN island.secure.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+@                   IN TXT  "unsigned beneath a signed parent"
+@                   IN A    198.51.100.110

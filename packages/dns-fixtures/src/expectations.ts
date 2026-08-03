@@ -154,6 +154,13 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
     zone: "insecure-island.test",
   },
   {
+    codes: ["DNSSEC_INSECURE_ISLAND"],
+    reason:
+      "A sub-delegation with no DS beneath a signed secure.test. The org-domain case above cannot exercise the code, because the evaluator guards on the parent not being a public suffix — without that guard the finding is true of most of the internet.",
+    role: "auth",
+    zone: "island.secure.test",
+  },
+  {
     codes: ["NS_DELEGATION_LAME"],
     reason:
       "Delegated to dns-decoy, which is authoritative for decoy.test only and so answers REFUSED immediately.",
