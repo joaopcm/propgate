@@ -92,6 +92,7 @@ packages/dns           @propgate/dns — resolver, evaluators, taxonomy. MIT.
 packages/dns-fixtures  Zone files, signing pipeline, test harness. Private.
 packages/db            Drizzle schema, migrations, and the queries. Private.
 packages/jobs          BullMQ queue names, payload types, connection. Private.
+packages/webhooks      Webhook signing and payload shapes. Private.
 packages/cli           @propgate/cli. MIT.
 ```
 
@@ -101,8 +102,8 @@ is. Queue admin (Workbench) is mounted there and never on the API: it is a pre-1
 dependency, and customer traffic should not share a process with it.
 
 `packages/db` and the authenticated routes in `apps/api` arrived with Phase 2
-milestone 1; `packages/jobs` with milestone 2. `webhooks`, `sdk`, `ui`, and
-`emails` have not. Do not add them early — the phasing exists so a control plane
+milestone 1; `packages/jobs` and `packages/webhooks` with milestone 2. `sdk`,
+`ui`, and `emails` have not. Do not add them early — the phasing exists so a control plane
 that may never ship is not pre-built, and that reasoning still holds for
 everything on that list.
 
