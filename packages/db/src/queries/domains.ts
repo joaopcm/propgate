@@ -168,6 +168,14 @@ export async function saveCheck(
   db: Database,
   input: {
     readonly domainId: string;
+    /**
+     * When to look again. Required rather than optional, because a check that
+     * does not schedule the next one leaves the row claimed with its
+     * `next_check_at` a lease-length away and no further opinion — the domain
+     * quietly drops to whatever the lease says. Forgetting it should be a type
+     * error, not a monitoring gap.
+     */
+    readonly nextCheckAt: Date;
     readonly result: DomainResult;
     readonly state: DomainState;
     readonly tenantId: string;
@@ -179,6 +187,7 @@ export async function saveCheck(
     .set({
       lastCheckedAt: now,
       lastResult: input.result,
+      nextCheckAt: input.nextCheckAt,
       state: input.state,
     })
     .where(

@@ -5,12 +5,13 @@ export type {
   DeliverWebhookPayload,
   SweepTickPayload,
 } from "./payloads";
-export type { QueueFactoryOptions, QueueName } from "./queues";
+export type { QueueFactoryOptions, QueueName, Queues } from "./queues";
 export {
-  allQueues,
   checkDomainQueue,
+  createQueues,
   deliverWebhookQueue,
   QUEUE_NAMES,
+  queueList,
   sweepQueue,
 } from "./queues";
 // Test helpers on the entry point, the same way `@propgate/db` exports

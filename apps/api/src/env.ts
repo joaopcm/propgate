@@ -6,6 +6,16 @@ export const env = createEnv({
   runtimeEnv: process.env,
   server: {
     /**
+     * How many `check-domain` jobs run at once.
+     *
+     * **Unmeasured**, and the one most likely to be wrong. Each check is up to
+     * ~20 upstream queries, so this multiplies straight into load on our Unbound
+     * and on other people's authoritative servers. Four is deliberately timid.
+     * The receipt: the point at which Unbound's response latency degrades under
+     * parallel checks, measurable on the box in Phase 6.
+     */
+    CHECK_CONCURRENCY: z.coerce.number().int().min(1).default(4),
+    /**
      * Required at boot, unlike the resolver's defaults.
      *
      * The authenticated routes are the product; starting without a database and
@@ -37,6 +47,26 @@ export const env = createEnv({
     RESOLVER_ADDRESS: z.string().min(1).default("127.0.0.1"),
     RESOLVER_PORT: z.coerce.number().int().min(1).max(65_535).default(53),
     SENTRY_DSN: z.string().url().optional(),
+    /**
+     * How many domains one tick claims and hands to the queue.
+     *
+     * **Unmeasured.** A tripwire against a runaway sweep rather than a tuned
+     * number: at 100 per tick and a 60-second tick the ceiling is 144,000 checks
+     * a day, well past anything current. The receipt this waits on is one tick's
+     * wall clock at the real domain count, taken in Phase 6.
+     */
+    SWEEP_BATCH_SIZE: z.coerce.number().int().min(1).default(100),
+    /**
+     * How long a claimed domain is not re-claimable.
+     *
+     * Must exceed the check budget (10s) by a wide margin or a slow-but-healthy
+     * check gets claimed twice. Five minutes is that margin. Lowering it makes
+     * crash recovery faster and double-checking more likely; there is no reason to
+     * want the trade in that direction.
+     */
+    SWEEP_LEASE_SECONDS: z.coerce.number().int().min(1).default(300),
+    /** How often the sweeper looks for due domains. */
+    SWEEP_TICK_SECONDS: z.coerce.number().int().min(1).default(60),
     /**
      * Queue admin. Optional, and unset means not mounted at all.
      *

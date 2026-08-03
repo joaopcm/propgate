@@ -42,7 +42,10 @@ describe("domains", () => {
 
     expect(row?.state).toBe("pending");
     expect(row?.lastCheckedAt).toBeNull();
-    expect(row?.nextCheckAt).toBeNull();
+    // Immediately due, so the next tick picks it up without registration having
+    // to know the sweeper exists. This asserted null until the sweeper landed;
+    // a null here would now mean "never check this domain again".
+    expect(row?.nextCheckAt).not.toBeNull();
   });
 
   it("accepts all five states, including the two nothing reaches yet", async () => {

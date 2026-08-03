@@ -114,17 +114,36 @@ export function sweepQueue(
   return new Queue<SweepTickPayload>(QUEUE_NAMES.sweep, queueOptions(options));
 }
 
+export interface Queues {
+  readonly checkDomain: Queue<CheckDomainPayload>;
+  readonly deliverWebhook: Queue<DeliverWebhookPayload>;
+  readonly sweep: Queue<SweepTickPayload>;
+}
+
 /**
- * Every queue, in one call.
+ * Every queue, constructed once.
  *
- * Workbench takes a list, and a queue missing from that list is invisible in the
- * dashboard while still accumulating jobs — the one place where forgetting to
- * add something produces a confidently wrong answer rather than an error.
+ * Named rather than an array because the worker needs to reach two of them
+ * specifically, and constructing them a second time to get a typed handle would
+ * double the Redis connections for nothing.
  */
-export function allQueues(options: QueueFactoryOptions): Queue[] {
-  return [
-    sweepQueue(options),
-    checkDomainQueue(options),
-    deliverWebhookQueue(options),
-  ] as Queue[];
+export function createQueues(options: QueueFactoryOptions): Queues {
+  return {
+    checkDomain: checkDomainQueue(options),
+    deliverWebhook: deliverWebhookQueue(options),
+    sweep: sweepQueue(options),
+  };
+}
+
+/**
+ * The same queues as a list, for Workbench and for shutdown.
+ *
+ * Derived rather than hand-written at the call site: a queue missing from
+ * Workbench's list is invisible in the dashboard while still accumulating jobs,
+ * which is the one place where forgetting something produces a confidently wrong
+ * answer rather than an error. Deriving it means adding a queue to `Queues` is
+ * enough.
+ */
+export function queueList(queues: Queues): Queue[] {
+  return Object.values(queues) as Queue[];
 }

@@ -176,6 +176,14 @@ services:
       RESOLVER_ADDRESS: unbound
       RESOLVER_PORT: 53
       SENTRY_DSN: ${SENTRY_DSN:-}
+      # Passed through so `.env` can override them without a rebuild. Empty means
+      # unset, which means the code's default — `emptyStringAsUndefined` in env.ts
+      # is what makes that work, so these must never be given a literal fallback
+      # here or the schema's default becomes unreachable.
+      CHECK_CONCURRENCY: ${CHECK_CONCURRENCY:-}
+      SWEEP_BATCH_SIZE: ${SWEEP_BATCH_SIZE:-}
+      SWEEP_LEASE_SECONDS: ${SWEEP_LEASE_SECONDS:-}
+      SWEEP_TICK_SECONDS: ${SWEEP_TICK_SECONDS:-}
       WORKBENCH_PORT: 3002
       # Unset means the dashboard is not mounted at all. Workbench is pre-1.0, so
       # a box that never looks at its queues should not be running it.
