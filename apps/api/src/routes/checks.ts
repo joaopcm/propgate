@@ -15,6 +15,7 @@ import {
 } from "../utils/domain-name";
 import type { RateLimiter } from "../utils/rate-limit";
 import { error, success } from "../utils/response";
+import { firstIssue } from "../utils/validation";
 
 /**
  * `POST /v1/checks` — everything propgate knows about one domain.
@@ -149,12 +150,7 @@ export function createChecksRoute(options: {
     const parsed = requestSchema.safeParse(body);
 
     if (!parsed.success) {
-      // The first issue is the one a caller can act on. `.at` rather than an
-      // index because `noUncheckedIndexedAccess` is on and Zod's types do not
-      // promise the array is non-empty.
-      const issue = parsed.error.issues.at(0);
-
-      return error(c, 422, issue?.message ?? "invalid request");
+      return error(c, 422, firstIssue(parsed.error));
     }
 
     const rejection = rejectDomain(parsed.data.domain);

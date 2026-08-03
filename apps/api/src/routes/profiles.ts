@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { AuthVariables } from "../middleware/auth";
 import { rejectDefinition } from "../profiles/compile";
 import { error, success } from "../utils/response";
+import { firstIssue } from "../utils/validation";
 
 /**
  * `POST /v1/profiles` and `GET /v1/profiles/:key`.
@@ -58,11 +59,7 @@ export function createProfilesRoute(options: { db: Database }) {
     const parsed = createSchema.safeParse(body);
 
     if (!parsed.success) {
-      return error(
-        c,
-        422,
-        parsed.error.issues.at(0)?.message ?? "invalid request"
-      );
+      return error(c, 422, firstIssue(parsed.error));
     }
 
     const definition: ProfileDefinition = {
