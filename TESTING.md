@@ -107,6 +107,20 @@ a long way from that cause. That is exactly how this landed the first time: the
 schema was migrated by hand locally, everything passed, and CI failed on a
 database with no tables in it.
 
+## Component specs need explicit cleanup
+
+`apps/web` renders with jsdom and `@testing-library/react`. Testing Library only
+registers its own `afterEach(cleanup)` when Vitest globals are enabled, and they
+are not — so every component spec calls it itself:
+
+```ts
+afterEach(cleanup);
+```
+
+Skip it and the DOM accumulates across tests. The failure then arrives several
+specs later as `found multiple elements with the role "heading"`, pointing at the
+last test rather than the one that leaked.
+
 ## Structure
 
 - **One `describe()` per unit under test**, named for the real thing
