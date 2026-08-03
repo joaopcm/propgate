@@ -1,7 +1,9 @@
 # propgate
 
-Domain verification and DNS lifecycle infrastructure. Read `README.md` first — it
-is the scope contract, and it says what is deliberately *not* being built yet.
+Domain verification and DNS lifecycle infrastructure. Read `docs/DESIGN.md`
+first — it is the scope contract, and it says what is deliberately *not* being
+built yet. `README.md` is the product-facing page; `QUICKSTART.md` is the worked
+example.
 
 ## Invariants
 

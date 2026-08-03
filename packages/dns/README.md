@@ -5,8 +5,11 @@ taxonomy. **Zero runtime dependencies** — Node built-ins only.
 
 MIT licensed. Part of [propgate](https://github.com/joaopcm/propgate).
 
-> **Status:** the wire codec and transports are in place. Evaluators (SPF, DKIM,
-> DMARC, CAA, MTA-STS) and the full ~50-code taxonomy are the rest of Phase 1.
+> **Status:** shipped. Resolver, six evaluators (delegation, SPF, DKIM, DMARC,
+> MX, CAA) and a 73-code diagnosis taxonomy, every code either produced by a
+> fixture in the test harness or carrying a written reason why it cannot be. The
+> [RFC conformance ledger](https://docs.propgate.dev/conformance) says which
+> parts of which specifications are asserted by a named test.
 
 ## Why this does not use `node:dns`
 
