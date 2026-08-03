@@ -2,7 +2,25 @@
 
 Domain onboarding and lifecycle infrastructure. Companies hand us their customers' domains; we verify the DNS, keep watching it, and tell them via webhooks when anything changes.
 
-> **Status:** design phase. Nothing is built yet. This document is the scope contract — read it before adding anything.
+> **Status:** verification is live. The resolver, the six evaluators and the
+> diagnosis taxonomy ship as [`@propgate/dns`](https://www.npmjs.com/package/@propgate/dns)
+> and [`@propgate/cli`](https://www.npmjs.com/package/@propgate/cli); the API
+> runs at `api.propgate.dev`. Continuous monitoring — the sweeper, hysteresis
+> and webhooks — is **not** built yet. This document remains the scope contract:
+> read it before adding anything.
+
+**[Quickstart →](QUICKSTART.md)** One curl, no signup:
+
+```sh
+curl -s -X POST https://api.propgate.dev/v1/checks \
+  -H 'content-type: application/json' -d '{"domain":"github.com"}'
+```
+
+On a domain nobody would call misconfigured, that currently returns two
+findings: GitHub's SPF sits at exactly ten of the ten lookups RFC 7208 allows,
+so the next sending service anyone adds breaks mail delivery — and their AWS and
+NS1 nameservers report different zone serials, so which answer a customer gets
+depends on which server they reach.
 
 ## The problem
 

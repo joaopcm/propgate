@@ -35,6 +35,7 @@ import {
 } from "../utils/domain-name";
 import type { RateLimiter } from "../utils/rate-limit";
 import { error, success } from "../utils/response";
+import { firstIssue } from "../utils/validation";
 
 /**
  * The domain lifecycle: register, verify, read, delete.
@@ -187,11 +188,7 @@ export function createDomainsRoute(options: {
     const parsed = registerSchema.safeParse(body);
 
     if (!parsed.success) {
-      return error(
-        c,
-        422,
-        parsed.error.issues.at(0)?.message ?? "invalid request"
-      );
+      return error(c, 422, firstIssue(parsed.error));
     }
 
     const rejection = rejectDomain(parsed.data.name);
