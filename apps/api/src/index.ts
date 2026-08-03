@@ -1,6 +1,7 @@
 import "./instrument";
 import { serve } from "@hono/node-server";
 import { createDb } from "@propgate/db";
+import { createQueues } from "@propgate/jobs";
 import { createApp } from "./app";
 import { env } from "./env";
 import { vantagePoints } from "./utils/vantage-points";
@@ -13,6 +14,8 @@ import { vantagePoints } from "./utils/vantage-points";
  */
 const resolver = { address: env.RESOLVER_ADDRESS, port: env.RESOLVER_PORT };
 
+const queues = createQueues({ url: env.REDIS_URL });
+
 const app = createApp({
   db: createDb(env.DATABASE_URL),
   resolver,
@@ -21,6 +24,7 @@ const app = createApp({
     degradedAfter: env.DEGRADED_AFTER_FAILURES,
     failedAfter: env.FAILED_AFTER_FAILURES,
   },
+  webhooks: queues.deliverWebhook,
 });
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {

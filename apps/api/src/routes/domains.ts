@@ -9,6 +9,8 @@ import {
   registerDomain,
 } from "@propgate/db";
 import type { ServerAddress } from "@propgate/dns";
+import type { DeliverWebhookPayload } from "@propgate/jobs";
+import type { Queue } from "bullmq";
 import { Hono } from "hono";
 import { z } from "zod";
 import { checkAndPersist } from "../domains/check";
@@ -22,6 +24,7 @@ import {
 import type { RateLimiter } from "../utils/rate-limit";
 import { error, success } from "../utils/response";
 import { firstIssue } from "../utils/validation";
+import { enqueueForTransition } from "../webhooks/enqueue";
 
 /**
  * The domain lifecycle: register, verify, read, delete.
@@ -118,6 +121,7 @@ export function createDomainsRoute(options: {
   resolver: ServerAddress;
   resolvers: readonly ServerAddress[];
   thresholds?: HysteresisThresholds;
+  webhooks?: Queue<DeliverWebhookPayload>;
 }) {
   const route = new Hono<{ Variables: AuthVariables }>();
   const { db } = options;
@@ -226,6 +230,30 @@ export function createDomainsRoute(options: {
           : { thresholds: options.thresholds }),
       },
     });
+
+    // The same notification path the sweeper uses. A domain that flips because a
+    // customer clicked verify is exactly as newsworthy as one that flips on its
+    // own, and having only one of the two notify would be indistinguishable from
+    // a bug.
+    if (checked.transition !== null) {
+      await enqueueForTransition(
+        {
+          db,
+          ...(options.webhooks === undefined
+            ? {}
+            : { queue: options.webhooks }),
+        },
+        {
+          domain: domain.name,
+          domainId: domain.id,
+          externalId: domain.externalId,
+          from: checked.transition.from,
+          reason: checked.transition.reason,
+          tenantId,
+          to: checked.transition.to,
+        }
+      );
+    }
 
     return success(
       c,

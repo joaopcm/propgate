@@ -397,3 +397,74 @@ export async function pendingDeliveries(
     .orderBy(webhookDeliveries.createdAt)
     .limit(options.limit);
 }
+
+export interface DeliveryAttemptContext {
+  readonly attempts: number;
+  readonly disabledAt: Date | null;
+  readonly event: string;
+  readonly payload: unknown;
+  readonly previousSecret: string | null;
+  readonly previousSecretExpiresAt: Date | null;
+  readonly secret: string;
+  readonly status: DeliveryStatus;
+  readonly url: string;
+}
+
+/**
+ * Everything one attempt needs, in one round trip.
+ *
+ * Joined rather than two queries because the worker runs this per attempt and the
+ * endpoint's URL and secrets are useless without the payload. Reading the secret
+ * at attempt time rather than freezing it with the delivery is deliberate: a
+ * rotation must apply to a retry, or an endpoint whose secret leaked would keep
+ * receiving requests signed with the leaked one.
+ */
+export async function deliveryForAttempt(
+  db: Database,
+  input: { readonly deliveryId: string; readonly tenantId: string }
+): Promise<DeliveryAttemptContext | undefined> {
+  const [row] = await db
+    .select({
+      attempts: webhookDeliveries.attempts,
+      disabledAt: webhookEndpoints.disabledAt,
+      event: webhookDeliveries.event,
+      payload: webhookDeliveries.payload,
+      previousSecret: webhookEndpoints.previousSecret,
+      previousSecretExpiresAt: webhookEndpoints.previousSecretExpiresAt,
+      secret: webhookEndpoints.secret,
+      status: webhookDeliveries.status,
+      url: webhookEndpoints.url,
+    })
+    .from(webhookDeliveries)
+    .innerJoin(
+      webhookEndpoints,
+      eq(webhookDeliveries.endpointId, webhookEndpoints.id)
+    )
+    .where(
+      and(
+        eq(webhookDeliveries.id, input.deliveryId),
+        eq(webhookDeliveries.tenantId, input.tenantId)
+      )
+    )
+    .limit(1);
+
+  return row;
+}
+
+/** The live secrets for a row already fetched by `deliveryForAttempt`. */
+export function secretsFrom(
+  row: Pick<
+    DeliveryAttemptContext,
+    "previousSecret" | "previousSecretExpiresAt" | "secret"
+  >,
+  now = new Date()
+): readonly string[] {
+  const previousIsLive =
+    row.previousSecret !== null &&
+    row.previousSecretExpiresAt !== null &&
+    row.previousSecretExpiresAt > now;
+
+  return previousIsLive && row.previousSecret !== null
+    ? [row.secret, row.previousSecret]
+    : [row.secret];
+}

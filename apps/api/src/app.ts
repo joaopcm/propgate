@@ -1,6 +1,8 @@
 import type { Database } from "@propgate/db";
 import type { ServerAddress } from "@propgate/dns";
+import type { DeliverWebhookPayload } from "@propgate/jobs";
 import { captureException } from "@sentry/node";
+import type { Queue } from "bullmq";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
@@ -49,6 +51,8 @@ export function createApp(options: {
   resolvers?: readonly ServerAddress[];
   /** Hysteresis thresholds. Defaults are in `hysteresis.ts`. */
   thresholds?: HysteresisThresholds;
+  /** Absent means deliveries are recorded but wait for the reconciler. */
+  webhooks?: Queue<DeliverWebhookPayload>;
 }) {
   const app = new Hono();
 
@@ -134,6 +138,9 @@ export function createApp(options: {
         ...(options.thresholds === undefined
           ? {}
           : { thresholds: options.thresholds }),
+        ...(options.webhooks === undefined
+          ? {}
+          : { webhooks: options.webhooks }),
       })
     );
   }

@@ -59,6 +59,7 @@ export type { ClaimedDomain, ClaimOptions } from "./queries/sweep";
 export { claimDueDomains, dueCount } from "./queries/sweep";
 export type {
   CreateEndpointOutcome,
+  DeliveryAttemptContext,
   DeliveryPage,
   DeliveryRow,
   EndpointRow,
@@ -67,6 +68,7 @@ export {
   activeSecrets,
   createEndpoint,
   deleteEndpoint,
+  deliveryForAttempt,
   endpointsForEvent,
   listDeliveries,
   listEndpoints,
@@ -75,6 +77,7 @@ export {
   pendingDeliveries,
   recordDelivery,
   rotateSecret,
+  secretsFrom,
 } from "./queries/webhooks";
 export type {
   DomainResult,

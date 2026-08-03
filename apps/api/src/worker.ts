@@ -2,7 +2,11 @@ import "./instrument";
 import { workbench } from "@getworkbench/hono";
 import { serve } from "@hono/node-server";
 import { createDb } from "@propgate/db";
-import type { CheckDomainPayload, SweepTickPayload } from "@propgate/jobs";
+import type {
+  CheckDomainPayload,
+  DeliverWebhookPayload,
+  SweepTickPayload,
+} from "@propgate/jobs";
 import {
   connectionFor,
   createQueues,
@@ -16,6 +20,8 @@ import { checkClaimedDomain } from "./sweep/check-domain";
 import type { TickDeps } from "./sweep/tick";
 import { runReconcile, runTick } from "./sweep/tick";
 import { vantagePoints } from "./utils/vantage-points";
+import { attemptDelivery } from "./webhooks/deliver";
+import { enqueueForTransition } from "./webhooks/enqueue";
 
 /**
  * The background process. Same image as the API, different command.
@@ -98,9 +104,61 @@ const checkWorker = new Worker<CheckDomainPayload>(
       return { state: "gone" };
     }
 
+    const { transition } = outcome.checked;
+
+    if (transition !== null) {
+      await enqueueForTransition(
+        { db, queue: queues.deliverWebhook },
+        {
+          domain: outcome.domain.name,
+          domainId: job.data.domainId,
+          externalId: outcome.domain.externalId,
+          from: transition.from,
+          reason: transition.reason,
+          tenantId: job.data.tenantId,
+          to: transition.to,
+        }
+      );
+    }
+
     return { state: outcome.checked.state };
   },
   { concurrency: env.CHECK_CONCURRENCY, connection }
+);
+
+/**
+ * Delivery, with the retry budget owned by the queue.
+ *
+ * A `retry` result throws, because throwing is how a BullMQ worker asks for the
+ * backoff it was configured with. Returning normally would mark the job complete
+ * and the delivery would sit `pending` until the reconciler noticed — correct
+ * eventually, and much slower than the exponential backoff already configured.
+ */
+const deliveryWorker = new Worker<DeliverWebhookPayload>(
+  QUEUE_NAMES.deliverWebhook,
+  async (job) => {
+    const result = await attemptDelivery(
+      { db, timeoutMs: env.WEBHOOK_TIMEOUT_MS },
+      job.data,
+      { allowed: env.WEBHOOK_ATTEMPTS, made: job.attemptsMade + 1 }
+    );
+
+    if (result.kind === "retry") {
+      throw new Error(result.error);
+    }
+
+    return { kind: result.kind };
+  },
+  {
+    // Modest, and for a different reason than CHECK_CONCURRENCY: this is outbound
+    // load on other people's servers, one of which may be slow enough to hold a
+    // slot for the full timeout.
+    concurrency: env.CHECK_CONCURRENCY,
+    connection,
+    // The backoff BullMQ applies when the processor throws. One second doubling
+    // reaches roughly half a minute over five attempts.
+    settings: { backoffStrategy: (attempts) => 1000 * 2 ** (attempts - 1) },
+  }
 );
 
 await queues.sweep.upsertJobScheduler(
@@ -171,7 +229,11 @@ const server = serve({ fetch: app.fetch, port: env.WORKBENCH_PORT }, (info) => {
  */
 function shutdown(): void {
   server.close(() => {
-    Promise.all([sweepWorker.close(), checkWorker.close()])
+    Promise.all([
+      sweepWorker.close(),
+      checkWorker.close(),
+      deliveryWorker.close(),
+    ])
       .then(() => Promise.all(queueList(queues).map((queue) => queue.close())))
       .then(() => process.exit(0))
       .catch(() => process.exit(1));
