@@ -43,6 +43,11 @@ const tickDeps: TickDeps = {
   queue: queues.checkDomain,
 };
 
+const thresholds = {
+  degradedAfter: env.DEGRADED_AFTER_FAILURES,
+  failedAfter: env.FAILED_AFTER_FAILURES,
+};
+
 const resolvers = vantagePoints(env, {
   address: env.RESOLVER_ADDRESS,
   port: env.RESOLVER_PORT,
@@ -76,7 +81,7 @@ const checkWorker = new Worker<CheckDomainPayload>(
   QUEUE_NAMES.checkDomain,
   async (job) => {
     const outcome = await checkClaimedDomain(
-      { db, settings: { resolvers } },
+      { db, settings: { resolvers, thresholds } },
       job.data
     );
 

@@ -132,12 +132,36 @@ describe("verifying a correctly configured domain", () => {
       (entry: { satisfied: boolean }) => !entry.satisfied
     );
 
-    expect(body.data.state).toBe("failed");
+    // `degraded`, not `failed`. One failing check is one failing check —
+    // hysteresis is what stands between a resolver blip and a webhook that pages
+    // a customer's customer. This asserted `failed` until that landed.
+    expect(body.data.state).toBe("degraded");
     expect(body.data.requirementsMet).toBe(2);
     expect(unmet.map((entry: { key: string }) => entry.key)).toEqual([
       "rotated",
     ]);
     expect(unmet[0].findings.length).toBeGreaterThan(0);
+  });
+
+  it("reaches failed only after the threshold, through the real route", async () => {
+    // The pure function is table-tested in `hysteresis.spec.ts`. This is the
+    // end-to-end version: the counter has to survive a round trip through
+    // Postgres, or the domain would sit at `degraded` forever and nothing would
+    // ever be reported.
+    const { domainId, key } = await partner("partner", {
+      key: "sending",
+      requirements: [{ check: "dkim", key: "rotated", selector: "pg2" }],
+    });
+
+    const first = await (await check(key, domainId)).json();
+    const second = await (await check(key, domainId)).json();
+    const third = await (await check(key, domainId)).json();
+
+    expect([first.data.state, second.data.state, third.data.state]).toEqual([
+      "degraded",
+      "degraded",
+      "failed",
+    ]);
   });
 });
 

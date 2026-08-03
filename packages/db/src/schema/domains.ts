@@ -1,5 +1,6 @@
 import {
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -73,6 +74,15 @@ export interface DomainResult {
 export const domains = pgTable(
   "domains",
   {
+    /**
+     * How many definite failures in a row, reset by any passing check.
+     *
+     * A run, not a total. An `indeterminate` check leaves it exactly as it was —
+     * resetting it would mean a broken domain behind a flaky resolver never
+     * accumulated enough consecutive failures to be reported, and incrementing it
+     * would mean our own resolver's bad minute paged somebody.
+     */
+    consecutiveFailures: integer("consecutive_failures").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     externalId: text("external_id"),
     id: text("id")

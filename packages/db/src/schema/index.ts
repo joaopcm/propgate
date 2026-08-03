@@ -10,4 +10,9 @@ export { domainState, domains } from "./domains";
 export type { ProfileDefinition, ProfileRequirement } from "./profiles";
 export { profiles } from "./profiles";
 export { recordChanges } from "./record-changes";
+export type {
+  StoredTransition,
+  TransitionEvidence,
+} from "./state-transitions";
+export { stateTransitions } from "./state-transitions";
 export { tenants } from "./tenants";

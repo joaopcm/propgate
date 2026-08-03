@@ -6,7 +6,7 @@ import type {
   StoredLookup,
   StoredRequirementResult,
 } from "@propgate/db";
-import { recordObservation, saveCheck } from "@propgate/db";
+import { recordObservation, recordTransition, saveCheck } from "@propgate/db";
 import type { CheckResult, ServerAddress } from "@propgate/dns";
 import { runChecksAcrossVantagePoints } from "@propgate/dns";
 import {
@@ -16,7 +16,9 @@ import {
 } from "../profiles/compile";
 import type { ScheduleIntervals } from "../sweep/schedule";
 import { nextCheckAt } from "../sweep/schedule";
-import { nextState, observationFor } from "./state";
+import type { HysteresisThresholds, StateTransition } from "./hysteresis";
+import { applyHysteresis } from "./hysteresis";
+import { observationFor } from "./state";
 
 /**
  * One check, run and persisted, for both callers.
@@ -53,9 +55,12 @@ export interface CheckSettings {
    * tracks no state, so it has nothing to contradict.
    */
   readonly resolvers: readonly ServerAddress[];
+  /** How many consecutive failures it takes to believe one. Invariant 2. */
+  readonly thresholds?: HysteresisThresholds;
 }
 
 export interface CheckableDomain {
+  readonly consecutiveFailures: number;
   /** Registration time, which is when a never-verified domain became pending. */
   readonly createdAt: Date;
   readonly id: string;
@@ -66,9 +71,12 @@ export interface CheckableDomain {
 
 export interface CheckedDomain {
   readonly checkedAt: Date;
+  readonly consecutiveFailures: number;
   readonly nextCheckAt: Date;
   readonly result: DomainResult;
   readonly state: DomainState;
+  /** Null unless the domain actually moved. Phase 5 turns this into a webhook. */
+  readonly transition: StateTransition | null;
 }
 
 /**
@@ -177,7 +185,15 @@ export async function checkAndPersist(
     verdict: overall,
   };
 
-  const state = nextState(input.domain.state, overall);
+  const hysteresis = applyHysteresis({
+    consecutiveFailures: input.domain.consecutiveFailures,
+    state: input.domain.state,
+    ...(input.settings.thresholds === undefined
+      ? {}
+      : { thresholds: input.settings.thresholds }),
+    verdict: overall,
+  });
+  const { state } = hysteresis;
   const minTtlSeconds = observedMinTtlSeconds(checked);
   const scheduled = nextCheckAt({
     ...(input.settings.intervals === undefined
@@ -192,6 +208,7 @@ export async function checkAndPersist(
   await saveCheck(
     db,
     {
+      consecutiveFailures: hysteresis.consecutiveFailures,
       domainId: input.domain.id,
       nextCheckAt: scheduled,
       result,
@@ -208,5 +225,39 @@ export async function checkAndPersist(
     await recordChanges(db, input.domain.id, requirements);
   }
 
-  return { checkedAt: now, nextCheckAt: scheduled, result, state };
+  /**
+   * Written after the check is persisted and before anything is sent.
+   *
+   * The order matters: a transition row referring to a state the domain is not
+   * yet in would be a lie for however long the two writes are apart, and Phase 5
+   * reads this table to decide which webhooks are owed.
+   */
+  if (hysteresis.transition !== null) {
+    await recordTransition(db, {
+      domainId: input.domain.id,
+      evidence: {
+        codes: requirements.flatMap((requirement) =>
+          requirement.findings.map((finding) => finding.code)
+        ),
+        consecutiveFailures: hysteresis.consecutiveFailures,
+        vantages: checked.vantages.map((vantage) => ({
+          server: `${vantage.vantagePoint.address}:${vantage.vantagePoint.port}`,
+          verdict: vantage.result.verdict,
+        })),
+        verdict: overall,
+      },
+      fromState: hysteresis.transition.from,
+      reason: hysteresis.transition.reason,
+      toState: hysteresis.transition.to,
+    });
+  }
+
+  return {
+    checkedAt: now,
+    consecutiveFailures: hysteresis.consecutiveFailures,
+    nextCheckAt: scheduled,
+    result,
+    state,
+    transition: hysteresis.transition,
+  };
 }

@@ -17,6 +17,10 @@ const app = createApp({
   db: createDb(env.DATABASE_URL),
   resolver,
   resolvers: vantagePoints(env, resolver),
+  thresholds: {
+    degradedAfter: env.DEGRADED_AFTER_FAILURES,
+    failedAfter: env.FAILED_AFTER_FAILURES,
+  },
 });
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {

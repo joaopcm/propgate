@@ -23,6 +23,21 @@ export const env = createEnv({
      * partner before it reaches us.
      */
     DATABASE_URL: z.string().url(),
+    /**
+     * Consecutive failures before a domain is `degraded`, then `failed`.
+     *
+     * **Both unmeasured**, and tunable by env precisely because of that: the
+     * first false alarm should cost a restart rather than a deploy. One and three
+     * mean a warning on the first definite failure and a customer-visible failure
+     * after roughly ten minutes of sustained failure at the degraded cadence —
+     * long enough to outlast a resolver restart or a zone reload.
+     *
+     * The receipt both wait on: the observed distribution of consecutive
+     * transient failures across real monitored domains over thirty days.
+     * `state_transitions` is what makes that measurable after the fact.
+     */
+    DEGRADED_AFTER_FAILURES: z.coerce.number().int().min(1).default(1),
+    FAILED_AFTER_FAILURES: z.coerce.number().int().min(1).default(3),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
