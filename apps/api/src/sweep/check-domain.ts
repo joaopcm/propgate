@@ -19,7 +19,15 @@ export interface CheckDomainDeps {
 }
 
 export type CheckDomainOutcome =
-  | { readonly kind: "checked"; readonly checked: CheckedDomain }
+  | {
+      readonly checked: CheckedDomain;
+      /** Carried out so the caller can notify without re-reading the row. */
+      readonly domain: {
+        readonly externalId: string | null;
+        readonly name: string;
+      };
+      readonly kind: "checked";
+    }
   | { readonly kind: "gone" }
   | { readonly kind: "profile-missing"; readonly profileVersionId: string };
 
@@ -73,5 +81,9 @@ export async function checkClaimedDomain(
     settings: deps.settings,
   });
 
-  return { checked, kind: "checked" };
+  return {
+    checked,
+    domain: { externalId: domain.externalId, name: domain.name },
+    kind: "checked",
+  };
 }

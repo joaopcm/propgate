@@ -94,6 +94,27 @@ export const env = createEnv({
     /** How often the sweeper looks for due domains. */
     SWEEP_TICK_SECONDS: z.coerce.number().int().min(1).default(60),
     /**
+     * How many times a delivery is attempted before it is dead-lettered.
+     *
+     * **Unmeasured.** Five attempts with exponential backoff from one second
+     * spans roughly half a minute, which covers a deploy but not an outage. The
+     * receipt: the observed distribution of how long a real endpoint stays
+     * unavailable, which `webhook_deliveries.attempts` makes measurable.
+     *
+     * A permanent failure — a 404, a redirect — ignores this and dies on the first
+     * attempt. Retrying a wrong URL five times helps nobody.
+     */
+    WEBHOOK_ATTEMPTS: z.coerce.number().int().min(1).default(5),
+    /**
+     * How long one attempt may take.
+     *
+     * Ten seconds is generous for accepting a webhook. A receiver that needs
+     * longer should acknowledge and work asynchronously, which is what the docs
+     * will say — holding our worker open while somebody does a database write is
+     * how one slow endpoint starves every other tenant's deliveries.
+     */
+    WEBHOOK_TIMEOUT_MS: z.coerce.number().int().min(1).default(10_000),
+    /**
      * Queue admin. Optional, and unset means not mounted at all.
      *
      * Workbench is pre-1.0, so the blast radius is worth bounding twice: it runs
