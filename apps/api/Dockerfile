@@ -21,6 +21,7 @@ COPY apps/docs/package.json apps/docs/
 COPY packages/dns/package.json packages/dns/
 COPY packages/dns-fixtures/package.json packages/dns-fixtures/
 COPY packages/db/package.json packages/db/
+COPY packages/jobs/package.json packages/jobs/
 COPY packages/cli/package.json packages/cli/
 
 RUN pnpm install --frozen-lockfile --filter @propgate/api...
@@ -28,6 +29,7 @@ RUN pnpm install --frozen-lockfile --filter @propgate/api...
 COPY apps/api apps/api
 COPY packages/dns packages/dns
 COPY packages/db packages/db
+COPY packages/jobs packages/jobs
 RUN pnpm --filter @propgate/api build
 
 # The build bundles every @propgate/* package into its output but leaves real

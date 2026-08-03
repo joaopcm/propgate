@@ -15,6 +15,8 @@
     "dns:up": "docker compose up -d --build --wait",
     "fix": "ultracite fix",
     "lint": "turbo lint",
+    "redis:down": "docker compose stop redis",
+    "redis:up": "docker compose up -d --wait redis",
     "release": "turbo run build --filter=@propgate/dns --filter=@propgate/cli && changeset publish",
     "test": "turbo test"
   },

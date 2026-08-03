@@ -31,7 +31,9 @@
         "PROPGATE_FIXTURE_DIVERGENT",
         "PROPGATE_FIXTURE_PORT_OFFSET",
         "PROPGATE_DATABASE",
-        "DATABASE_URL"
+        "DATABASE_URL",
+        "PROPGATE_REDIS",
+        "REDIS_URL"
       ]
     }
   }

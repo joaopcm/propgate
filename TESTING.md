@@ -19,6 +19,16 @@ pnpm dns:up                      # NSD + Unbound, six roles
 PROPGATE_FIXTURES=1 pnpm test
 ```
 
+**The same rule covers Redis.** A mocked queue proves that our calls typecheck and
+nothing else. Everything worth knowing here belongs to the server: that BullMQ's
+version check passes, that a key prefix really isolates one spec from another,
+that `defaultJobOptions` reaches the enqueued job rather than being dropped.
+
+```sh
+pnpm redis:up                    # Redis 8, published on 127.0.0.1:6389
+PROPGATE_REDIS=1 pnpm test
+```
+
 The one sanctioned exception is `packages/dns-fixtures/src/ready.ts`, which uses
 `node:dns` for liveness probing. That is fine for "is the server up"; it is
 useless for anything the taxonomy cares about, because c-ares cannot expose the
@@ -33,10 +43,12 @@ TC bit, set DO, control the EDNS buffer size, or return RRSIGs. Do not reach for
 | `*.fixture.spec.ts` | `dns-fixtures` | yes | yes |
 | `*.serial.spec.ts` | `dns-serial` | yes | **no** |
 | `*.db.spec.ts` | `db-postgres`, `api-postgres` | yes | **no** |
+| `*.queue.spec.ts` | `jobs-redis` | yes | yes |
 | `*.integration.spec.ts` | `api-integration` | yes, both tiers | **no** |
 
 `*.fixture.spec.ts` and `*.serial.spec.ts` are collected only when
 `PROPGATE_FIXTURES=1`; `*.db.spec.ts` only when `PROPGATE_DATABASE=1`;
+`*.queue.spec.ts` only when `PROPGATE_REDIS=1`;
 `*.integration.spec.ts` needs both, and gets a project of its own rather than a
 flag on one of the others so that running with a single tier up cannot silently
 skip it. CI sets both after `docker compose up --wait`, so every PR runs them.
@@ -71,7 +83,19 @@ exactly the mutable state described above. The rule is unchanged: the setting
 belongs to the project that needs it, and copying it in either direction is the
 mistake.
 
-That package also publishes its port rather than using host networking, which
+Redis is the third data point, and it lands on the *parallel* side. `jobs-redis`
+keeps `fileParallelism` on, because BullMQ takes a key prefix: `testPrefix()` in
+`packages/jobs/src/test/redis.ts` gives every spec a namespace of its own, so two
+files running at once cannot see each other's queues even inside one Redis. That
+is the same move `uniqueLabel()` makes for the Unbound cache — remove the sharing
+rather than serialise around it — and `queues.queue.spec.ts` has a spec asserting
+the isolation actually holds, which is what earns the setting.
+
+So the rule is not "Postgres off, everything else on". It is that the setting
+belongs to whichever project genuinely shares mutable state, and that copying it
+in either direction is the mistake.
+
+The db package also publishes its port rather than using host networking, which
 is the other half of the same lesson. The DNS services need real port 53 on
 distinct loopbacks because glue records carry no port field; Postgres has no
 such constraint, and taking host networking for consistency only means fighting
@@ -208,5 +232,6 @@ If you cannot make it fail first, you have not reproduced the bug yet.
 
 - `pnpm lint` and `pnpm test` pass
 - `PROPGATE_FIXTURES=1 pnpm test` passes with the tier up
+- `PROPGATE_REDIS=1 pnpm test` passes with Redis up
 - `./packages/dns-fixtures/scripts/check-zones.sh` passes
 - `pnpm fix` applied
