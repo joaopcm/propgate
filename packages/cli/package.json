@@ -1,6 +1,6 @@
 {
   "name": "@propgate/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Diagnose DNS configuration from the terminal, using the same engine as propgate.dev.",
   "license": "MIT",
   "type": "module",
