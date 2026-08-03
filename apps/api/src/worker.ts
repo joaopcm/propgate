@@ -22,6 +22,7 @@ import { runReconcile, runTick } from "./sweep/tick";
 import { vantagePoints } from "./utils/vantage-points";
 import { attemptDelivery } from "./webhooks/deliver";
 import { enqueueForTransition } from "./webhooks/enqueue";
+import { runDeliveryReconcile } from "./webhooks/reconcile";
 
 /**
  * The background process. Same image as the API, different command.
@@ -70,6 +71,18 @@ const resolvers = vantagePoints(env, {
 const sweepWorker = new Worker<SweepTickPayload>(
   QUEUE_NAMES.sweep,
   async (job) => {
+    if (job.data.reason === "reconcile-deliveries") {
+      const requeued = await runDeliveryReconcile({
+        attempts: env.WEBHOOK_ATTEMPTS,
+        batchSize: env.SWEEP_BATCH_SIZE,
+        db,
+        queue: queues.deliverWebhook,
+        timeoutMs: env.WEBHOOK_TIMEOUT_MS,
+      });
+
+      return { requeued };
+    }
+
     const claimed =
       job.data.reason === "reconcile"
         ? await runReconcile(tickDeps)
@@ -179,6 +192,20 @@ await queues.sweep.upsertJobScheduler(
   "sweep-reconcile",
   { every: env.SWEEP_TICK_SECONDS * 5000 },
   { data: { reason: "reconcile" }, name: "reconcile" }
+);
+
+/**
+ * The delivery backstop, on the same cadence as the domain reconciler.
+ *
+ * Deliberately not more often: a healthy box re-enqueues nothing, and the query
+ * is an index scan over rows old enough to be abandoned. Running it every tick
+ * would be five times the queries to catch a case that happens on the order of
+ * never.
+ */
+await queues.sweep.upsertJobScheduler(
+  "sweep-reconcile-deliveries",
+  { every: env.SWEEP_TICK_SECONDS * 5000 },
+  { data: { reason: "reconcile-deliveries" }, name: "reconcile-deliveries" }
 );
 
 const app = new Hono();

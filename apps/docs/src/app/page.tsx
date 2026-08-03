@@ -21,6 +21,11 @@ export default function DocsHome() {
           </Link>
         </li>
         <li>
+          <Link className="underline" href="/webhooks">
+            Webhooks
+          </Link>
+        </li>
+        <li>
           <Link className="underline" href="/conformance">
             RFC conformance
           </Link>
