@@ -1,5 +1,13 @@
 # @propgate/cli
 
+## 0.1.2
+
+### Patch Changes
+
+- [#43](https://github.com/joaopcm/propgate/pull/43) [`b3ee525`](https://github.com/joaopcm/propgate/commit/b3ee5259e6b55442eb47925bd179255cf86809f1) Thanks [@joaopcm](https://github.com/joaopcm)! - Add a README, so the npm page documents the tool rather than showing nothing:
+  what each check means, every flag, the three exit codes and why the third one
+  matters in a pipeline, and real output rather than invented examples.
+
 ## 0.1.1
 
 ### Patch Changes
