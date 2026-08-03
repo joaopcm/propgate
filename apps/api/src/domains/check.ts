@@ -8,7 +8,7 @@ import type {
 } from "@propgate/db";
 import { recordObservation, saveCheck } from "@propgate/db";
 import type { CheckResult, ServerAddress } from "@propgate/dns";
-import { runChecks } from "@propgate/dns";
+import { runChecksAcrossVantagePoints } from "@propgate/dns";
 import {
   attributeResults,
   compileProfile,
@@ -40,7 +40,19 @@ export const MAX_LOOKUPS = 100;
 
 export interface CheckSettings {
   readonly intervals?: ScheduleIntervals;
-  readonly resolver: ServerAddress;
+  /**
+   * The vantage points, queried concurrently and reconciled.
+   *
+   * A pool rather than one address, and the same pool for the sweeper and for
+   * `POST /v1/domains/:id/checks`. A verify that consulted one resolver could be
+   * contradicted by the sweeper a minute later, and a product with two opinions
+   * about one domain is worse than a slightly slower one. Concurrency is what
+   * makes that affordable: the wall clock is the slowest resolver, not the sum.
+   *
+   * The unauthenticated `/v1/checks` deliberately stays single-resolver. It
+   * tracks no state, so it has nothing to contradict.
+   */
+  readonly resolvers: readonly ServerAddress[];
 }
 
 export interface CheckableDomain {
@@ -144,16 +156,16 @@ export async function checkAndPersist(
   },
   now = new Date()
 ): Promise<CheckedDomain> {
-  const checked = await runChecks({
+  const checked = await runChecksAcrossVantagePoints({
     domain: input.domain.name,
     profile: compileProfile(input.profile.definition, input.profile.id),
     resolver: {
       budgetMs: CHECK_BUDGET_MS,
       maxLookups: MAX_LOOKUPS,
       recursionDesired: true,
-      target: input.settings.resolver,
       timeoutMs: PER_QUERY_TIMEOUT_MS,
     },
+    vantagePoints: input.settings.resolvers,
   });
 
   const requirements = attributeResults(input.profile.definition, checked);

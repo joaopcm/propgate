@@ -242,6 +242,13 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
     zone: "drift.test",
   },
   {
+    codes: ["ANSWER_DIVERGES_BY_VANTAGE_POINT"],
+    reason:
+      "The same name served with a different SPF record by dns-auth and dns-divergent, both of which are in the delegation. Two vantage points reach opposite conclusions about one domain and nobody is lying — which is what mid-propagation looks like, and why one disagreeing vantage point must produce uncertainty rather than a failure. drift.test diverges only in its SOA serial, so every evaluator agrees from both servers and the consensus logic sees nothing; this zone diverges in a record an evaluator reads.",
+    role: "auth",
+    zone: "split.test",
+  },
+  {
     codes: ["NS_PARENT_CHILD_MISMATCH"],
     reason:
       "Delegated to ns1 alone while the zone itself claims ns1 and ns-decoy. Resolvers follow the parent, so the operator believes they have two nameservers and has one.",

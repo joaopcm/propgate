@@ -213,7 +213,7 @@ and the coverage spec requires the reason to be substantive.
 
 | Not reproducible | Closest local approximation |
 |---|---|
-| **GeoDNS, anycast, true partial propagation** | `dns-divergent` serves different answers, which is what the consensus logic consumes. Real geographic behaviour is out of reach. |
+| **GeoDNS, anycast, geography-dependent network paths** | `split.test` is served with a different SPF record by `dns-auth` and `dns-divergent`, both in the delegation, which is what the consensus logic consumes — so `ANSWER_DIVERGES_BY_VANTAGE_POINT` *is* fixture-backed. What stays out of reach is real geographic behaviour: our vantage points share one egress IP, so a domain answering differently in Frankfurt than in São Paulo looks identical from here. |
 | **Wall-clock TTL and negative-cache expiry** | The repo bans sleeps. The computed TTL from the authority-section SOA is asserted directly; expiry arithmetic is unit-tested against an injectable clock. |
 | **A middlebox silently dropping TCP/53** | Needs `NET_ADMIN` and an iptables DROP in a bridged container. Without it you get ECONNREFUSED, a different timing profile. Optional Phase 1 fixture. |
 | **Provider mangling that never reaches DNS** | Nothing observable. Permanently out of scope. |

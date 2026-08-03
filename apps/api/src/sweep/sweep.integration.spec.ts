@@ -127,7 +127,7 @@ describe("the sweep loop", () => {
         QUEUE_NAMES.checkDomain,
         async (job) => {
           await checkClaimedDomain(
-            { db, settings: { resolver: RESOLVER } },
+            { db, settings: { resolvers: [RESOLVER] } },
             job.data
           );
         },
@@ -171,7 +171,10 @@ describe("the sweep loop", () => {
       throw new Error("the tick enqueued nothing");
     }
 
-    await checkClaimedDomain({ db, settings: { resolver: RESOLVER } }, payload);
+    await checkClaimedDomain(
+      { db, settings: { resolvers: [RESOLVER] } },
+      payload
+    );
 
     const after = await domainById(db, tenantId, domainId);
 
@@ -219,7 +222,7 @@ describe("the sweep loop", () => {
     await db.execute(`delete from domains where id = '${domainId}'`);
 
     const outcome = await checkClaimedDomain(
-      { db, settings: { resolver: RESOLVER } },
+      { db, settings: { resolvers: [RESOLVER] } },
       { domainId, tenantId }
     );
 

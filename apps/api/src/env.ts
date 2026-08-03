@@ -45,6 +45,17 @@ export const env = createEnv({
      * run its own Unbound somewhere else entirely.
      */
     RESOLVER_ADDRESS: z.string().min(1).default("127.0.0.1"),
+    /**
+     * The vantage points for authenticated checks, as `address:port` entries
+     * separated by commas. Unset means "just RESOLVER_ADDRESS", so nothing
+     * already deployed changes behaviour.
+     *
+     * Production is our own Unbound plus two public resolvers. They share this
+     * box's egress IP, so they are only weakly independent: they catch cache
+     * state, propagation lag and one resolver being broken, and they cannot see
+     * GeoDNS or a network path that differs by geography.
+     */
+    RESOLVER_ADDRESSES: z.string().optional(),
     RESOLVER_PORT: z.coerce.number().int().min(1).max(65_535).default(53),
     SENTRY_DSN: z.string().url().optional(),
     /**

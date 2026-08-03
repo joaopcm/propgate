@@ -17,8 +17,13 @@ export const DIAGNOSIS_SEVERITIES = ["error", "warning", "info"] as const;
 export type DiagnosisSeverity = (typeof DIAGNOSIS_SEVERITIES)[number];
 
 export const DiagnosisCode = {
-  // --- Not locally reproducible. See NOT_LOCALLY_REPRODUCIBLE below. ---
-  /** Authoritative answers disagree across vantage points. */
+  /**
+   * Authoritative answers disagree across vantage points.
+   *
+   * Reproduced by the `split.test` fixture pair — the same name served
+   * differently by dns-auth and dns-divergent. Real GeoDNS and anycast are still
+   * out of reach from one host; see TESTING.md.
+   */
   ANSWER_DIVERGES_BY_VANTAGE_POINT: "ANSWER_DIVERGES_BY_VANTAGE_POINT",
   /** An unrecognised property with the critical bit, which blocks all issuance. */
   CAA_CRITICAL_UNKNOWN_PROPERTY: "CAA_CRITICAL_UNKNOWN_PROPERTY",
@@ -709,8 +714,6 @@ export const DIAGNOSIS_REGISTRY: Readonly<
 export const NOT_LOCALLY_REPRODUCIBLE: Readonly<
   Partial<Record<DiagnosisCode, string>>
 > = {
-  ANSWER_DIVERGES_BY_VANTAGE_POINT:
-    "Needs genuinely divergent authoritative answers across network locations. The dns-divergent fixture reproduces divergent *answers*, which is what the consensus logic consumes, but real GeoDNS and anycast behaviour is not reproducible locally.",
   RRSET_TTL_MISMATCH:
     "A zone file cannot express it. Measured: named-checkzone silently rewrites a mismatched TTL to the first one it saw, and nsd-checkzone warns — so a fixture would be normalised before it was served and the test would assert nothing. In the wild it comes from a server assembling an answer from several sources, or a resolver merging cached records. The comparison itself is pure and unit-tested.",
   TCP_SILENTLY_BLOCKED:
@@ -732,8 +735,6 @@ export const NOT_LOCALLY_REPRODUCIBLE: Readonly<
  */
 export const NOT_YET_EMITTED: Readonly<Partial<Record<DiagnosisCode, string>>> =
   {
-    ANSWER_DIVERGES_BY_VANTAGE_POINT:
-      "Needs more than one vantage point to compare, which arrives with the consensus and hysteresis work in Phase 2. One resolver cannot disagree with itself.",
     PROVIDER_FLATTENED_CNAME:
       "Needs the addresses of our own infrastructure to compare against, so a flattened CNAME can be told from a genuinely wrong target. That is a deployment fact rather than a DNS one, and there is no deployment yet.",
     TCP_SILENTLY_BLOCKED:

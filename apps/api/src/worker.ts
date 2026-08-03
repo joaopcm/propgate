@@ -15,6 +15,7 @@ import { env } from "./env";
 import { checkClaimedDomain } from "./sweep/check-domain";
 import type { TickDeps } from "./sweep/tick";
 import { runReconcile, runTick } from "./sweep/tick";
+import { vantagePoints } from "./utils/vantage-points";
 
 /**
  * The background process. Same image as the API, different command.
@@ -42,10 +43,10 @@ const tickDeps: TickDeps = {
   queue: queues.checkDomain,
 };
 
-const resolver = {
+const resolvers = vantagePoints(env, {
   address: env.RESOLVER_ADDRESS,
   port: env.RESOLVER_PORT,
-};
+});
 
 /**
  * The scheduler that claims work, and the one that recovers it.
@@ -75,7 +76,7 @@ const checkWorker = new Worker<CheckDomainPayload>(
   QUEUE_NAMES.checkDomain,
   async (job) => {
     const outcome = await checkClaimedDomain(
-      { db, settings: { resolver } },
+      { db, settings: { resolvers } },
       job.data
     );
 
@@ -150,7 +151,7 @@ const server = serve({ fetch: app.fetch, port: env.WORKBENCH_PORT }, (info) => {
   process.stdout.write(
     `propgate worker listening on port ${info.port} (workbench ${
       workbenchEnabled ? "enabled" : "disabled — set WORKBENCH_USER/PASS"
-    }, sweep every ${env.SWEEP_TICK_SECONDS}s, ${env.CHECK_CONCURRENCY} checks at a time)\n`
+    }, sweep every ${env.SWEEP_TICK_SECONDS}s, ${env.CHECK_CONCURRENCY} checks at a time, ${resolvers.length} vantage point${resolvers.length === 1 ? "" : "s"})\n`
   );
 });
 

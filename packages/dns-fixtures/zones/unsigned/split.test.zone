@@ -1,0 +1,30 @@
+; ANSWER_DIVERGES_BY_VANTAGE_POINT — the honest side.
+;
+; A name whose SPF record differs depending on which authoritative server you
+; ask. This side authorises the platform; zones/divergent/split.test.zone does
+; not. Both servers are listed in the delegation, so a resolver may legitimately
+; pick either and two vantage points reach different conclusions about the same
+; domain — which is exactly what the consensus logic consumes.
+;
+; This is the real shape of mid-propagation: nobody is lying, one server simply
+; has not caught up. It is also the shape of the "it works for me" support
+; ticket, and the reason a single disagreeing vantage point must never be able
+; to produce `failed` on its own.
+;
+; `drift.test` diverges too, but only in its SOA serial, so every evaluator
+; reaches the same verdict from both servers and the consensus logic sees
+; nothing. This zone diverges in a record an evaluator actually reads.
+;
+; Keep the NS RRset in step with zones/divergent/split.test.zone. If the two
+; disagree about the delegation itself this stops testing divergent answers and
+; starts testing a broken delegation.
+$ORIGIN split.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN NS   ns-divergent.test.
+
+; Authorises the platform. The divergent side does not.
+@                   IN TXT  "v=spf1 include:one.spf.test -all"

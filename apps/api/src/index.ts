@@ -3,6 +3,7 @@ import { serve } from "@hono/node-server";
 import { createDb } from "@propgate/db";
 import { createApp } from "./app";
 import { env } from "./env";
+import { vantagePoints } from "./utils/vantage-points";
 
 /**
  * The wired instance lives here rather than in `app.ts` so that importing the
@@ -10,9 +11,12 @@ import { env } from "./env";
  * checker should not need a DATABASE_URL, and before this it did — every route
  * spec failed at import with "Invalid environment variables".
  */
+const resolver = { address: env.RESOLVER_ADDRESS, port: env.RESOLVER_PORT };
+
 const app = createApp({
   db: createDb(env.DATABASE_URL),
-  resolver: { address: env.RESOLVER_ADDRESS, port: env.RESOLVER_PORT },
+  resolver,
+  resolvers: vantagePoints(env, resolver),
 });
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {

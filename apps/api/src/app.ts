@@ -36,7 +36,17 @@ import { RateLimiter } from "./utils/rate-limit";
  * routes are not mounted at all, rather than mounted and failing on the first
  * query.
  */
-export function createApp(options: { db?: Database; resolver: ServerAddress }) {
+export function createApp(options: {
+  db?: Database;
+  /** The single resolver behind the public checker. */
+  resolver: ServerAddress;
+  /**
+   * The vantage-point pool for authenticated checks. Defaults to the single
+   * resolver above, so a deployment that has not configured a pool behaves
+   * exactly as it did before rather than failing.
+   */
+  resolvers?: readonly ServerAddress[];
+}) {
   const app = new Hono();
 
   app.onError((err, c) => {
@@ -117,6 +127,7 @@ export function createApp(options: { db?: Database; resolver: ServerAddress }) {
         }),
         db,
         resolver: options.resolver,
+        resolvers: options.resolvers ?? [options.resolver],
       })
     );
   }
