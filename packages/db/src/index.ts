@@ -58,6 +58,25 @@ export {
 export type { ClaimedDomain, ClaimOptions } from "./queries/sweep";
 export { claimDueDomains, dueCount } from "./queries/sweep";
 export type {
+  CreateEndpointOutcome,
+  DeliveryPage,
+  DeliveryRow,
+  EndpointRow,
+} from "./queries/webhooks";
+export {
+  activeSecrets,
+  createEndpoint,
+  deleteEndpoint,
+  endpointsForEvent,
+  listDeliveries,
+  listEndpoints,
+  markAttemptFailed,
+  markDelivered,
+  pendingDeliveries,
+  recordDelivery,
+  rotateSecret,
+} from "./queries/webhooks";
+export type {
   DomainResult,
   DomainState,
   RequirementResult as StoredRequirementResult,
@@ -76,6 +95,8 @@ export type {
 } from "./schema/state-transitions";
 export { stateTransitions } from "./schema/state-transitions";
 export { tenants } from "./schema/tenants";
+export type { DeliveryStatus } from "./schema/webhooks";
+export { webhookDeliveries, webhookEndpoints } from "./schema/webhooks";
 // A test helper on the entry point, deliberately: the package is private and
 // never published, and every consumer with a Postgres-backed spec needs the
 // same one line between tests.
