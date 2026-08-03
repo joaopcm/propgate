@@ -369,14 +369,24 @@ secure.test.		300	IN NS	ns1.test.
 					Ynva8wpr91W/7ngKAQiV6ng1JipfFOVELnmA
 					MPjlKUf2W2QDopbSqKhg3Pspo/g= )
 spf.test.		300	IN NS	ns1.test.
+			300	NSEC	split.test. NS RRSIG NSEC
+			300	RRSIG	NSEC 8 2 300 (
+					20400101000000 20260101000000 5689 test.
+					GsyaBsrEREYjVWbpUil6Nagvu9y/dGy/LifR
+					s6jbDFZjHTXE2dv12Xir2sCVCrMsXkgdvy4/
+					M+GOSFZCRcDNWmMrnWBIWH/AswSm+3FvwOqp
+					ibEdJv9hZVHiNEWWlrYNMdZ+4fWC8sIiZhUb
+					Z3ygM5L7YGFkkRFUiRKdZc+SNGI= )
+split.test.		300	IN NS	ns1.test.
+			300	IN NS	ns-divergent.test.
 			300	NSEC	stale.test. NS RRSIG NSEC
 			300	RRSIG	NSEC 8 2 300 (
 					20400101000000 20260101000000 5689 test.
-					RgsSKX9wCyPV6k5Rusm/mgaredg5rt9OUsDY
-					TBK75tLFfpvx63EU4PUAgIWPejV1dRK/ZssS
-					XOXTJ52yxy/C/gsdqMeieCfm2d844DPaQ+PT
-					i8Qy3tqwY0XJxnRA+FGejul4tKj8dy0PFh9k
-					CBj4CtrBtJo+j2VOx9hhmH1U5t0= )
+					qFhsHOcCQ7TKTvpx5WNWctKDBYWXEcSCH7bp
+					IGrT+dXbT9GlXgoB/EADlXMImZfYkC7BQxMr
+					i8hshpOfLR1TEkIo0BSvQa8zj1P8Eh2y9YWJ
+					gqLkCiGkdKY+6xPBE9WXBceV0s2o/uYjzP9H
+					IMRLkRkQXdnEtEGIMgj/2hIOOUQ= )
 stale.test.		300	IN NS	ns1.test.
 			300	IN NS	ns-dead.test.
 			300	NSEC	tcp.test. NS RRSIG NSEC

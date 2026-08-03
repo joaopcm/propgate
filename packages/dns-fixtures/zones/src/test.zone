@@ -76,6 +76,12 @@ mismatch            IN NS   ns1.test.
 healthy             IN NS   ns1.test.
 healthy             IN NS   ns-divergent.test.
 
+; split.test — delegated to both servers, which serve different SPF records for
+; it. Both NS records are required: the divergence only exists because a resolver
+; may legitimately pick either one.
+split               IN NS   ns1.test.
+split               IN NS   ns-divergent.test.
+
 ; Delegation pathologies.
 ; ---------------------------------------------------------------------------
 ; Lame: ns-decoy is authoritative for decoy.test, so it answers REFUSED for this

@@ -1,0 +1,25 @@
+; ANSWER_DIVERGES_BY_VANTAGE_POINT — the stale side.
+;
+; The counterpart to zones/unsigned/split.test.zone: the same name, the same
+; delegation, a different SPF record. This side does not authorise the platform,
+; so a check run against dns-divergent fails the SPF requirement while the same
+; check against dns-auth passes it.
+;
+; Nobody is lying here. This is what mid-propagation looks like, and it is why a
+; single disagreeing vantage point must produce uncertainty rather than a
+; failure — firing `domain.failed` off this would page a customer's customer
+; for a zone that is in the middle of being updated correctly.
+;
+; Keep the NS RRset in step with the honest side. If the two disagree about the
+; delegation itself this stops testing divergent answers and starts testing a
+; broken delegation.
+$ORIGIN split.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+@       IN NS   ns-divergent.test.
+
+; The platform is absent from this side's SPF. Same name, different answer.
+@                   IN TXT  "v=spf1 include:two.spf.test -all"

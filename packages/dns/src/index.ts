@@ -1,5 +1,11 @@
 // biome-ignore-all lint/performance/noBarrelFile: intentional package entry point
 
+export type {
+  ConsensusOptions,
+  ConsensusResult,
+  VantageResult,
+} from "./check/consensus";
+export { runChecksAcrossVantagePoints } from "./check/consensus";
 export type { CheckKind, DkimSelector, DomainProfile } from "./check/profile";
 export {
   CHECK_KINDS,

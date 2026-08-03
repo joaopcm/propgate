@@ -141,6 +141,9 @@ services:
       # from someone else's cache is an answer we cannot explain.
       RESOLVER_ADDRESS: unbound
       RESOLVER_PORT: 53
+      # The vantage-point pool. Empty means "just RESOLVER_ADDRESS", which is the
+      # pre-consensus behaviour, so an existing .env keeps working untouched.
+      RESOLVER_ADDRESSES: ${RESOLVER_ADDRESSES:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
     depends_on:
       migrate:
@@ -175,6 +178,7 @@ services:
       REDIS_URL: redis://redis:6379
       RESOLVER_ADDRESS: unbound
       RESOLVER_PORT: 53
+      RESOLVER_ADDRESSES: ${RESOLVER_ADDRESSES:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
       # Passed through so `.env` can override them without a rebuild. Empty means
       # unset, which means the code's default — `emptyStringAsUndefined` in env.ts

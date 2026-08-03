@@ -115,6 +115,7 @@ export function createDomainsRoute(options: {
   checkLimiter: RateLimiter;
   db: Database;
   resolver: ServerAddress;
+  resolvers: readonly ServerAddress[];
 }) {
   const route = new Hono<{ Variables: AuthVariables }>();
   const { db } = options;
@@ -216,7 +217,7 @@ export function createDomainsRoute(options: {
       // shared function takes it explicitly.
       domain: { ...domain, tenantId },
       profile: { definition: profile.definition, id: profile.id },
-      settings: { resolver: options.resolver },
+      settings: { resolvers: options.resolvers },
     });
 
     return success(

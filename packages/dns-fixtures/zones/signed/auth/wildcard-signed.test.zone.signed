@@ -8,21 +8,21 @@ wildcard-signed.test.	300	IN SOA	ns1.test. hostmaster.propgate.invalid. (
 					)
 			300	RRSIG	SOA 13 2 300 (
 					20400101000000 20260101000000 36513 wildcard-signed.test.
-					osc00kMTmbQEPQlO0GjNfHmPP4e1FAde0EaX
-					hf3lzaZv8UR8peRG62o35aW4C5tDyGtPDMO2
-					Grfoc4oFje4U3g== )
+					IFZHmISWpUh3RZAOTZGxBFz5xNxlrNxRhEje
+					icTkQH6AKhbXryz/IIVY2oo51CJBIJwqenWE
+					UTCJXy3+gAr0xA== )
 			300	NS	ns1.test.
 			300	RRSIG	NS 13 2 300 (
 					20400101000000 20260101000000 36513 wildcard-signed.test.
-					+vsSAEAWjQm4XizTawFcbluRP5t8Y0rVSP1k
-					AUn+SQmDrxtpOQxysnvUKgL5Ffca2bbeWOz5
-					KNt6Znh1kgbl/Q== )
+					c/TJlxTrs9JOj66A6uqbTh2y7csm61WMRhx/
+					AGJ1N/eXU5XDyTxQDxRzcdaYbq+VABt4tbmK
+					6CAQ0mkF5O9fVg== )
 			300	NSEC	*.wildcard-signed.test. NS SOA RRSIG NSEC DNSKEY
 			300	RRSIG	NSEC 13 2 300 (
 					20400101000000 20260101000000 36513 wildcard-signed.test.
-					ZcC5DaM3UOUdy1X9DTMO1dDGjq2cpWWu3jeS
-					w+ZWTTjhBW5HnUbKu8LGZQnvGXbtkvwP5cEY
-					KnFEjrfk9/ziTw== )
+					3jPsaFP/F9OLGbbqr9C3pGAmGE7J/E4JdRfp
+					ZGX9YTEuYsXZ5YwYE1ot+LigbrN9W9kfvy0a
+					C/XaYpDy1IXvLw== )
 			300	DNSKEY	256 3 13 (
 					8E8ALLsX9aREKS0vq1HCdFhP9/tQbeGBHAai
 					XjMwyDxlAXOb07F8MR4YALpZj3yH07DUV0Mq
@@ -35,35 +35,35 @@ wildcard-signed.test.	300	IN SOA	ns1.test. hostmaster.propgate.invalid. (
 					) ; KSK; alg = ECDSAP256SHA256 ; key id = 56540
 			300	RRSIG	DNSKEY 13 2 300 (
 					20400101000000 20260101000000 36513 wildcard-signed.test.
-					yQ+RT0gCyN3QZ857D6Lity4lmSCV1cmftQmA
-					As6zycbSl2jXP4W6XiihvNnT1VnvnjWrQLnM
-					1GHlhHp7UsAYdw== )
+					3/7lpuEcjRdmMhJSOpyZx4n9V7LG7vwuuZSb
+					BEO4bq9xWoqhtZkMe7xEM2aPD2eDIEO5NVAo
+					qktsRwojJVqQBg== )
 			300	RRSIG	DNSKEY 13 2 300 (
 					20400101000000 20260101000000 56540 wildcard-signed.test.
-					jaFeq+3X3vI4u2FUPwEVWijg8hAfofKIZTVF
-					p0M6lQHIDsdpmMzeZ+yzTFMmrB4rXPreb+3e
-					plEenIlS9s0tzQ== )
+					JT6ajoM3qe6DmnYiqRtgJ2O0bVD3Aj7cPMhf
+					Mwbuaw/gJWxMcDsHPtCnEEkruNfP0op3/VZS
+					V9ZDlly9rVZvJA== )
 *.wildcard-signed.test.	300	IN TXT	"signed-wildcard-synthesized"
 			300	RRSIG	TXT 13 2 300 (
 					20400101000000 20260101000000 36513 wildcard-signed.test.
-					VM3V+uxPBQ/n5U4Z/Vv6KcQcgTHwKEKCE8m5
-					gTNH0StDUtRdmW4oRzNIboLfv+Wir8R+b+Xm
-					1Jh9TgQ3L/uORQ== )
+					N17usLIhpKEBn5n7I9P7LTtsi5gLBcHxNK95
+					FX9eudiYVusPg65jqPUMfm4fTrh/2xsQhAYa
+					Nn5rDnpU6NHthw== )
 			300	NSEC	real.wildcard-signed.test. TXT RRSIG NSEC
 			300	RRSIG	NSEC 13 2 300 (
 					20400101000000 20260101000000 36513 wildcard-signed.test.
-					05JjADyKCo4WKO2/W99lCQ9kajlMXy8QZD0s
-					xv+sLAJiCcK4628u6ZaPA0ylRDBQRbLGHaSd
-					T/156oHiVYRf3g== )
+					Kms2nnT0k99WEnbr2MwVUNDaiwg/Zk18lwzv
+					kUBbWIuN1qG/keOttKnYagJ81s8uWk40i5js
+					/GLiCnWsrp+fmw== )
 real.wildcard-signed.test. 300	IN TXT	"signed-and-genuinely-present"
 			300	RRSIG	TXT 13 3 300 (
 					20400101000000 20260101000000 36513 wildcard-signed.test.
-					7dgSZCkIcCdQbxPMN+cYkl8YbvPH6uRic2PG
-					QoE07uFziumCLMSvitYloDhmK5Yj9z2RlQ/9
-					6A73cj9J5VXS0g== )
+					S3/1YPZzYRGP2Sy9fWkAxA7NwNIAeqXnKn4/
+					aopjT9b46wlqZoEjB9yjs7npA7g2TRN2qarJ
+					gl4ggO82S0Ojwg== )
 			300	NSEC	wildcard-signed.test. TXT RRSIG NSEC
 			300	RRSIG	NSEC 13 3 300 (
 					20400101000000 20260101000000 36513 wildcard-signed.test.
-					gtqbQourLN2MKRKl3v1YaFzAFflMsWn/1mju
-					LmdgcGeVtxzoJvMURBcxP8SwLeid57L6HDDz
-					d791G4B6fPBr6w== )
+					xJdD9Gs+a1L9XiU2/cGU0ukASNsz9DMof0ao
+					fUJPD7twhE+DRMXJGhmtsByJE5e6rXoGPku2
+					FYi8nfrhVNjJhA== )
