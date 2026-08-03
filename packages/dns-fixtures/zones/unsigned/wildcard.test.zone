@@ -23,3 +23,11 @@ $TTL 60
 ; A genuinely configured name alongside the wildcard, so wildcard detection can
 ; be shown not to produce a false *negative* when the real record also exists.
 _propgate-verify    IN TXT  "propgate-site-verification=fixture-abc123"
+
+; The wildcard that actually causes a false positive, and the reason the plain
+; `*` above is not enough. Our DKIM evaluator parses the value rather than
+; testing presence, so a wildcard answering junk is correctly reported missing —
+; immune by accident. A wildcard answering something *well-formed* is the real
+; hazard: every selector anyone asks for publishes a valid key, and nothing in
+; the record itself says the customer never added it.
+*._domainkey        IN TXT  "v=DKIM1; k=rsa; p=MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAJQ7SBev8ZHdSnurrDf8GLxZwBPJK097UITBWcrK3uWjMychOIgQnizYagb7I64SsgjhFdU9lUx+dBP+WJuDAYUCAwEAAQ=="

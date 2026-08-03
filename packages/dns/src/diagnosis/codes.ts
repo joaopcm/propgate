@@ -742,6 +742,4 @@ export const NOT_YET_EMITTED: Readonly<Partial<Record<DiagnosisCode, string>>> =
       "Needs the addresses of our own infrastructure to compare against, so a flattened CNAME can be told from a genuinely wrong target. That is a deployment fact rather than a DNS one, and there is no deployment yet.",
     TCP_SILENTLY_BLOCKED:
       "See NOT_LOCALLY_REPRODUCIBLE: distinguishing a silent drop from a refusal needs a middlebox, and the timing profile is what identifies it.",
-    WILDCARD_FALSE_POSITIVE:
-      "Needs a behavioural probe — query a name nobody would publish and see whether it answers — which costs a lookup on every check. Worth adding with the check pipeline's budget in view rather than bolted onto one evaluator.",
   };

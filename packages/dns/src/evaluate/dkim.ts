@@ -33,6 +33,14 @@ export interface DkimCheck {
   readonly expectedPublicKey?: string;
   /** The selector, e.g. "resend" — the label before _domainkey. */
   readonly selector: string;
+  /**
+   * Whether the zone answers for names nobody published.
+   *
+   * Passed in rather than probed here: it is a fact about the zone, and DKIM is
+   * the check most likely to run several times over one domain. Probing per
+   * selector would ask the same question three times.
+   */
+  readonly wildcardSynthesised?: boolean;
 }
 
 /** Below this, receivers have started refusing keys outright. */
@@ -311,6 +319,19 @@ export async function evaluateDkim(
 
   const raw = found.values[0] ?? "";
   const parsed = parseDkimRecord(raw);
+
+  if (check.wildcardSynthesised === true) {
+    // Reported here rather than the moment the record was found: a wildcard
+    // alongside a genuinely published selector is not a false positive. It is
+    // one only when the answer we are about to trust could have been
+    // synthesised, which is exactly now.
+    context.report(DiagnosisCode.WILDCARD_FALSE_POSITIVE, {
+      detail:
+        "this zone answers names nobody published, so a selector appearing to exist is not evidence that it was added — verify the value rather than its presence",
+      name: found.name,
+      observed: raw,
+    });
+  }
 
   if (!parsed.ok) {
     context.report(DiagnosisCode.DKIM_RECORD_MALFORMED, {
