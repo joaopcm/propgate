@@ -22,6 +22,7 @@ COPY packages/dns/package.json packages/dns/
 COPY packages/dns-fixtures/package.json packages/dns-fixtures/
 COPY packages/db/package.json packages/db/
 COPY packages/jobs/package.json packages/jobs/
+COPY packages/webhooks/package.json packages/webhooks/
 COPY packages/cli/package.json packages/cli/
 
 RUN pnpm install --frozen-lockfile --filter @propgate/api...
@@ -30,6 +31,7 @@ COPY apps/api apps/api
 COPY packages/dns packages/dns
 COPY packages/db packages/db
 COPY packages/jobs packages/jobs
+COPY packages/webhooks packages/webhooks
 RUN pnpm --filter @propgate/api build
 
 # The build bundles every @propgate/* package into its output but leaves real
