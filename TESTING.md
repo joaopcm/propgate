@@ -44,14 +44,15 @@ TC bit, set DO, control the EDNS buffer size, or return RRSIGs. Do not reach for
 | `*.serial.spec.ts` | `dns-serial` | yes | **no** |
 | `*.db.spec.ts` | `db-postgres`, `api-postgres` | yes | **no** |
 | `*.queue.spec.ts` | `jobs-redis` | yes | yes |
-| `*.integration.spec.ts` | `api-integration` | yes, both tiers | **no** |
+| `*.integration.spec.ts` | `api-integration` | yes, all three tiers | **no** |
 
 `*.fixture.spec.ts` and `*.serial.spec.ts` are collected only when
 `PROPGATE_FIXTURES=1`; `*.db.spec.ts` only when `PROPGATE_DATABASE=1`;
 `*.queue.spec.ts` only when `PROPGATE_REDIS=1`;
-`*.integration.spec.ts` needs both, and gets a project of its own rather than a
-flag on one of the others so that running with a single tier up cannot silently
-skip it. CI sets both after `docker compose up --wait`, so every PR runs them.
+`*.integration.spec.ts` needs **all three** — the sweep loop is claim, enqueue,
+check and reschedule together, which is DNS plus Postgres plus Redis — and gets a
+project of its own rather than a flag on one of the others so that running with a
+single tier up cannot silently skip it. CI sets both after `docker compose up --wait`, so every PR runs them.
 
 Gating on an env var rather than on reachability is deliberate: a suite that
 silently skips when the servers are down is worse than one that fails, because

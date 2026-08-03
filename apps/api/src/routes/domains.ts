@@ -1,10 +1,4 @@
-import type {
-  Database,
-  DomainResult,
-  DomainRow,
-  DomainState,
-  StoredLookup,
-} from "@propgate/db";
+import type { Database, DomainRow, DomainState } from "@propgate/db";
 import {
   currentProfileVersion,
   deleteDomain,
@@ -12,22 +6,13 @@ import {
   domainTimeline,
   listDomains,
   profileVersionById,
-  recordObservation,
   registerDomain,
-  saveCheck,
 } from "@propgate/db";
-import type { CheckResult, ServerAddress } from "@propgate/dns";
-import { runChecks } from "@propgate/dns";
+import type { ServerAddress } from "@propgate/dns";
 import { Hono } from "hono";
 import { z } from "zod";
-import { nextState, observationFor } from "../domains/state";
+import { checkAndPersist } from "../domains/check";
 import type { AuthVariables } from "../middleware/auth";
-import type { RequirementResult } from "../profiles/compile";
-import {
-  attributeResults,
-  compileProfile,
-  overallVerdict,
-} from "../profiles/compile";
 import {
   MAX_DOMAIN_LENGTH,
   normaliseDomain,
@@ -62,12 +47,6 @@ import { firstIssue } from "../utils/validation";
  */
 export const CHECKS_PER_TENANT_PER_MINUTE = 600;
 export const CHECK_RATE_LIMIT_WINDOW_MS = 60_000;
-
-/** Past what any real check needs. Six checks run concurrently, not in series. */
-const CHECK_BUDGET_MS = 10_000;
-const PER_QUERY_TIMEOUT_MS = 3000;
-/** A backstop against a pathological zone, not a limit any evaluator enforces. */
-const MAX_LOOKUPS = 100;
 
 const MAX_EXTERNAL_ID_LENGTH = 255;
 const MAX_PROFILE_KEY_LENGTH = 64;
@@ -105,22 +84,6 @@ const registerSchema = z.object({
   profile: z.string().min(1).max(MAX_PROFILE_KEY_LENGTH),
 });
 
-/**
- * `lookups` is opt-in because the list endpoint is the size-sensitive path:
- * 389 bytes a domain without them, 1,728 with.
- */
-function storedLookups(checked: CheckResult): readonly StoredLookup[] {
-  return checked.checks.flatMap((check) =>
-    check.lookups.map((lookup) => ({
-      name: lookup.name,
-      purpose: lookup.purpose,
-      server: `${lookup.server.address}:${lookup.server.port}`,
-      status: lookup.outcome.status,
-      type: lookup.type,
-    }))
-  );
-}
-
 function serialise(domain: DomainRow, includeLookups = false) {
   const result = domain.lastResult;
 
@@ -146,33 +109,6 @@ function serialise(domain: DomainRow, includeLookups = false) {
     state: domain.state,
     verdict: result === null ? null : result.verdict,
   };
-}
-
-/**
- * Write down what changed, and only what changed.
- *
- * Nothing is appended for a requirement we could not evaluate. A timeline entry
- * saying a record "changed" to uncertainty is worse than a gap: the gap is
- * honest and the entry is a claim about the zone that nobody observed.
- */
-async function recordChanges(
-  db: Database,
-  domainId: string,
-  requirements: readonly RequirementResult[]
-): Promise<void> {
-  const definite = requirements.filter(
-    (requirement) => requirement.verdict !== "indeterminate"
-  );
-
-  await Promise.all(
-    definite.map((requirement) =>
-      recordObservation(db, {
-        domainId,
-        observed: observationFor(requirement),
-        requirementKey: requirement.key,
-      })
-    )
-  );
 }
 
 export function createDomainsRoute(options: {
@@ -272,43 +208,27 @@ export function createDomainsRoute(options: {
       );
     }
 
-    const checked = await runChecks({
-      domain: domain.name,
-      profile: compileProfile(profile.definition, profile.id),
-      resolver: {
-        budgetMs: CHECK_BUDGET_MS,
-        maxLookups: MAX_LOOKUPS,
-        recursionDesired: true,
-        target: options.resolver,
-        timeoutMs: PER_QUERY_TIMEOUT_MS,
-      },
+    // The sweeper calls this same function. Anything added here that is not in
+    // it is a way for the two to disagree about one domain.
+    const checked = await checkAndPersist(db, {
+      // `DomainRow` omits `tenantId` because every query that returns one is
+      // already tenant-scoped. The sweeper has no request to scope it by, so the
+      // shared function takes it explicitly.
+      domain: { ...domain, tenantId },
+      profile: { definition: profile.definition, id: profile.id },
+      settings: { resolver: options.resolver },
     });
-
-    const requirements = attributeResults(profile.definition, checked);
-    const overall = overallVerdict(requirements);
-    const now = new Date();
-    const result: DomainResult = {
-      checkedAt: now.toISOString(),
-      lookups: storedLookups(checked),
-      requirements,
-      verdict: overall,
-    };
-
-    const state = nextState(domain.state, overall);
-
-    await saveCheck(db, { domainId: domain.id, result, state, tenantId }, now);
-
-    // An indeterminate check appends nothing at all. Recording the requirements
-    // that did resolve would put half a picture on the timeline, taken while
-    // the resolver was misbehaving.
-    if (overall !== "indeterminate") {
-      await recordChanges(db, domain.id, requirements);
-    }
 
     return success(
       c,
       serialise(
-        { ...domain, lastCheckedAt: now, lastResult: result, state },
+        {
+          ...domain,
+          lastCheckedAt: checked.checkedAt,
+          lastResult: checked.result,
+          nextCheckAt: checked.nextCheckAt,
+          state: checked.state,
+        },
         true
       ),
       { resolver: `${options.resolver.address}:${options.resolver.port}` }

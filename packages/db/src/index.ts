@@ -50,6 +50,8 @@ export {
   listApiKeys,
   revokeApiKeyByReference,
 } from "./queries/revocation";
+export type { ClaimedDomain, ClaimOptions } from "./queries/sweep";
+export { claimDueDomains, dueCount } from "./queries/sweep";
 export type {
   DomainResult,
   DomainState,

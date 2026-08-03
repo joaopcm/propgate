@@ -73,9 +73,13 @@ if (process.env.PROPGATE_DATABASE === "1") {
   } as (typeof projects)[number]);
 }
 
+// All three tiers. `sweep.integration.spec.ts` needs Redis as well as DNS and
+// Postgres — it is the only spec that exercises claim, enqueue, check and
+// reschedule together, which is the whole point of the sweeper.
 if (
   process.env.PROPGATE_FIXTURES === "1" &&
-  process.env.PROPGATE_DATABASE === "1"
+  process.env.PROPGATE_DATABASE === "1" &&
+  process.env.PROPGATE_REDIS === "1"
 ) {
   projects.push({
     extends: true,

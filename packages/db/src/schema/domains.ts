@@ -86,10 +86,16 @@ export const domains = pgTable(
     lastResult: jsonb("last_result").$type<DomainResult>(),
     name: text("name").notNull(),
     /**
-     * Nothing reads this yet. It is the column the sweeper's query will be
-     * built on, and adding it later means backfilling every row.
+     * When the sweeper should look at this domain next. The scheduling truth.
+     *
+     * `defaultNow()` so a newly registered domain is immediately due and gets
+     * picked up by the next tick without registration having to know the sweeper
+     * exists. `notNull` because a null here would mean "never check this again",
+     * which is a state worth being unable to reach by accident — a domain that
+     * silently stopped being monitored is the worst failure this product has.
+     * Pausing, if it is ever wanted, should be a state rather than an absence.
      */
-    nextCheckAt: timestamp("next_check_at"),
+    nextCheckAt: timestamp("next_check_at").defaultNow().notNull(),
     /**
      * A profile *version*, and deliberately no cascade: a domain pinned to a
      * version that vanished cannot be re-evaluated, and losing that silently is
@@ -109,7 +115,16 @@ export const domains = pgTable(
       table.tenantId,
       table.externalId
     ),
-    // The sweeper's query, in index form, before the sweeper exists.
+    // Listing a tenant's domains filtered by state.
     index("domains_state_next_check_at_idx").on(table.state, table.nextCheckAt),
+    /**
+     * The claim query: `where next_check_at <= now() order by next_check_at`.
+     *
+     * A separate index from the composite above, which cannot serve this: it
+     * leads with `state`, and the sweeper deliberately does not filter by state
+     * — every state gets re-checked on its own cadence, which is the whole point
+     * of monitoring rather than verifying once.
+     */
+    index("domains_next_check_at_idx").on(table.nextCheckAt),
   ]
 );
