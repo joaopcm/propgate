@@ -13,6 +13,7 @@ import type {
   Verdict,
 } from "../evaluate/types";
 import { worstVerdict } from "../evaluate/types";
+import { probeWildcard } from "../evaluate/wildcard";
 import type { CheckKind, DomainProfile } from "./profile";
 import { dkimSelectorName } from "./profile";
 
@@ -102,7 +103,10 @@ interface DkimRun extends EvaluationResult {
  * a platform that issued three keys tracks three requirements and a merged
  * verdict cannot tell it which one is missing. Both, rather than a choice.
  */
-async function runDkim(options: RunOptions): Promise<DkimRun> {
+async function runDkim(
+  options: RunOptions,
+  wildcardSynthesised: boolean
+): Promise<DkimRun> {
   const selectors = options.profile.dkimSelectors ?? [];
   const results = await Promise.all(
     selectors.map(async (selector) => {
@@ -116,6 +120,7 @@ async function runDkim(options: RunOptions): Promise<DkimRun> {
           domain: options.domain,
           selector: name,
           ...(expectedPublicKey === undefined ? {} : { expectedPublicKey }),
+          ...(wildcardSynthesised ? { wildcardSynthesised } : {}),
         }
       );
 
@@ -133,7 +138,8 @@ async function runDkim(options: RunOptions): Promise<DkimRun> {
 
 function runOne(
   kind: CheckKind,
-  options: RunOptions
+  options: RunOptions,
+  wildcardSynthesised: boolean
 ): Promise<DkimRun | EvaluationResult> | undefined {
   const { domain, profile, resolver } = options;
   const context = () => createEvaluationContext(resolver);
@@ -156,7 +162,7 @@ function runOne(
       // check rather than something that is missing.
       return (profile.dkimSelectors ?? []).length === 0
         ? undefined
-        : runDkim(options);
+        : runDkim(options, wildcardSynthesised);
 
     case "dmarc":
       return evaluateDmarc(context(), { domain });
@@ -177,8 +183,19 @@ function runOne(
 }
 
 export async function runChecks(options: RunOptions): Promise<CheckResult> {
+  // One probe for the whole run, before anything that could trust a synthesised
+  // answer. A wildcard is a fact about the zone, so asking once is both cheaper
+  // and the only way the answer can be consistent across checks.
+  const probeContext = createEvaluationContext(options.resolver);
+  const wildcard = options.profile.checks.includes("dkim")
+    ? await probeWildcard(probeContext, options.domain)
+    : { probed: "", synthesises: false };
+
   const planned = options.profile.checks
-    .map((kind) => ({ kind, running: runOne(kind, options) }))
+    .map((kind) => ({
+      kind,
+      running: runOne(kind, options, wildcard.synthesises),
+    }))
     .filter(
       (
         entry
@@ -208,7 +225,14 @@ export async function runChecks(options: RunOptions): Promise<CheckResult> {
     checks,
     domain: options.domain,
     findings: checks.flatMap((check) => check.findings),
-    lookups: checks.flatMap((check) => check.lookups),
+    // The probe's lookup belongs here even though it belongs to no check. A
+    // query we made that does not appear in the derivation is a cost the caller
+    // pays and cannot see, and "results carry their derivation" has to mean all
+    // of them or it means nothing.
+    lookups: [
+      ...probeContext.lookups,
+      ...checks.flatMap((check) => check.lookups),
+    ],
     profile: options.profile.id,
     verdict: worstVerdict(checks.map((check) => check.verdict)),
   };

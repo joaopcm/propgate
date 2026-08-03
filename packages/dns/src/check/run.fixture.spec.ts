@@ -262,3 +262,63 @@ describe("DKIM outcomes, per selector", () => {
     expect(outcomeFor(result, "dkim")?.selectors).toHaveLength(1);
   });
 });
+
+describe("a zone that answers every name", () => {
+  it("says a selector's presence is not evidence it was added", async () => {
+    // The failure mode worse than having no product. wildcard.test answers
+    // every name, so a naive existence check marks a customer who configured
+    // nothing as verified — and the partner acts on that.
+    const result = await run("wildcard.test", {
+      checks: ["dkim"],
+      dkimSelectors: ["never-published"],
+      id: "wildcard",
+    });
+
+    expect(
+      outcomeFor(result, "dkim")?.findings.map((finding) => finding.code)
+    ).toContain(DiagnosisCode.WILDCARD_FALSE_POSITIVE);
+  });
+
+  it("stays quiet on a zone that publishes what it claims to", async () => {
+    const result = await run("customer.test", {
+      checks: ["dkim"],
+      dkimSelectors: ["pg1"],
+      id: "no-wildcard",
+    });
+
+    expect(
+      outcomeFor(result, "dkim")?.findings.map((finding) => finding.code)
+    ).not.toContain(DiagnosisCode.WILDCARD_FALSE_POSITIVE);
+  });
+
+  it("costs one lookup for the whole run, not one per selector", async () => {
+    // The reason the probe sits above the evaluators. Three selectors would
+    // otherwise ask the same question about the zone three times.
+    const one = await run("wildcard.test", {
+      checks: ["dkim"],
+      dkimSelectors: ["a"],
+      id: "one",
+    });
+    const three = await run("wildcard.test", {
+      checks: ["dkim"],
+      dkimSelectors: ["a", "b", "c"],
+      id: "three",
+    });
+
+    const probes = (result: CheckResult) =>
+      result.lookups.filter((lookup) => lookup.name.includes("_pg-probe-"));
+
+    expect(probes(one)).toHaveLength(1);
+    expect(probes(three)).toHaveLength(1);
+  });
+
+  it("does not probe when nothing would trust the answer", async () => {
+    // A wildcard cannot synthesise the apex, so SPF is unaffected and the
+    // lookup would be pure cost.
+    const result = await run("customer.test", { checks: ["spf"], id: "spf" });
+
+    expect(
+      result.lookups.filter((lookup) => lookup.name.includes("_pg-probe-"))
+    ).toHaveLength(0);
+  });
+});
