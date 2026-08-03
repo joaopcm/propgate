@@ -69,6 +69,7 @@ export {
   createEndpoint,
   deleteEndpoint,
   deliveryForAttempt,
+  endpointById,
   endpointsForEvent,
   listDeliveries,
   listEndpoints,
@@ -78,6 +79,7 @@ export {
   recordDelivery,
   rotateSecret,
   secretsFrom,
+  updateEndpoint,
 } from "./queries/webhooks";
 export type {
   DomainResult,

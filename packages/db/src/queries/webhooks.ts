@@ -84,6 +84,71 @@ export async function createEndpoint(
   return { endpoint: existing, kind: "existing" };
 }
 
+export async function endpointById(
+  db: Database,
+  input: { readonly endpointId: string; readonly tenantId: string }
+): Promise<EndpointRow | undefined> {
+  const [row] = await db
+    .select(ENDPOINT_COLUMNS)
+    .from(webhookEndpoints)
+    .where(
+      and(
+        eq(webhookEndpoints.id, input.endpointId),
+        eq(webhookEndpoints.tenantId, input.tenantId)
+      )
+    )
+    .limit(1);
+
+  return row;
+}
+
+/**
+ * Change what an endpoint wants, or turn it off.
+ *
+ * `disabled` is a tri-state on the way in: absent leaves it alone, which is what
+ * lets a PATCH change only the subscription list without accidentally re-enabling
+ * something somebody switched off. The url is deliberately not updatable — it is
+ * the identity this table is unique on, and a "moved" endpoint is a new one whose
+ * delivery history should not be inherited.
+ */
+export async function updateEndpoint(
+  db: Database,
+  input: {
+    readonly disabled?: boolean;
+    readonly endpointId: string;
+    readonly events?: readonly string[];
+    readonly tenantId: string;
+  },
+  now = new Date()
+): Promise<EndpointRow | undefined> {
+  const changes: Record<string, unknown> = {};
+
+  if (input.events !== undefined) {
+    changes.events = [...input.events];
+  }
+
+  if (input.disabled !== undefined) {
+    changes.disabledAt = input.disabled ? now : null;
+  }
+
+  if (Object.keys(changes).length === 0) {
+    return await endpointById(db, input);
+  }
+
+  const [row] = await db
+    .update(webhookEndpoints)
+    .set(changes)
+    .where(
+      and(
+        eq(webhookEndpoints.id, input.endpointId),
+        eq(webhookEndpoints.tenantId, input.tenantId)
+      )
+    )
+    .returning(ENDPOINT_COLUMNS);
+
+  return row;
+}
+
 export async function listEndpoints(
   db: Database,
   tenantId: string
@@ -339,6 +404,8 @@ export async function listDeliveries(
   tenantId: string,
   options: {
     readonly cursor?: string;
+    /** Scope to one endpoint. Deliveries are a sub-resource of the endpoint. */
+    readonly endpointId?: string;
     readonly limit: number;
     readonly status?: DeliveryStatus;
   }
@@ -347,6 +414,10 @@ export async function listDeliveries(
 
   if (options.cursor !== undefined) {
     filters.push(lt(webhookDeliveries.id, options.cursor));
+  }
+
+  if (options.endpointId !== undefined) {
+    filters.push(eq(webhookDeliveries.endpointId, options.endpointId));
   }
 
   if (options.status !== undefined) {

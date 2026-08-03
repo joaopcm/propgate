@@ -24,6 +24,7 @@ import {
   createDomainsRoute,
 } from "./routes/domains";
 import { createProfilesRoute } from "./routes/profiles";
+import { createWebhooksRoute } from "./routes/webhooks";
 import { RateLimiter } from "./utils/rate-limit";
 
 /**
@@ -114,7 +115,12 @@ export function createApp(options: {
     // is not harmless: each one that matches runs `bearerAuth` again, and that
     // is a second key lookup and a second `last_used_at` write per request.
     // `domains.db.spec.ts` pins the collection endpoints at 401 regardless.
-    for (const path of ["/v1/profiles/*", "/v1/domains/*"]) {
+    // Every authenticated family belongs in this list. A route mounted below
+    // without a matching entry here is publicly reachable and reads a
+    // tenant-scoped table with `tenantId` undefined — which surfaces as a 500
+    // from a failed insert rather than as anything that looks like a security
+    // problem. `webhooks.db.spec.ts` pins all three at 401 for that reason.
+    for (const path of ["/v1/profiles/*", "/v1/domains/*", "/v1/webhooks/*"]) {
       // Authentication first, then the limiter — it is keyed on the tenant the
       // first one resolved, which is the whole reason it is not spoofable.
       app.use(
@@ -125,6 +131,7 @@ export function createApp(options: {
     }
 
     app.route("/v1/profiles", createProfilesRoute({ db }));
+    app.route("/v1/webhooks", createWebhooksRoute({ db }));
     app.route(
       "/v1/domains",
       createDomainsRoute({
