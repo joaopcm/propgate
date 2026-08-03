@@ -47,14 +47,29 @@ const WHITESPACE = /\s+/;
  * Line-based rather than a built regex: the owner name comes from a filename, so
  * a regex would need escaping, and "first field on the line, then IN NS" is what
  * we actually mean.
+ *
+ * Both spellings of the owner are accepted, because the parent's file is written
+ * by hand or by `dnssec-signzone` depending on whether it is signed. A source
+ * zone carries the relative label (`island`); the signed output rewrites it fully
+ * qualified (`island.secure.test.`). Matching only the label made this guard
+ * blind to any delegation from a signed parent — which stayed invisible until
+ * island.secure.test became the first one.
  */
-function hasDelegation(zoneText: string, ownerLabel: string): boolean {
-  return zoneText
-    .split("\n")
-    .some(
-      (line) =>
-        line.split(WHITESPACE)[0] === ownerLabel && line.includes("IN NS")
-    );
+function hasDelegation(
+  zoneText: string,
+  ownerLabel: string,
+  fqdn?: string
+): boolean {
+  const owners = new Set([
+    ownerLabel,
+    ...(fqdn === undefined ? [] : [`${fqdn}.`]),
+  ]);
+
+  return zoneText.split("\n").some((line) => {
+    const owner = line.split(WHITESPACE)[0] ?? "";
+
+    return owners.has(owner) && line.includes("IN NS");
+  });
 }
 
 /** Every zone dns-auth serves, mapped to the text of its file. */
@@ -98,7 +113,7 @@ describe("fixture delegation graph", () => {
       const parent = served.get(rest.join("."));
 
       return parent
-        ? !hasDelegation(parent, label ?? "")
+        ? !hasDelegation(parent, label ?? "", zone)
         : !hasDelegation(testZone, zone.replace(TEST_SUFFIX, ""));
     });
 

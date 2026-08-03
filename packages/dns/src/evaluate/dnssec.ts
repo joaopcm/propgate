@@ -1,5 +1,7 @@
 import { DiagnosisCode } from "../diagnosis/codes";
-import { Rcode } from "../wire/constants";
+import { getPublicSuffix } from "../psl";
+import { Rcode, RecordType } from "../wire/constants";
+import { recordsOfType } from "../wire/message";
 import type { EvaluationContext } from "./context";
 
 /**
@@ -72,4 +74,80 @@ export async function reportBogusIfServfail(
   });
 
   return true;
+}
+
+/**
+ * A delegation left unsigned beneath a parent its owner signed.
+ *
+ * The guard below is the whole reason this is shippable. The registry's contract
+ * — "this delegation is unsigned beneath a signed parent" — is satisfied by every
+ * unsigned domain under `.com`, which is signed. Reported literally it is a
+ * warning on most of the internet, and a checker that finds something on every
+ * domain is one nobody reads. It fired on the clean customer.test fixture the
+ * first time this was written.
+ *
+ * It becomes a real finding one level down: a subdomain somebody delegated
+ * without a DS beneath a zone they signed themselves. They went to the trouble
+ * and the child did not inherit it — which is also exactly the shape of the
+ * delegation product in Phase 3.
+ *
+ * Never DNSSEC_BOGUS. An island resolves for everybody, nothing is broken today,
+ * and the fix is a DS at the registrar rather than anything in the zone.
+ */
+export async function reportInsecureIsland(
+  context: EvaluationContext,
+  domain: string
+): Promise<void> {
+  const labels = domain.split(".");
+
+  if (labels.length < 3) {
+    // An org domain at best, whose parent is a public suffix. The guard below
+    // would reject it anyway; this just avoids two lookups to learn that.
+    return;
+  }
+
+  const parent = labels.slice(1).join(".");
+
+  // The guard. A parent that *is* a public suffix is a registry rather than
+  // somebody who chose to sign their zone, and its children inherit no
+  // expectation from it being signed.
+  if (getPublicSuffix(parent) === parent) {
+    return;
+  }
+
+  const ds = await context.lookup({
+    name: domain,
+    purpose: "whether this delegation is signed, via the parent's DS",
+    type: RecordType.DS,
+  });
+
+  if (ds.status !== "answered") {
+    return;
+  }
+
+  if (recordsOfType(ds.message.answers, "DS").length > 0) {
+    // Signed and vouched for. Nothing to say.
+    return;
+  }
+
+  const parentKeys = await context.lookup({
+    name: parent,
+    purpose: "whether the parent is signed, which is what makes this a gap",
+    type: RecordType.DNSKEY,
+  });
+
+  if (parentKeys.status !== "answered") {
+    return;
+  }
+
+  if (recordsOfType(parentKeys.message.answers, "DNSKEY").length === 0) {
+    // Unsigned beneath unsigned is the normal state of most of the internet.
+    return;
+  }
+
+  context.report(DiagnosisCode.DNSSEC_INSECURE_ISLAND, {
+    detail: `${parent} is signed and publishes no DS for this delegation, so DNSSEC protection stops at the boundary; nothing is broken today, and the fix is a DS record at the registrar rather than anything in the zone`,
+    name: domain,
+    observed: `no DS for ${domain}, and ${parent} publishes DNSKEY records`,
+  });
 }

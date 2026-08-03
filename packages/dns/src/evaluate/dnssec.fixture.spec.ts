@@ -76,6 +76,58 @@ describe("a zone whose signatures do not verify", () => {
   });
 });
 
+describe("a delegation left unsigned beneath a signed parent", () => {
+  it("is reported, because the parent went to the trouble and this did not", async () => {
+    const result = await evaluateDelegation(context("resolver"), {
+      domain: "island.secure.test",
+    });
+
+    expect(codes(result)).toContain(DiagnosisCode.DNSSEC_INSECURE_ISLAND);
+  });
+
+  it("reads as insecure, never as bogus", async () => {
+    // It resolves for everybody. Nothing is broken today, and the fix is a DS at
+    // the registrar — where bogus means re-sign or roll back and half the
+    // internet cannot reach you meanwhile.
+    const result = await evaluateDelegation(context("resolver"), {
+      domain: "island.secure.test",
+    });
+
+    expect(codes(result)).not.toContain(DiagnosisCode.DNSSEC_BOGUS);
+  });
+
+  it("names the signed parent, so the gap is obvious", async () => {
+    const result = await evaluateDelegation(context("resolver"), {
+      domain: "island.secure.test",
+    });
+    const finding = result.findings.find(
+      (entry) => entry.code === DiagnosisCode.DNSSEC_INSECURE_ISLAND
+    );
+
+    expect(finding?.evidence.observed).toContain("secure.test");
+    expect(finding?.severity).toBe("warning");
+  });
+
+  it("says nothing about an org domain under a signed TLD", async () => {
+    // The guard, asserted directly. insecure-island.test satisfies the contract
+    // as written — unsigned beneath signed `test.` — and reporting it would mean
+    // reporting most of the internet.
+    const result = await evaluateDelegation(context("resolver"), {
+      domain: "insecure-island.test",
+    });
+
+    expect(codes(result)).not.toContain(DiagnosisCode.DNSSEC_INSECURE_ISLAND);
+  });
+
+  it("says nothing about a child that is properly vouched for", async () => {
+    const result = await evaluateDelegation(context("resolver"), {
+      domain: "secure.test",
+    });
+
+    expect(codes(result)).not.toContain(DiagnosisCode.DNSSEC_INSECURE_ISLAND);
+  });
+});
+
 describe("a correctly signed zone", () => {
   it("produces neither finding", async () => {
     // secure.test has a DS at the parent, so the chain is complete.

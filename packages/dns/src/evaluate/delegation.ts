@@ -3,7 +3,7 @@ import type { ServerAddress } from "../types";
 import { RecordType } from "../wire/constants";
 import { recordsOfType } from "../wire/message";
 import type { EvaluationContext } from "./context";
-import { reportBogusIfServfail } from "./dnssec";
+import { reportBogusIfServfail, reportInsecureIsland } from "./dnssec";
 import type { EvaluationResult, Verdict } from "./types";
 import { verdictFromFindings, worstVerdict } from "./types";
 
@@ -425,6 +425,8 @@ export async function evaluateDelegation(
       verdict: "fail",
     };
   }
+
+  await reportInsecureIsland(context, domain);
 
   const parent = await parentDelegation(context, domain);
   const child = await childNameservers(context, domain);
