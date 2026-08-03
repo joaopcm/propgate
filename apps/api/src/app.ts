@@ -4,6 +4,7 @@ import { captureException } from "@sentry/node";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
+import type { HysteresisThresholds } from "./domains/hysteresis";
 import { bearerAuth } from "./middleware/auth";
 import {
   TENANT_RATE_LIMIT_WINDOW_MS,
@@ -46,6 +47,8 @@ export function createApp(options: {
    * exactly as it did before rather than failing.
    */
   resolvers?: readonly ServerAddress[];
+  /** Hysteresis thresholds. Defaults are in `hysteresis.ts`. */
+  thresholds?: HysteresisThresholds;
 }) {
   const app = new Hono();
 
@@ -128,6 +131,9 @@ export function createApp(options: {
         db,
         resolver: options.resolver,
         resolvers: options.resolvers ?? [options.resolver],
+        ...(options.thresholds === undefined
+          ? {}
+          : { thresholds: options.thresholds }),
       })
     );
   }

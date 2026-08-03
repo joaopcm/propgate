@@ -5,6 +5,7 @@ import { domains } from "../schema/domains";
 import { recordChanges } from "../schema/record-changes";
 
 export interface DomainRow {
+  readonly consecutiveFailures: number;
   readonly createdAt: Date;
   readonly externalId: string | null;
   readonly id: string;
@@ -17,6 +18,7 @@ export interface DomainRow {
 }
 
 const COLUMNS = {
+  consecutiveFailures: domains.consecutiveFailures,
   createdAt: domains.createdAt,
   externalId: domains.externalId,
   id: domains.id,
@@ -167,6 +169,8 @@ export async function deleteDomain(
 export async function saveCheck(
   db: Database,
   input: {
+    /** The run of consecutive failures after this check. */
+    readonly consecutiveFailures: number;
     readonly domainId: string;
     /**
      * When to look again. Required rather than optional, because a check that
@@ -185,6 +189,7 @@ export async function saveCheck(
   await db
     .update(domains)
     .set({
+      consecutiveFailures: input.consecutiveFailures,
       lastCheckedAt: now,
       lastResult: input.result,
       nextCheckAt: input.nextCheckAt,

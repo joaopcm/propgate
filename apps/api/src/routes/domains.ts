@@ -12,6 +12,7 @@ import type { ServerAddress } from "@propgate/dns";
 import { Hono } from "hono";
 import { z } from "zod";
 import { checkAndPersist } from "../domains/check";
+import type { HysteresisThresholds } from "../domains/hysteresis";
 import type { AuthVariables } from "../middleware/auth";
 import {
   MAX_DOMAIN_LENGTH,
@@ -116,6 +117,7 @@ export function createDomainsRoute(options: {
   db: Database;
   resolver: ServerAddress;
   resolvers: readonly ServerAddress[];
+  thresholds?: HysteresisThresholds;
 }) {
   const route = new Hono<{ Variables: AuthVariables }>();
   const { db } = options;
@@ -217,7 +219,12 @@ export function createDomainsRoute(options: {
       // shared function takes it explicitly.
       domain: { ...domain, tenantId },
       profile: { definition: profile.definition, id: profile.id },
-      settings: { resolvers: options.resolvers },
+      settings: {
+        resolvers: options.resolvers,
+        ...(options.thresholds === undefined
+          ? {}
+          : { thresholds: options.thresholds }),
+      },
     });
 
     return success(

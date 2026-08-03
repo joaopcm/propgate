@@ -1,40 +1,7 @@
 import { DiagnosisCode } from "@propgate/dns";
 import { describe, expect, it } from "vitest";
 import type { RequirementResult } from "../profiles/compile";
-import { nextState, observationFor } from "./state";
-
-describe("nextState", () => {
-  it("verifies a domain whose requirements are all met", () => {
-    expect(nextState("pending", "pass")).toBe("verified");
-  });
-
-  it("verifies one that passes with advice", () => {
-    // A warning describes something that works. p=none is a real DMARC record.
-    expect(nextState("pending", "warn")).toBe("verified");
-  });
-
-  it("fails a domain with a requirement we watched break", () => {
-    expect(nextState("verified", "fail")).toBe("failed");
-  });
-
-  it("leaves an indeterminate check exactly where it found things", () => {
-    // The load-bearing edge that is not an edge. A resolver blip must not move
-    // a verified domain to failed — in milestone 2 that is a webhook to a
-    // partner's customer, sent because our upstream had a bad second.
-    expect(nextState("verified", "indeterminate")).toBe("verified");
-    expect(nextState("failed", "indeterminate")).toBe("failed");
-    expect(nextState("pending", "indeterminate")).toBe("pending");
-  });
-
-  it("never reaches the two states this milestone cannot produce", () => {
-    const reachable = (["pass", "warn", "fail", "indeterminate"] as const).map(
-      (verdict) => nextState("pending", verdict)
-    );
-
-    expect(reachable).not.toContain("verifying");
-    expect(reachable).not.toContain("degraded");
-  });
-});
+import { observationFor } from "./state";
 
 describe("observationFor", () => {
   it("is the verdict alone when there is nothing to report", () => {

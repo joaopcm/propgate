@@ -50,6 +50,11 @@ export {
   listApiKeys,
   revokeApiKeyByReference,
 } from "./queries/revocation";
+export type { TransitionInput } from "./queries/state-transitions";
+export {
+  domainTransitions,
+  recordTransition,
+} from "./queries/state-transitions";
 export type { ClaimedDomain, ClaimOptions } from "./queries/sweep";
 export { claimDueDomains, dueCount } from "./queries/sweep";
 export type {
@@ -65,6 +70,11 @@ export type {
   ProfileRequirement,
 } from "./schema/profiles";
 export { profiles } from "./schema/profiles";
+export type {
+  StoredTransition,
+  TransitionEvidence,
+} from "./schema/state-transitions";
+export { stateTransitions } from "./schema/state-transitions";
 export { tenants } from "./schema/tenants";
 // A test helper on the entry point, deliberately: the package is private and
 // never published, and every consumer with a Postgres-backed spec needs the

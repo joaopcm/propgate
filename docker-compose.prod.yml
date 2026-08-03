@@ -144,6 +144,11 @@ services:
       # The vantage-point pool. Empty means "just RESOLVER_ADDRESS", which is the
       # pre-consensus behaviour, so an existing .env keeps working untouched.
       RESOLVER_ADDRESSES: ${RESOLVER_ADDRESSES:-}
+      # The same thresholds as the worker. POST /v1/domains/:id/checks runs the
+      # same state machine, and two processes with different thresholds would give
+      # one domain two different states depending on who looked at it.
+      DEGRADED_AFTER_FAILURES: ${DEGRADED_AFTER_FAILURES:-}
+      FAILED_AFTER_FAILURES: ${FAILED_AFTER_FAILURES:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
     depends_on:
       migrate:
@@ -185,6 +190,8 @@ services:
       # is what makes that work, so these must never be given a literal fallback
       # here or the schema's default becomes unreachable.
       CHECK_CONCURRENCY: ${CHECK_CONCURRENCY:-}
+      DEGRADED_AFTER_FAILURES: ${DEGRADED_AFTER_FAILURES:-}
+      FAILED_AFTER_FAILURES: ${FAILED_AFTER_FAILURES:-}
       SWEEP_BATCH_SIZE: ${SWEEP_BATCH_SIZE:-}
       SWEEP_LEASE_SECONDS: ${SWEEP_LEASE_SECONDS:-}
       SWEEP_TICK_SECONDS: ${SWEEP_TICK_SECONDS:-}
