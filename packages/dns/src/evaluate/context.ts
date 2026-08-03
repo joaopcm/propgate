@@ -127,6 +127,14 @@ export class EvaluationContext {
     target?: ServerAddress;
     /** Override recursion for this lookup, for talking straight to authority. */
     recursionDesired?: boolean;
+    /**
+     * Ask the resolver to skip DNSSEC validation for this query.
+     *
+     * The only way to tell a bogus zone from an unreachable one with a single
+     * resolver: if a SERVFAIL becomes an answer when validation is off, the
+     * signatures are what failed.
+     */
+    checkingDisabled?: boolean;
   }): Promise<QueryOutcome> {
     const timeoutMs = Math.min(
       this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
@@ -155,6 +163,7 @@ export class EvaluationContext {
     }
 
     const outcome = await query({
+      checkingDisabled: spec.checkingDisabled,
       dnssecOk: this.options.dnssecOk,
       ednsBufferSize: spec.ednsBufferSize,
       name: spec.name,

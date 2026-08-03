@@ -3,6 +3,7 @@ import type { ServerAddress } from "../types";
 import { RecordType } from "../wire/constants";
 import { recordsOfType } from "../wire/message";
 import type { EvaluationContext } from "./context";
+import { reportBogusIfServfail } from "./dnssec";
 import type { EvaluationResult, Verdict } from "./types";
 import { verdictFromFindings, worstVerdict } from "./types";
 
@@ -406,6 +407,25 @@ export async function evaluateDelegation(
   check: DelegationCheck
 ): Promise<EvaluationResult> {
   const domain = normalise(check.domain);
+
+  // DNSSEC state first, and the order matters. A bogus zone SERVFAILs every
+  // question a validating resolver is asked about it, so reading the delegation
+  // afterwards produces a pile of "could not read" findings whose actual cause
+  // is one broken signature. Establishing that first means the report names the
+  // cause rather than six symptoms.
+  const bogus = await reportBogusIfServfail(context, domain, RecordType.SOA);
+
+  if (bogus) {
+    return {
+      findings: context.findings,
+      lookups: context.lookups,
+      // Not a failure of the domain's configuration in the sense the other
+      // codes mean: we genuinely cannot see the zone through a validating
+      // resolver, and everything else we would say about it would be a guess.
+      verdict: "fail",
+    };
+  }
+
   const parent = await parentDelegation(context, domain);
   const child = await childNameservers(context, domain);
 
