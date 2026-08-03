@@ -28,30 +28,46 @@ export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
  * Retention, and it is load-bearing rather than tidiness.
  *
  * BullMQ keeps completed and failed jobs forever by default. Our Redis runs
- * `noeviction` with no `maxmemory` — deliberately, because a cap we have not
+ * `noeviction` with no `maxmemory` — deliberately, because a cap nobody has
  * measured is a tripwire in the wrong place — so "forever" means the box's
- * memory is the only limit, and a sweeper ticking every 60 seconds against ten
- * thousand domains reaches it. `noeviction` then makes writes fail rather than
- * silently dropping jobs, which is the right failure but still an outage.
+ * memory is the only limit. `noeviction` then makes writes fail rather than
+ * silently dropping jobs, which is the right failure but still an outage. These
+ * numbers are what stands in the way, so the two decisions are coupled: change
+ * one and revisit the other.
  *
- * These two numbers are the bound. Neither is measured yet; both are sized as
- * tripwires past where anything useful lives:
+ * **The receipt.** Measured against Redis 8 with a real `{ domainId, tenantId }`
+ * payload, 3000 jobs per run, `used_memory` before and after:
  *
- * - **Completed, 1 hour / 1000 jobs.** A completed check is only interesting
- *   while someone is watching it happen in Workbench. After that the answer is
- *   in `domains.last_result`, which is the actual record.
- * - **Failed, 24 hours.** Failures are what you investigate, and you investigate
- *   them the next morning. The `webhook_deliveries` ledger keeps the durable
- *   record of anything that mattered, so this is a debugging convenience and not
- *   the source of truth.
+ * | State | Bytes per job |
+ * |---|---|
+ * | waiting | ~575 |
+ * | completed | ~1,000 |
+ * | failed | ~2,560 |
  *
- * The receipt these are waiting on: observed Redis RSS with a full day of real
- * sweep traffic, measured in Phase 6. If a good widget ever hits either, the
- * number is wrong.
+ * Failed jobs cost 2.5x because they carry `failedReason` and a stack trace.
+ *
+ * **The numbers.** `age` bounds how far back Workbench can look; `count` is the
+ * hard memory bound, which is the one that matters. Both are tripwires sized
+ * well past where anything useful lives, so a healthy queue never feels them:
+ *
+ * - **Completed: 25,000 jobs, 7 days.** ~25 MB per queue at the rate above.
+ *   25,000 checks is about 2.5 days of history at ten thousand monitored domains
+ *   and months of it at current scale. Past that the answer lives in
+ *   `domains.last_result`, which is the actual record — this is only the window
+ *   where watching it happen is still useful.
+ * - **Failed: 5,000 jobs, 14 days.** ~13 MB per queue. Longer in days because
+ *   failures are what you investigate and you investigate them next week;
+ *   shorter in count because more than five thousand unresolved failures is a
+ *   systemic problem rather than a debugging need. The `webhook_deliveries`
+ *   ledger is the durable record, so nothing is lost when this bites.
+ *
+ * Worst case across all three queues with every set saturated at once: ~115 MB.
+ * That cannot happen in practice — `sweep` takes 1440 jobs a day and
+ * `deliver-webhook` far fewer — but it is a real ceiling rather than a hope.
  */
 const RETENTION: DefaultJobOptions = {
-  removeOnComplete: { age: 3600, count: 1000 },
-  removeOnFail: { age: 86_400 },
+  removeOnComplete: { age: 604_800, count: 25_000 },
+  removeOnFail: { age: 1_209_600, count: 5000 },
 };
 
 export interface QueueFactoryOptions {
