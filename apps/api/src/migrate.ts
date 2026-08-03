@@ -1,5 +1,5 @@
 import { runMigrations } from "@propgate/db";
-import { env } from "./env";
+import { requireDatabaseUrl } from "./utils/database-url";
 
 /**
  * The deploy-time migration step.
@@ -15,6 +15,6 @@ import { env } from "./env";
  */
 const MIGRATIONS_DIR = process.env.MIGRATIONS_DIR ?? "/app/drizzle";
 
-await runMigrations(env.DATABASE_URL, MIGRATIONS_DIR);
+await runMigrations(requireDatabaseUrl(), MIGRATIONS_DIR);
 
 process.stdout.write(`migrations applied from ${MIGRATIONS_DIR}\n`);

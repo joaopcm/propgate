@@ -11,11 +11,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@getworkbench/hono": "0.9.1",
     "@hono/node-server": "^1",
     "@propgate/db": "workspace:*",
     "@propgate/dns": "workspace:*",
+    "@propgate/jobs": "workspace:*",
     "@sentry/node": "^10.47.0",
     "@t3-oss/env-core": "^0.13.11",
+    "bullmq": "^6.0.6",
     "hono": "^4",
     "zod": "^4.3.6"
   },

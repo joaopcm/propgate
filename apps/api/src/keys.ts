@@ -1,6 +1,6 @@
 import type { ApiKeySummary } from "@propgate/db";
 import { createDb, listApiKeys, revokeApiKeyByReference } from "@propgate/db";
-import { env } from "./env";
+import { requireDatabaseUrl } from "./utils/database-url";
 
 /**
  * Looking at keys, and taking one away.
@@ -40,7 +40,7 @@ function row(key: ApiKeySummary): string {
 
 const [command, reference] = process.argv.slice(2);
 const force = process.argv.includes("--force");
-const db = createDb(env.DATABASE_URL, { maxConnections: 1 });
+const db = createDb(requireDatabaseUrl(), { maxConnections: 1 });
 
 if (command === "list") {
   const keys = await listApiKeys(db);

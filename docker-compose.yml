@@ -149,3 +149,24 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+
+  redis:
+    image: redis:8-alpine
+    # 6389 for the same reason Postgres is on 5442: a developer machine often
+    # already has one of these, and colliding produces "port is already
+    # allocated" with no hint that a host port is the cause.
+    ports:
+      - "127.0.0.1:6389:6379"
+    restart: unless-stopped
+    # noeviction even for tests, so the fixture tier and production fail the same
+    # way. Under any other policy Redis drops BullMQ's job keys when memory fills
+    # and the symptom is a job that never runs, with nothing in any log.
+    #
+    # No appendonly here, unlike production: a test Redis has nothing worth
+    # surviving a restart, and fsync on every write only slows the suite down.
+    command: ["redis-server", "--maxmemory-policy", "noeviction", "--save", ""]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15

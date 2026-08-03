@@ -2,7 +2,13 @@ import { defineConfig } from "tsup";
 
 export default defineConfig({
   clean: true,
-  entry: ["src/index.ts", "src/keys.ts", "src/migrate.ts", "src/mint.ts"],
+  entry: [
+    "src/index.ts",
+    "src/keys.ts",
+    "src/migrate.ts",
+    "src/mint.ts",
+    "src/worker.ts",
+  ],
   format: ["esm"],
   noExternal: [/@propgate\/.*/],
   outDir: "dist",

@@ -1,7 +1,12 @@
 # The production stack: the application, and nothing that terminates TLS.
 #
-#   api ──▶ postgres
-#    └────▶ unbound ──▶ the internet
+#   api ─────▶ postgres ◀───── worker
+#    └───────▶ unbound ◀──────────┤ ──▶ the internet
+#    └───────▶  redis  ◀──────────┘
+#
+# Postgres is the truth and Redis is the conveyor belt: everything Redis holds is
+# re-derivable from `domains.next_check_at` and `webhook_deliveries`, so losing it
+# costs in-flight attempts and never obligations.
 #
 # Nothing here publishes a port. Getting requests from the internet to the API
 # is the *environment's* job, and environments disagree about how:
@@ -56,6 +61,36 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    # Two flags, both load-bearing.
+    #
+    # `noeviction` because BullMQ keeps job state in Redis keys. Under any other
+    # policy Redis silently drops them when memory fills, and the symptom is a
+    # domain that stopped being checked with nothing in any log. With this, a full
+    # Redis fails writes loudly instead — the right failure.
+    #
+    # `appendonly` because a restart otherwise loses whatever was mid-flight.
+    # Postgres is still the truth and the reconciler would recover it, but a
+    # crash-safe queue means that path stays a backstop rather than a routine.
+    #
+    # Deliberately **no `maxmemory`**: a cap nobody has measured is a tripwire in
+    # the wrong place, and it would turn a slow leak into an outage at a number we
+    # picked by feel. The retention on the queues bounds growth instead — see
+    # RETENTION in packages/jobs/src/queues.ts. Phase 6 measures the real RSS.
+    command: ["redis-server", "--maxmemory-policy", "noeviction", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    # Unpublished, like unbound. Workbench is how you look at the queues, and it
+    # has its own port below; an exposed Redis with no password would be a second
+    # door to the same room.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   unbound:
     build:
       context: docker/unbound
@@ -101,6 +136,7 @@ services:
       DATABASE_URL: postgres://propgate:${POSTGRES_PASSWORD:?}@postgres:5432/propgate
       NODE_ENV: production
       PORT: 3001
+      REDIS_URL: redis://redis:6379
       # Our own resolver, by name on this network. Never a public one: an answer
       # from someone else's cache is an answer we cannot explain.
       RESOLVER_ADDRESS: unbound
@@ -109,6 +145,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
       unbound:
         condition: service_healthy
     healthcheck:
@@ -118,5 +156,51 @@ services:
       retries: 3
       start_period: 10s
 
+  # The background process: the sweeper, and the queue admin dashboard.
+  #
+  # Same image as the API with a different command, exactly like `migrate` above.
+  # Two containers rather than one PID is not about scale — it is so that a sweep
+  # of a hundred domains and an interactive check never share an event loop, and
+  # so the worker can be restarted without touching customer traffic.
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY:-joaopcm/propgate}/api:${TAG:-latest}
+    command: ["node", "dist/worker.js"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://propgate:${POSTGRES_PASSWORD:?}@postgres:5432/propgate
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      RESOLVER_ADDRESS: unbound
+      RESOLVER_PORT: 53
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      WORKBENCH_PORT: 3002
+      # Unset means the dashboard is not mounted at all. Workbench is pre-1.0, so
+      # a box that never looks at its queues should not be running it.
+      WORKBENCH_PASS: ${WORKBENCH_PASS:-}
+      WORKBENCH_USER: ${WORKBENCH_USER:-}
+    ports:
+      # The same reasoning as DB_BIND_ADDRESS on postgres, and the same default:
+      # loopback, so reaching it means an SSH tunnel or a tailnet address
+      # (`tailscale ip -4`). **Never 0.0.0.0** — basic auth is the only thing in
+      # front of a dashboard that can retry and delete jobs.
+      - "${WORKBENCH_BIND_ADDRESS:-127.0.0.1}:${WORKBENCH_BIND_PORT:-3002}:3002"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      unbound:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   postgres-data:
+  redis-data:

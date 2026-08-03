@@ -1,5 +1,5 @@
 import { createDb, mintTenantKey } from "@propgate/db";
-import { env } from "./env";
+import { requireDatabaseUrl } from "./utils/database-url";
 
 /**
  * Onboarding, from inside the production image.
@@ -19,7 +19,7 @@ if (tenantName === undefined || tenantName === "") {
   process.exit(2);
 }
 
-const db = createDb(env.DATABASE_URL, { maxConnections: 1 });
+const db = createDb(requireDatabaseUrl(), { maxConnections: 1 });
 const minted = await mintTenantKey(db, { keyName, tenantName });
 
 process.stdout.write(
