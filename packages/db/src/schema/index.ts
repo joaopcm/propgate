@@ -7,6 +7,7 @@ export type {
   StoredVerdict,
 } from "./domains";
 export { domainState, domains } from "./domains";
+export { otpCodes } from "./otp-codes";
 export type { ProfileDefinition, ProfileRequirement } from "./profiles";
 export { profiles } from "./profiles";
 export { recordChanges } from "./record-changes";

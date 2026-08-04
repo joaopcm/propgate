@@ -32,6 +32,13 @@ export {
 } from "./queries/domains";
 export type { MintedKey } from "./queries/onboard";
 export { mintTenantKey } from "./queries/onboard";
+export type { ConsumeOutcome, IssueOutcome } from "./queries/otp";
+export {
+  consumeCode,
+  issueCode,
+  MAX_ATTEMPTS,
+  RESEND_COOLDOWN_SECONDS,
+} from "./queries/otp";
 export type { ProfileVersion } from "./queries/profiles";
 export {
   createProfileVersion,
@@ -89,6 +96,7 @@ export type {
   StoredVerdict,
 } from "./schema/domains";
 export { domains } from "./schema/domains";
+export { otpCodes } from "./schema/otp-codes";
 export type {
   ProfileDefinition,
   ProfileRequirement,
