@@ -184,9 +184,32 @@ That trade is worth stating plainly: **anyone who controls the email address can
 mint a key.** That is the same security model as every password-reset flow, and it
 is why the OTP guards above are the actual security boundary.
 
-`tenants` gains `email` (unique, nullable — existing rows have none) and
-`request_quota_per_minute` (nullable; null means the partner default). The signup
-path sets the self-serve tier; `mint.js` continues to set null.
+**The email does not go on `tenants`.** A tenant is an integration and will
+eventually have several humans attached to it; an `email` column on it is the
+classic landmine — free today, load-bearing the moment members exist, at which
+point some code reads it as "the owner" and other code ignores it. The address
+belongs to the *person* who proved control of it.
+
+So a join table from the start, holding exactly one row per tenant for now:
+
+**`tenant_members`** in `packages/db/src/schema/tenant-members.ts` — `id`,
+`tenant_id` (cascade), `email`, `created_at`. `email` is **globally unique**, which
+is what keeps signup unambiguous: one address maps to one tenant, so re-running the
+flow needs no "which account did you mean". When one person genuinely needs to
+belong to two tenants, that index is the single thing to drop — and the signup
+response would then have to name a tenant, which is a real API change and should be
+a deliberate one at that point rather than something this schema quietly allowed.
+
+Adding roles later is a column on this table. Adding invites is a second table
+beside it. Neither disturbs `tenants`, which is the point.
+
+`tenants` gains only `request_quota_per_minute` (nullable; null means the default,
+a value raises it — see risk 1).
+
+`findOrCreateTenantForEmail` therefore becomes
+`findOrCreateAccountForEmail(db, { email })` →
+`{ created: boolean, memberId, tenantId }`, creating the tenant and its first
+member in one transaction.
 
 **Files:** `apps/api/src/routes/signup.ts`, `packages/db/src/queries/onboard.ts`
 (extend with `findOrCreateTenantForEmail`), `packages/db/src/schema/tenants.ts`,
@@ -284,10 +307,15 @@ the existing `args.spec.ts`, and one spec asserting the file is created `0600`.
 - **Passwords, sessions, a dashboard login.** The API key *is* the credential.
 - **A sign-in endpoint.** Re-running signup on a known address is the recovery
   path, which is enough for v1 and one fewer surface to secure. Tenants created
-  before this plan have no `email` and therefore no self-serve recovery; theirs is
-  `mint.js` on the box, which is where it already was.
-- **Teams, invites, multiple humans per tenant.** A tenant is an integration, not
-  an organisation.
+  before this plan have no member row and therefore no self-serve recovery; theirs
+  is `mint.js` on the box, which is where it already was.
+- **Roles, invites, more than one member per tenant.** Not built — but
+  `tenant_members` exists from day one so each of those is a column or a table
+  beside it rather than a migration that moves an email off `tenants` while live
+  code reads it.
+- **One person in two tenants.** Deliberately blocked by the unique index on
+  `tenant_members.email`, because allowing it means signup has to ask which tenant
+  you meant.
 - **Billing.** The gate asks whether anyone *would* pay, and that conversation
   does not need a card form.
 - **`packages/auth`.** Better Auth solves problems this does not have.
@@ -304,9 +332,10 @@ the existing `args.spec.ts`, and one spec asserting the file is created `0600`.
   length: 10^6 with five attempts is unguessable, and six digits is meaningfully
   nicer to type.
 - **The CLI gets `domains add`**, so the whole flow really is reachable from it.
-- **`tenants.email` stays null for existing tenants.** They keep `mint.js` on the
-  box as their recovery path, which is available to anybody who already has a shell
-  there — so the only thing null costs is a path those accounts do not need.
+- **The email lives on `tenant_members`, not on `tenants`.** A tenant is an
+  integration; the address belongs to the person who proved control of it. Existing
+  tenants simply have no member row, so they have no self-serve recovery — they
+  keep `mint.js` on the box, which is where it already was.
 
 ### Dogfood the sending domain
 
