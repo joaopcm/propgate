@@ -55,9 +55,27 @@ So a self-serve tenant is a way to point our resolver at somebody else's
 infrastructure at 12,000 queries a minute. That is not a hypothetical: it is what
 open DNS tooling gets used for.
 
-**Therefore self-serve tenants need their own quota tier, lower than a partner's,**
-and the limit has to be a column on `tenants` rather than one constant for
-everybody. Sizing it is a decision, not a measurement — see the open questions.
+**Therefore the defaults come down and the column raises them.** Settled:
+
+| | Was | Now |
+|---|---|---|
+| Requests | 30,000 / minute | **250 / second** |
+| Checks | 600 / minute | **100 / minute** |
+
+100 checks/minute is the number that matters: at ~20 upstream queries per check
+that is ~2,000 queries/minute, roughly 33/s aimed at servers we do not own. That
+is a defensible ceiling for a caller nobody has spoken to.
+
+The requests limit moves to a **one-second window**, not 15,000/minute. The same
+average, a very different tripwire: a 60-second window permits the entire
+allowance as one instantaneous burst, which is exactly the shape that hurts. The
+existing `RateLimiter` already takes `windowMs`, so this is a constructor argument
+rather than new code.
+
+`tenants.request_quota_per_minute` becomes an **override that raises**, not one
+that lowers. Safe by default, and one fewer tier of constants to keep in step —
+a vetted partner gets a row update, and nobody has to remember which tier a new
+constant belongs to.
 
 ### 2. The OTP email is a way to make us send mail to strangers
 
@@ -66,10 +84,19 @@ unguarded that is a spam relay with our sending reputation attached, and the
 consequence is our domain being blocklisted — which breaks the product for
 everybody, permanently and slowly.
 
-**Therefore:** hard per-IP and per-address rate limits, a global hourly ceiling on
-outbound signup mail, and no resend-on-demand endpoint in v1. An address that
-already has a pending code gets the *same* code re-sent at most once per minute
-rather than a new one.
+**Settled: a per-IP rate limiter is the control**, plus no resend-on-demand
+endpoint in v1.
+
+The per-address behaviour still exists, but it falls out of the design rather than
+being a second limiter: an address with a live code gets the *same* code re-sent at
+most once a minute, because `otp_codes` is unique on `email where consumed_at is
+null`. That is what stops a request storm fanning out into a hundred valid codes,
+and it is the same mechanism, not an extra guard.
+
+The global hourly ceiling is **dropped** for v1. It was a backstop against the
+per-IP limiter being bypassed from many addresses, which is a real but second-order
+concern; if outbound signup mail ever looks abnormal, the count is one query away
+from `otp_codes.sent_at`.
 
 ---
 
@@ -255,22 +282,21 @@ the existing `args.spec.ts`, and one spec asserting the file is created `0600`.
   does not need a card form.
 - **`packages/auth`.** Better Auth solves problems this does not have.
 
+## Settled
+
+- **Quotas:** 250 requests/second and 100 checks/minute as the new defaults, with
+  the tenant column raising them for a vetted partner.
+- **Signup is open**, guarded by a per-IP rate limiter. No invite code.
+
 ## Open questions
 
-1. **Self-serve quota** — what should `request_quota_per_minute` and the checks
-   limit be for an unvetted tenant? Partners get 30,000/min and 600 checks/min. I
-   would start at 600/min and 60 checks/min and raise on request, but this is a
-   product call about how generous free is.
-2. **Is signup gated at all?** Fully open, or an allowlist/invite code while the
-   gate question is being answered? Open maximises the chance somebody tries it;
-   closed removes the spam-relay risk entirely.
-3. **Sending domain** — send from `propgate.dev` or a subdomain like
+1. **Sending domain** — send from `propgate.dev` or a subdomain like
    `mail.propgate.dev`? A subdomain keeps a blocklisting incident away from the
    apex, which matters given risk 2.
-4. **OTP length and TTL** — 6 digits / 10 minutes, or 8 digits / 15? Six is
+2. **OTP length and TTL** — 6 digits / 10 minutes, or 8 digits / 15? Six is
    friendlier to type and the attempt cap is what actually bounds guessing.
-5. **Does the CLI get `domains add`?** It makes the "whole flow via CLI" complete,
+3. **Does the CLI get `domains add`?** It makes the "whole flow via CLI" complete,
    but it is the first time the CLI talks to the authenticated API rather than
    running checks locally, which is a bigger conceptual step than it looks.
-6. **Existing tenants and `email`** — backfill yours by hand, or leave null? Null
+4. **Existing tenants and `email`** — backfill yours by hand, or leave null? Null
    means the recovery path does not work for accounts created before this.
