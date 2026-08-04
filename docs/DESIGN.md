@@ -117,7 +117,7 @@ Infra cost is a hard constraint — this is bootstrapped with no customers. Feat
 | Phase | Monthly |
 |---|---|
 | Phase 1 (checker + library) | ~$20 |
-| Phase 2 (API + dashboard + monitoring + 3 vantage points) | ~$30–40 |
+| Phase 2 (API + monitoring + 3 vantage points) | ~$30–40 |
 | Phase 3 (delegation, multi-node authoritative) | ~$250 |
 
 Two things that would break this:
@@ -131,13 +131,38 @@ Three product decisions that *are* the infra bill:
 2. **SOA serial fast path** — check the zone's serial before checking six records in it. One query instead of six, ~4–6x reduction. Cloudflare and Route 53 bump it reliably; some providers don't, so full-verify daily regardless.
 3. **Retention discipline** — see principle 4.
 
+## Where Phase 2 landed
+
+Shipped and deployed: the authenticated API, versioned profiles, domain
+registration and on-demand verification, a continuous sweeper on an adaptive
+schedule, consensus across three vantage points, the hysteresis state machine
+with `degraded` reachable, and signed webhooks with a delivery ledger.
+
+Three things in Phase 2's original scope did not ship, each for a stated reason.
+The **dashboard** and the **SDK**: the API is the product for a platform
+integrating us, and neither changes whether anyone pays. The **day-partitioned
+`checks` table**: `state_transitions` plus `last_result` answers the
+diagnosability question at a fraction of the rows.
+
+**The gate is now answerable.** [#5](https://github.com/joaopcm/propgate/issues/5)
+asks whether anyone converts to paid, and there is now something to convert onto.
+That question is not an engineering one, and no amount of further building
+answers it — which is the whole reason the phasing puts a gate here rather than
+rolling straight into Phase 3's ~$250/month authoritative fleet.
+
+What remains inside Phase 2 is measurement rather than construction. Every
+threshold the sweeper and the state machine depend on ships commented as
+unmeasured, with the measurement that would justify it named next to it. Two of
+them — the consecutive-failure thresholds and the webhook retry budget — need
+roughly a month of real monitored domains, and that clock started at deploy.
+
 ## Roadmap
 
 | Phase | Deliverable | Cost | Gate |
 |---|---|---|---|
 | **0** ([#1](https://github.com/joaopcm/propgate/issues/1)) | Monorepo scaffolding, CI, CLAUDE.md, docker-compose with DNS fixtures | — | — |
 | **1** ([#2](https://github.com/joaopcm/propgate/issues/2)) | `@propgate/dns` + diagnosis taxonomy + free public checker + CLI | ~$20/mo | [#3](https://github.com/joaopcm/propgate/issues/3) — **do 3 companies say they'd pay for this as an API?** If not, stop |
-| **2** ([#4](https://github.com/joaopcm/propgate/issues/4)) | API + webhooks + dashboard + monitoring + SDK (minimum sellable product) | ~$30–40/mo | [#5](https://github.com/joaopcm/propgate/issues/5) — **is anyone converting to paid?** |
+| **2** ([#4](https://github.com/joaopcm/propgate/issues/4)) | API + webhooks + monitoring (minimum sellable product) — **shipped** | ~$30–40/mo | [#5](https://github.com/joaopcm/propgate/issues/5) — **is anyone converting to paid?** |
 | **3** ([#6](https://github.com/joaopcm/propgate/issues/6)) | Delegation — authoritative DNS, one-record onboarding | ~$250/mo | Requires revenue and a track record |
 | **4** ([#7](https://github.com/joaopcm/propgate/issues/7)) | Certificates — ACME DNS plugins first, managed issuance later | — | Requires Phase 3 |
 | **5** ([#8](https://github.com/joaopcm/propgate/issues/8)) | Domain Connect — one-click record writing | — | Any time after Phase 2 |
@@ -162,11 +187,25 @@ propgate/
 └── docker-compose.yml
 ```
 
-Arriving in Phase 2, deliberately not before — issue [#3](https://github.com/joaopcm/propgate/issues/3)'s gate may end the project, and the point of the phasing is not to pre-build a control plane that may never ship:
+Arrived with Phase 2:
 
 ```
-packages/{db,auth,shared,jobs,webhooks,sdk,ui,emails}
+packages/{db,jobs,webhooks}
 ```
+
+Still not built, and deliberately so — the phasing exists so a control plane that
+may never ship is not pre-built, and that reasoning holds for everything left on
+the list:
+
+```
+packages/{auth,shared,sdk,ui,emails}
+```
+
+The dashboard and the SDK were in Phase 2's original scope and are **not** in what
+shipped. Both were dropped rather than deferred by accident: the API is the
+product for a platform integrating us, and neither a UI nor a typed client
+changes whether somebody will pay for it. That is what the gate below asks, and
+answering it with less code is the point.
 
 `packages/dns` is the engine for the public checker, the API, and the CLI — one implementation, three surfaces.
 

@@ -60,6 +60,8 @@ Neither is findable with a regex over a TXT record. That is the whole argument.
 | [`@propgate/cli`](https://www.npmjs.com/package/@propgate/cli) | `npx @propgate/cli check example.com` |
 | [propgate.dev](https://propgate.dev) | The free public checker |
 | [api.propgate.dev](https://docs.propgate.dev/api) | Register domains against a versioned profile, verify them, read per-requirement results and a change timeline |
+| Continuous monitoring | Domains are re-checked on an adaptive schedule without anyone asking. Consensus across three vantage points, hysteresis before anything is called failed |
+| [Webhooks](https://docs.propgate.dev/webhooks) | `domain.verified`, `domain.degraded`, `domain.failed`, `domain.recovered` — signed, Svix-compatible, at-least-once with a queryable delivery ledger |
 
 ## Where this is going
 
@@ -70,18 +72,26 @@ product is the rest of the lifecycle.
 |---|---|
 | Verification — checks, taxonomy, CLI, public checker | **shipped** |
 | Registration and on-demand verification via API | **shipped** |
-| Continuous monitoring — sweeper, consensus across vantage points, hysteresis, webhooks | next |
+| Continuous monitoring — sweeper, consensus across vantage points, hysteresis, webhooks | **shipped** |
 | Delegation — you delegate `pg.example.com` to us, one record instead of six | planned |
 | Certificates, Domain Connect | later |
 
-Monitoring is the interesting one, and the reason it is not built yet is a
-correctness property rather than a scheduling problem:
+Monitoring was the interesting one, and the hard part was a correctness property
+rather than a scheduling problem:
 
 > Firing `domain.failed` because one resolver blipped makes our customers page
 > *their* customers for nothing. That needs consensus across vantage points
 > **and** consecutive-failure thresholds, with `degraded` distinct from
-> `failed` — and thresholds nobody has measured are numbers we would be
-> inventing.
+> `failed`.
+
+Both are in. A domain is checked from three vantage points concurrently and a
+single disagreeing one yields `indeterminate` rather than a failure; `failed`
+needs consecutive failures, so alternating failure and recovery never reaches it.
+
+The thresholds are still numbers nobody has measured, and the code says so at
+every one of them along with what would earn the receipt. `state_transitions`
+stores the per-vantage evidence behind every state change precisely so the first
+false alarm can be audited and those numbers can stop being guesses.
 
 [`docs/DESIGN.md`](docs/DESIGN.md) is the scope contract: the problem, why DNS
 makes it hard, what is deliberately out of scope, the cost model, and the
