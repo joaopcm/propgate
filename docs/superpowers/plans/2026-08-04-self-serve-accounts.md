@@ -240,8 +240,16 @@ credentials. This adds the smallest thing that works.
 propgate signup --email me@example.com
 propgate confirm --email me@example.com --code 123456     # stores the key
 propgate keys list | keys create <name> | keys revoke <prefix>
-propgate domains add <domain> --profile <key>             # optional, see questions
+propgate domains add <domain> --profile <key>
+propgate domains list
 ```
+
+`domains add` is in scope. It is the first time `@propgate/cli` talks to the
+authenticated API rather than resolving locally, which is a real conceptual step
+for a published MIT package: the CLI stops being purely a diagnostic tool and
+becomes a client of the control plane. Worth doing deliberately — keep the
+authenticated commands in their own module so `check` remains reachable, and
+useful, with no config file and no account at all.
 
 - Config at `$XDG_CONFIG_HOME/propgate/config.json`, mode **0600**, holding
   `{ apiKey, apiUrl }`. Created with the mode set, not chmodded afterwards — the
@@ -275,7 +283,9 @@ the existing `args.spec.ts`, and one spec asserting the file is created `0600`.
 
 - **Passwords, sessions, a dashboard login.** The API key *is* the credential.
 - **A sign-in endpoint.** Re-running signup on a known address is the recovery
-  path, which is enough for v1 and one fewer surface to secure.
+  path, which is enough for v1 and one fewer surface to secure. Tenants created
+  before this plan have no `email` and therefore no self-serve recovery; theirs is
+  `mint.js` on the box, which is where it already was.
 - **Teams, invites, multiple humans per tenant.** A tenant is an integration, not
   an organisation.
 - **Billing.** The gate asks whether anyone *would* pay, and that conversation
@@ -287,8 +297,31 @@ the existing `args.spec.ts`, and one spec asserting the file is created `0600`.
 - **Quotas:** 250 requests/second and 100 checks/minute as the new defaults, with
   the tenant column raising them for a vetted partner.
 - **Signup is open**, guarded by a per-IP rate limiter. No invite code.
+- **Sending domain: `notifications.propgate.dev`.** A subdomain rather than the
+  apex, so a blocklisting incident cannot take the main domain's reputation with
+  it — which is the failure mode risk 2 exists to prevent.
+- **OTP: 6 digits, 10 minutes, 5 attempts.** The cap bounds guessing, not the
+  length: 10^6 with five attempts is unguessable, and six digits is meaningfully
+  nicer to type.
+- **The CLI gets `domains add`**, so the whole flow really is reachable from it.
+- **`tenants.email` stays null for existing tenants.** They keep `mint.js` on the
+  box as their recovery path, which is available to anybody who already has a shell
+  there — so the only thing null costs is a path those accounts do not need.
+
+### Dogfood the sending domain
+
+`notifications.propgate.dev` needs SPF, DKIM and DMARC, and propgate exists to
+check exactly that. Register it as a monitored domain with a profile covering all
+three in the same PR that configures sending.
+
+Two reasons beyond neatness. It is the most honest demonstration available — the
+product monitoring the thing the product depends on — and a regression in our own
+sending configuration is otherwise invisible until deliverability quietly degrades,
+which is the slowest possible way to find out.
 
 ## Open questions
+
+None. Every question this plan opened has an answer above.
 
 1. **Sending domain** — send from `propgate.dev` or a subdomain like
    `mail.propgate.dev`? A subdomain keeps a blocklisting incident away from the
