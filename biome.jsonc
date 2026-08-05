@@ -23,7 +23,11 @@
       "includes": [
         "**/packages/dns/src/wire/**",
         "**/packages/dns/src/transport/**",
-        "**/packages/dns/src/evaluate/spf-ip.ts"
+        "**/packages/dns/src/evaluate/spf-ip.ts",
+        // Sets QR and TC in a DNS header by hand, for the same reason as the
+        // codec above: it is a fixture that has to produce a truncated response
+        // without depending on the package it exists to test.
+        "**/packages/dns-fixtures/src/tcp-blackhole.ts"
       ],
       "linter": {
         "rules": {

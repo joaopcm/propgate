@@ -24,6 +24,18 @@ export type QueryOutcome =
       readonly transport: Transport;
       readonly timeoutMs: number;
       readonly elapsedMs: number;
+      /**
+       * True when a truncated UDP answer was retried over TCP and that retry is
+       * what timed out.
+       *
+       * The distinction this carries is the whole basis of
+       * `TCP_SILENTLY_BLOCKED`, and it is only knowable at the moment of the
+       * retry. A bare TCP timeout means the server might be dead; a TCP timeout
+       * that follows the same server answering over UDP means it is alive and
+       * something is swallowing TCP specifically. Without this field both look
+       * identical to a caller, which is exactly why the code sat unemitted.
+       */
+      readonly retriedOverTcp: boolean;
     }
   | {
       /** Connection refused, host unreachable, network down. */
