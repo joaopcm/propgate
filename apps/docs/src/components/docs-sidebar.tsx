@@ -6,20 +6,14 @@ import { cn } from "@/lib/cn";
 import {
   isGroupedSection,
   type NavItem,
-  type NavSection,
   navigation,
+  sectionHasItems,
 } from "@/lib/navigation";
 
 const BADGE_LABELS: Record<NonNullable<NavItem["badge"]>, string> = {
   beta: "Beta",
   new: "New",
 };
-
-function sectionHasItems(section: NavSection): boolean {
-  return isGroupedSection(section)
-    ? section.groups.some((group) => group.items.length > 0)
-    : section.items.length > 0;
-}
 
 function ItemList({
   items,

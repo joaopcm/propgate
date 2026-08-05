@@ -27,6 +27,21 @@ export function isGroupedSection(
   return "groups" in section;
 }
 
+/**
+ * Whether a section has anything to show.
+ *
+ * A flat section is non-empty when it has items; a grouped section is
+ * non-empty when at least one of its groups does — a section can legally
+ * hold only empty groups while later tasks fill them in. The sidebar filters
+ * on this so a section with nothing to show renders no heading at all,
+ * rather than an empty one.
+ */
+export function sectionHasItems(section: NavSection): boolean {
+  return isGroupedSection(section)
+    ? section.groups.some((group) => group.items.length > 0)
+    : section.items.length > 0;
+}
+
 export interface FlatNavEntry {
   readonly group?: string;
   readonly href: string;

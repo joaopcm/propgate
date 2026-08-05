@@ -6,6 +6,7 @@ import {
   flattenNavigation,
   isGroupedSection,
   navigation,
+  sectionHasItems,
 } from "./navigation";
 
 /**
@@ -75,5 +76,44 @@ describe("navigation", () => {
     expect(
       flattenedSections.some((title) => emptySectionTitles.has(title))
     ).toBe(false);
+  });
+});
+
+describe("sectionHasItems", () => {
+  it("is true for a flat section with items", () => {
+    expect(
+      sectionHasItems({
+        items: [{ href: "/", title: "Introduction" }],
+        title: "Get started",
+      })
+    ).toBe(true);
+  });
+
+  it("is false for a flat section with no items", () => {
+    expect(sectionHasItems({ items: [], title: "Concepts" })).toBe(false);
+  });
+
+  it("is false for a grouped section where every group is empty", () => {
+    expect(
+      sectionHasItems({
+        groups: [
+          { items: [], title: "Overview" },
+          { items: [], title: "Guides" },
+        ],
+        title: "CLI",
+      })
+    ).toBe(false);
+  });
+
+  it("is true for a grouped section with one non-empty group", () => {
+    expect(
+      sectionHasItems({
+        groups: [
+          { items: [], title: "Overview" },
+          { items: [{ href: "/api", title: "Overview" }], title: "Guides" },
+        ],
+        title: "API reference",
+      })
+    ).toBe(true);
   });
 });
