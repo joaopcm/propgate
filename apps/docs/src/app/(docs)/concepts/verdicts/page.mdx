@@ -1,0 +1,106 @@
+import { Callout } from "@/components/docs/callout";
+import { VERDICTS } from "@/lib/api";
+
+# Verdicts and state
+
+Every check comes back as one of four verdicts, never two. The table below is
+rendered straight from the same record the API and its tests read, so it
+cannot drift from what the evaluators actually return.
+
+<div className="my-4 overflow-x-auto">
+  <table className="w-full border-collapse text-sm">
+    <thead className="border-border border-b">
+      <tr>
+        <th className="px-3 py-2 text-left font-medium text-foreground text-xs uppercase tracking-wider">
+          Verdict
+        </th>
+        <th className="px-3 py-2 text-left font-medium text-foreground text-xs uppercase tracking-wider">
+          Satisfied
+        </th>
+        <th className="px-3 py-2 text-left font-medium text-foreground text-xs uppercase tracking-wider">
+          Summary
+        </th>
+        <th className="px-3 py-2 text-left font-medium text-foreground text-xs uppercase tracking-wider">
+          Effect
+        </th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-border">
+      {Object.entries(VERDICTS).map(([verdict, meaning]) => (
+        <tr key={verdict}>
+          <td className="px-3 py-2 font-mono text-foreground text-xs">
+            {verdict}
+          </td>
+          <td className="px-3 py-2 text-muted-foreground text-xs">
+            {meaning.satisfied}
+          </td>
+          <td className="px-3 py-2 text-muted-foreground">
+            {meaning.summary}
+          </td>
+          <td className="px-3 py-2 text-muted-foreground">{meaning.effect}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+
+## Why four, not two
+
+`pass` and `warn` both satisfy a requirement — `warn` is advice about
+something that works today, like a `p=none` DMARC policy, not a defect.
+`fail` and `indeterminate` both leave a requirement unsatisfied, and that is
+where the real distinction lives.
+
+**`indeterminate` changes nothing.** Not the domain's state, not its
+consecutive-failure count — nothing. A resolver that timed out or an answer
+that could not be validated is not evidence that a domain is broken, and it is
+not evidence that it is healthy either. `lastCheckedAt` still advances and the
+result still records the uncertainty, but the timeline stays silent and the
+state machine below does not move.
+
+<Callout kind="warning">
+  Collapsing `indeterminate` into `fail` is how a monitoring product pages
+  someone over its own bad second — a resolver blip becomes a customer's
+  `domain.failed` webhook. The distinction is preserved end to end: the
+  consensus logic in `packages/dns/src/check/consensus.ts` returns
+  `indeterminate` rather than guessing when three vantage points cannot agree,
+  and `applyHysteresis` in `apps/api/src/domains/hysteresis.ts` treats it as a
+  no-op rather than resetting or incrementing a failure count.
+</Callout>
+
+## The state machine
+
+Five states exist in `packages/db/src/schema/domains.ts`. `pending` and
+`verifying` are both "not yet known good"; `verified`, `degraded` and `failed`
+are the three things a domain can be once something has actually been
+observed.
+
+`verifying` is reserved for a first-verification flow that has not been built
+yet — the sweeper's claim query deliberately never sets it, because a check
+that could not reach the resolver would otherwise leave the row there forever.
+Do not expect to see it on a domain that is already being monitored.
+
+```
+pending ──first pass or warn────────────────────────▶ verified
+   │                                                      │
+   │ fail, reaching the degraded threshold      fail, reaching the
+   ▼                                            degraded threshold
+degraded ──further fails, reaching the failed threshold──▶ failed
+   ▲                                                      │
+   └────────────────── pass or warn ─────────────────────┘
+
+indeterminate: no arrow from any state. The counter behind this diagram is
+untouched, and the domain keeps whatever state it already had.
+```
+
+A domain can reach `degraded` straight from `pending` — the same
+consecutive-failure counter drives a first verification and an established
+domain's regression, so there is only one state machine to reason about
+rather than two. [Monitoring and hysteresis](/concepts/monitoring) covers what
+"reaching the threshold" means and why the thresholds are the numbers they
+are.
+
+## Next
+
+[Diagnosis codes](/concepts/diagnosis) covers what a `fail` or `warn` verdict
+carries beyond the verdict itself.

@@ -1,0 +1,135 @@
+import { Callout } from "@/components/docs/callout";
+
+# Monitoring and hysteresis
+
+Registering a domain does not just verify it once. A sweeper — one
+long-running process, never a per-invocation function — keeps re-checking it
+on a schedule that adapts to what state it is in, and reconciles what it sees
+across more than one resolver before it believes any of it.
+
+## The sweeper
+
+Every `SWEEP_TICK_SECONDS` (60 by default) the sweeper looks for domains whose
+`next_check_at` has passed, claims up to `SWEEP_BATCH_SIZE` of them (100) with
+`select … for update skip locked`, and hands each one to the queue. Postgres
+decides what is due; Redis only carries the work — losing Redis costs
+in-flight attempts, never an obligation, because the next tick re-derives the
+same list from `next_check_at`.
+
+A claim is held for `SWEEP_LEASE_SECONDS` (300) before the row becomes
+claimable again. That has to comfortably exceed the ten-second check budget, or
+a slow-but-healthy check gets claimed a second time while the first is still
+running — five minutes is a wide margin over ten seconds, not a tuned number.
+`CHECK_CONCURRENCY` (4) bounds how many of those claimed jobs run at once,
+because each check is up to twenty upstream queries and that multiplies
+straight into load on other people's authoritative servers.
+
+<Callout>
+  `SWEEP_BATCH_SIZE`, `CHECK_CONCURRENCY` and the webhook retry count are all
+  documented as **unmeasured** in `apps/api/src/env.ts` — deliberately timid
+  defaults with a receipt named next to each one (the point at which Unbound's
+  latency degrades under load, for concurrency; a tick's wall clock at the real
+  domain count, for batch size), rather than numbers backed by production
+  data. They are tripwires against a runaway sweep, not tuned throughput
+  figures.
+</Callout>
+
+## Adaptive scheduling, not uniform sweeping
+
+`docs/DESIGN.md` calls this out as one of three decisions that *is* the
+infrastructure bill: sweeping every domain on one interval costs roughly ten
+times as much and gives a worse experience at both ends. The actual intervals,
+from `apps/api/src/sweep/schedule.ts`:
+
+| State | Interval |
+|---|---|
+| `pending` / `verifying`, first 15 minutes | every 30 seconds |
+| `pending` / `verifying`, after that | every 5 minutes |
+| `verified` | daily, floored at the shortest observed TTL |
+| `degraded` | every 5 minutes |
+| `failed` | every hour |
+
+The TTL floor only applies to `verified`. For a domain that already passes,
+nothing can change faster than the TTL, so polling inside it just re-reads a
+cache — raising the interval to match is free accuracy. Applying the same
+floor to `pending` would be actively wrong: a provider serving a one-hour
+negative TTL while a customer is mid-onboarding would push the first re-check
+an hour out and make onboarding feel broken.
+
+These numbers are **provenance, not a receipt** — chosen when the cost model
+in `docs/DESIGN.md` was written, and nothing has since measured real domains
+to confirm them. That is also why they are injectable rather than
+environment-tunable: a number nobody has measured needs the measurement
+before it needs a production override.
+
+## Consensus across vantage points
+
+Every authenticated check runs against a pool of resolvers concurrently — the
+same pool for `POST /v1/domains/:id/checks` and for the sweeper, because a
+verify that consulted one resolver and a sweep that consulted another could
+disagree about the same domain a minute apart. A strict majority wins:
+
+- **Unanimous** — the answer passes through untouched.
+- **Majority, not unanimous** — the majority's verdict is kept but raised to
+  at least `warn`, with an `ANSWER_DIVERGES_BY_VANTAGE_POINT` finding attached.
+  This is usually mid-propagation and usually resolves on its own; the
+  customer should see it, not have it hidden by outvoting.
+- **No majority** — a two-way split, or a three-way split across three
+  points — there is nothing to believe, so the verdict is `indeterminate`.
+  The lookups are kept either way: they are real queries and worth showing,
+  even when the answer they produced is not.
+
+<Callout kind="warning">
+  **What this can and cannot see.** Production runs our own Unbound plus two
+  public resolvers, and all three are reached from one box and share its
+  egress IP — they are only weakly independent. They catch cache state,
+  propagation lag, and one resolver being broken. They cannot see GeoDNS,
+  anycast, or a network path that differs by geography: a domain answering
+  differently in Frankfurt than in São Paulo looks identical from here. This
+  is stated plainly in `apps/api/src/env.ts`, `.env.production.example`, and
+  `TESTING.md` for the same reason it is stated here — the docs must not
+  imply a stronger guarantee than three resolvers behind one egress IP can
+  make.
+</Callout>
+
+## Hysteresis: how many failures it takes to believe one
+
+A single failing check never fires a `domain.failed` webhook on its own. Each
+domain carries a running count of consecutive failures, reset to zero by any
+`pass` or `warn`, and left completely untouched by `indeterminate` — resetting
+it on uncertainty would let a domain behind a flaky resolver fail forever
+without ever accumulating enough evidence to be reported, and incrementing it
+would let our own resolver's bad minute page somebody.
+
+Two thresholds decide where that count lands the domain, both in
+`apps/api/src/domains/hysteresis.ts` and both overridable by environment
+variable because both are **unmeasured**:
+
+- `DEGRADED_AFTER_FAILURES` — default **1**. The conservative choice for a
+  warning: it costs a possibly-noisy event and buys the shortest time to
+  notice.
+- `FAILED_AFTER_FAILURES` — default **3**. The number that reaches a
+  customer's pager. At the degraded cadence of five minutes, three consecutive
+  failures is roughly ten minutes of sustained failure — long enough to
+  outlast a resolver restart or a zone reload, short enough to still be
+  useful.
+
+The receipt both wait on is the observed distribution of consecutive transient
+failures across real monitored domains over thirty days, which
+`state_transitions` is what makes measurable after the fact. Until that
+measurement exists, treat both numbers as informed guesses that are cheap to
+revise — a restart, not a deploy.
+
+<Callout kind="warning">
+  A state transition — and the webhook built on top of it — fires **once per
+  episode, not once per check**. A domain that stays `degraded` for a week
+  produces one transition, not two thousand: the outcome only carries a
+  transition when the state actually changed. Do not build a pager, a cron
+  job, or any other polling logic that expects a periodic "still degraded"
+  signal — there isn't one, by design.
+</Callout>
+
+## Next
+
+[Diagnosis codes](/concepts/diagnosis) covers what a failing check actually
+tells you, beyond the fact that it failed.

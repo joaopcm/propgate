@@ -1,0 +1,105 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { REQUIREMENT_TYPES } from "@/lib/api";
+import {
+  PROFILE_CREATE_CURL,
+  PROFILE_CREATE_RESPONSE,
+  PROFILE_EDIT_CURL,
+  PROFILE_EDIT_RESPONSE,
+  PROFILE_REJECTED_CURL,
+  PROFILE_REJECTED_RESPONSE,
+} from "./_snippets";
+
+# Profiles and versions
+
+A profile is what a tenant expects of a domain's records: a named list of
+requirements, each with a key you choose. Registering a domain does not point
+at "the sending profile" in the abstract — it pins the specific version that
+existed at that moment.
+
+<Callout>
+  The response bodies below are shapes read off `serialise` in
+  `apps/api/src/routes/profiles.ts`, not a captured run.
+</Callout>
+
+<CodeBlock code={PROFILE_CREATE_CURL} lang="bash" />
+<CodeBlock code={PROFILE_CREATE_RESPONSE} lang="json" />
+
+The CLI has no equivalent yet — a profile is created over the API only.
+
+## Editing writes a new version
+
+Posting the same `key` again does not change version 1. It writes version 2
+and leaves the first row exactly as it was:
+
+<CodeBlock code={PROFILE_EDIT_CURL} lang="bash" />
+<CodeBlock code={PROFILE_EDIT_RESPONSE} lang="json" />
+
+Every domain already registered against `sending` stays pinned to whichever
+version it was registered against — version 2 changes what a *new*
+registration means, not what an existing domain is judged by.
+
+This is not a caution about a hypothetical. Webhooks fire on every state
+transition, so an edit that reclassified every domain on a profile at once
+would land as a storm in every one of your customers' inboxes, with no deploy
+on your side to explain it. Pinning the version is what keeps "we tightened
+our sending profile" from turning into "we tightened it and every customer got
+paged."
+
+## Rejected at write time
+
+A definition is refused before it is ever stored if a requirement inside it
+could never be answered — a duplicate key, two requirements competing for one
+check, a DKIM requirement with no selector, a CAA requirement with no issuer:
+
+<Callout>
+  The error message below is copied verbatim from `rejectDefinition` in
+  `apps/api/src/profiles/compile.ts`, not a captured run.
+</Callout>
+
+<CodeBlock code={PROFILE_REJECTED_CURL} lang="bash" />
+<CodeBlock code={PROFILE_REJECTED_RESPONSE} lang="json" />
+
+Accepting a definition like this and failing later — at read time, once a
+customer is already relying on it — would be a promise the API took and could
+not keep. A `422` at write time is the same finding delivered while it is
+still cheap to fix.
+
+## Check kinds
+
+Six exist, rendered here straight from the same table the API reference and
+the tests read — this list cannot say something the resolver cannot actually
+check.
+
+<ul>
+  {Object.entries(REQUIREMENT_TYPES).map(([kind, type]) => (
+    <li className="border-white/5 border-b py-4 last:border-0" key={kind}>
+      <div className="mb-1 flex items-baseline gap-3">
+        <code className="font-mono text-sm">{kind}</code>
+        {type.repeatable ? (
+          <span className="font-mono text-[0.6875rem] text-[var(--color-warning)] uppercase tracking-widest">
+            repeatable
+          </span>
+        ) : null}
+      </div>
+      <p className="mb-2 text-muted-foreground text-sm leading-6">
+        {type.summary}
+      </p>
+      {type.fields.length > 0 ? (
+        <ul className="list-inside list-disc text-muted-foreground text-sm leading-6">
+          {type.fields.map((field) => (
+            <li key={field.name}>
+              <code className="font-mono text-xs">{field.name}</code> —{" "}
+              {field.note}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  ))}
+</ul>
+
+## Next
+
+[Verdicts and state](/concepts/verdicts) covers what a check against one of
+these requirements can come back as, and how that maps onto a domain's state.

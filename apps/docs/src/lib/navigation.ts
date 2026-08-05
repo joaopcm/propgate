@@ -69,7 +69,15 @@ export const navigation: readonly NavSection[] = [
     ],
     title: "Get started",
   },
-  { items: [], title: "Concepts" },
+  {
+    items: [
+      { href: "/concepts/profiles", title: "Profiles and versions" },
+      { href: "/concepts/verdicts", title: "Verdicts and state" },
+      { href: "/concepts/monitoring", title: "Monitoring and hysteresis" },
+      { href: "/concepts/diagnosis", title: "Diagnosis codes" },
+    ],
+    title: "Concepts",
+  },
   {
     groups: [
       { items: [{ href: "/api", title: "Overview" }], title: "Get started" },
