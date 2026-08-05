@@ -14,6 +14,7 @@ import {
   TENANT_REQUESTS_PER_SECOND,
   tenantRateLimit,
 } from "./middleware/tenant-rate-limit";
+import { createApiKeysRoute } from "./routes/api-keys";
 import {
   CHECKS_PER_MINUTE,
   createChecksRoute,
@@ -157,7 +158,12 @@ export function createApp(options: {
     // tenant-scoped table with `tenantId` undefined — which surfaces as a 500
     // from a failed insert rather than as anything that looks like a security
     // problem. `webhooks.db.spec.ts` pins all three at 401 for that reason.
-    for (const path of ["/v1/profiles/*", "/v1/domains/*", "/v1/webhooks/*"]) {
+    for (const path of [
+      "/v1/profiles/*",
+      "/v1/domains/*",
+      "/v1/webhooks/*",
+      "/v1/api-keys/*",
+    ]) {
       // Authentication first, then the limiter — it is keyed on the tenant the
       // first one resolved, which is the whole reason it is not spoofable.
       app.use(
@@ -167,6 +173,7 @@ export function createApp(options: {
       );
     }
 
+    app.route("/v1/api-keys", createApiKeysRoute({ db }));
     app.route("/v1/profiles", createProfilesRoute({ db }));
     app.route("/v1/webhooks", createWebhooksRoute({ db }));
     app.route(

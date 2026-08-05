@@ -136,6 +136,24 @@ export const ENDPOINTS: readonly Endpoint[] = [
   },
   {
     method: "POST",
+    path: "/v1/api-keys",
+    summary:
+      "Create an API key. The secret is returned once and never again — only its hash is stored.",
+  },
+  {
+    method: "GET",
+    path: "/v1/api-keys",
+    summary:
+      "Your keys, oldest first, revoked ones included. Prefixes only; no endpoint returns a secret.",
+  },
+  {
+    method: "DELETE",
+    path: "/v1/api-keys/:id",
+    summary:
+      "Revoke a key. Takes effect on the next request. Revoking your last active key is refused.",
+  },
+  {
+    method: "POST",
     path: "/v1/profiles",
     summary:
       "Create a profile version. Editing a profile writes a new version; it never changes an existing one.",
