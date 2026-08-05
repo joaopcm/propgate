@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import "./globals.css";
@@ -21,7 +22,9 @@ export default function RootLayout({
       className={cn("dark h-full antialiased", sans.variable, mono.variable)}
       lang="en"
     >
-      <body className="flex min-h-full flex-col font-sans">{children}</body>
+      <body className="flex min-h-full flex-col font-sans">
+        <NuqsAdapter>{children}</NuqsAdapter>
+      </body>
     </html>
   );
 }
