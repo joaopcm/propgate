@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -20,62 +20,28 @@ import { describe, expect, it } from "vitest";
 const SRC_DIR = join(process.cwd(), "src");
 const GLOBALS_CSS_PATH = join(SRC_DIR, "app/globals.css");
 const THIS_FILE_PATH = join(SRC_DIR, "app/globals.spec.ts");
+const BUILT_CSS_CHUNKS_DIR = join(process.cwd(), "out/_next/static/chunks");
 
 const THEME_BLOCK_PATTERN = /@theme inline \{([^}]*)\}/;
 const ROOT_BLOCK_PATTERN = /:root,[\s\S]*?\.dark\s*\{([^}]*)\}/;
 const CUSTOM_PROPERTY_PATTERN = /--([a-z][a-z0-9-]*):\s*([^;]+);/g;
 const THEME_COLOR_VAR_PATTERN = /^var\(--([a-z][a-z0-9-]*)\)$/;
 const VAR_COLOR_REFERENCE_PATTERN = /var\(--color-([a-z][a-z0-9-]*)\)/g;
-const UTILITY_COLOR_CLASS_PATTERN =
-  /\b(?:bg|text|border)-([a-z]+(?:-[a-z]+)*)\b/g;
-const SOURCE_FILE_PATTERN = /\.(?:ts|tsx|mdx)$/;
-
 /**
- * Tailwind keywords that share the `bg-`/`text-`/`border-` + bare-word shape
- * a custom color token has, so the utility-class scan has to know to skip
- * them or every one would look like an unresolved token.
- *
- * This is a closed set, not a guess: every Tailwind color utility other than
- * these five bare keywords takes a numeric shade (`bg-red-500`), and shaded
- * classes never match `UTILITY_COLOR_CLASS_PATTERN` because it excludes
- * digits. The rest are the non-color utilities that happen to share a
- * prefix — text sizing, text alignment/wrap, border sides and border style.
+ * Deliberately excludes variant-prefixed classes (`last:border-0`,
+ * `dark:bg-muted`) via the negative lookbehind — Tailwind compiles those to a
+ * selector wrapped in a pseudo-class or `@media` block, not a plain
+ * `.prefix-suffix` rule, so reconstructing a matching selector for the
+ * variant form is a different problem than this scan solves. None of the
+ * four historical bugs involved a variant, so narrowing here loses nothing
+ * real and avoids a false "no rule" on every variant usage instead.
  */
-const TAILWIND_BUILTIN_UTILITY_WORDS = new Set([
-  "b",
-  "balance",
-  "base",
-  "black",
-  "current",
-  "dashed",
-  "dotted",
-  "double",
-  "e",
-  "end",
-  "hidden",
-  "inherit",
-  "justify",
-  "l",
-  "left",
-  "lg",
-  "none",
-  "nowrap",
-  "pretty",
-  "r",
-  "right",
-  "s",
-  "sm",
-  "solid",
-  "start",
-  "t",
-  "transparent",
-  "white",
-  "wrap",
-  "x",
-  "xl",
-  "xs",
-  "y",
-]);
+const UTILITY_CLASS_PATTERN = /(?<![:\w-])(bg|text|border)-([^\s"'`]+)/g;
+const DECLARED_CSS_VAR_PATTERN = /--([a-z][a-z0-9-]*)\s*:/g;
+const VAR_REFERENCE_IN_RULE_PATTERN = /var\(--([a-z][a-z0-9-]*)\)/g;
+const NON_CLASS_NAME_CHAR_PATTERN = /[^a-zA-Z0-9_-]/g;
+const CLASS_NAME_CONTINUATION_PATTERN = /[a-zA-Z0-9-]/;
+const SOURCE_FILE_PATTERN = /\.(?:ts|tsx|mdx)$/;
 
 interface TokenChain {
   readonly declaredVar: string;
@@ -86,6 +52,16 @@ interface TokenUsage {
   readonly location: string;
   readonly name: string;
 }
+
+interface UtilityUsage {
+  readonly location: string;
+  readonly prefix: string;
+  readonly suffix: string;
+}
+
+type UtilityResolution =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: string };
 
 function parseBlock(css: string, pattern: RegExp): string {
   const match = css.match(pattern);
@@ -167,7 +143,7 @@ function listSourceFiles(dir: string): string[] {
   return files;
 }
 
-function collectTokenUsages(path: string, content: string): TokenUsage[] {
+function collectVarUsages(path: string, content: string): TokenUsage[] {
   const usages: TokenUsage[] = [];
 
   for (const match of content.matchAll(VAR_COLOR_REFERENCE_PATTERN)) {
@@ -178,18 +154,10 @@ function collectTokenUsages(path: string, content: string): TokenUsage[] {
     }
   }
 
-  for (const match of content.matchAll(UTILITY_COLOR_CLASS_PATTERN)) {
-    const [fullMatch, suffix] = match;
-
-    if (suffix && !TAILWIND_BUILTIN_UTILITY_WORDS.has(suffix)) {
-      usages.push({ location: `${path}: ${fullMatch}`, name: suffix });
-    }
-  }
-
   return usages;
 }
 
-function describeUnresolved(
+function describeUnresolvedVar(
   usage: TokenUsage,
   chains: Map<string, TokenChain>
 ): string {
@@ -217,14 +185,14 @@ describe("design tokens", () => {
     ).toEqual([]);
   });
 
-  it("resolves every token referenced from source", () => {
+  it("resolves every var(--color-x) reference in source", () => {
     const usages = listSourceFiles(SRC_DIR).flatMap((path) =>
-      collectTokenUsages(path, readFileSync(path, "utf8"))
+      collectVarUsages(path, readFileSync(path, "utf8"))
     );
 
     const unresolved = usages
       .filter((usage) => !chains.get(usage.name)?.resolved)
-      .map((usage) => describeUnresolved(usage, chains));
+      .map((usage) => describeUnresolvedVar(usage, chains));
 
     expect(
       unresolved,
@@ -232,3 +200,188 @@ describe("design tokens", () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Reads every CSS chunk `next build` emitted, or `undefined` if there is
+ * none.
+ *
+ * `pnpm test` does not depend on `pnpm build` — a clean checkout has no
+ * `out/` at all. Reporting the utility-class half as passing anyway would be
+ * the exact lie this file exists to remove, so it is skipped, not green,
+ * when there is nothing built to check.
+ */
+function readBuiltCss(): string | undefined {
+  if (!existsSync(BUILT_CSS_CHUNKS_DIR)) {
+    return;
+  }
+
+  const cssFiles = readdirSync(BUILT_CSS_CHUNKS_DIR).filter((name) =>
+    name.endsWith(".css")
+  );
+
+  if (cssFiles.length === 0) {
+    return;
+  }
+
+  return cssFiles
+    .map((name) => readFileSync(join(BUILT_CSS_CHUNKS_DIR, name), "utf8"))
+    .join("\n");
+}
+
+function collectUtilityUsages(path: string, content: string): UtilityUsage[] {
+  const usages: UtilityUsage[] = [];
+
+  for (const match of content.matchAll(UTILITY_CLASS_PATTERN)) {
+    const [fullMatch, prefix, suffix] = match;
+
+    if (prefix && suffix) {
+      usages.push({ location: `${path}: ${fullMatch}`, prefix, suffix });
+    }
+  }
+
+  return usages;
+}
+
+function collectDeclaredCssVars(css: string): Set<string> {
+  const declared = new Set<string>();
+
+  for (const match of css.matchAll(DECLARED_CSS_VAR_PATTERN)) {
+    const [, name] = match;
+
+    if (name) {
+      declared.add(name);
+    }
+  }
+
+  return declared;
+}
+
+function escapeForSelector(text: string): string {
+  return text.replace(NON_CLASS_NAME_CHAR_PATTERN, (char) => `\\${char}`);
+}
+
+function isClassNameBoundary(char: string): boolean {
+  return !CLASS_NAME_CONTINUATION_PATTERN.test(char);
+}
+
+function findRuleBodies(css: string, selector: string): string[] {
+  const bodies: string[] = [];
+  let searchFrom = 0;
+
+  while (searchFrom <= css.length) {
+    const index = css.indexOf(selector, searchFrom);
+
+    if (index === -1) {
+      return bodies;
+    }
+
+    const nextChar = css.charAt(index + selector.length);
+
+    if (isClassNameBoundary(nextChar)) {
+      const bodyStart = css.indexOf("{", index);
+      const bodyEnd = css.indexOf("}", bodyStart);
+
+      bodies.push(css.slice(bodyStart + 1, bodyEnd));
+    }
+
+    searchFrom = index + selector.length;
+  }
+
+  return bodies;
+}
+
+function findDanglingVarName(
+  body: string,
+  declaredVars: Set<string>
+): string | undefined {
+  for (const match of body.matchAll(VAR_REFERENCE_IN_RULE_PATTERN)) {
+    const [, varName] = match;
+
+    if (varName && !declaredVars.has(varName)) {
+      return varName;
+    }
+  }
+}
+
+/**
+ * Tailwind's own generated output is the oracle for whether a class it was
+ * shown resolves to something real. This deliberately keeps no second copy
+ * of Tailwind's keyword list (`text-center`, `border-collapse`, the bare
+ * palette names, …) to check candidates against — that copy is wrong the
+ * moment Tailwind's vocabulary changes, and wrong in the meantime for every
+ * ordinary utility this codebase doesn't happen to use yet. Asking the
+ * compiled CSS instead needs no such list: a class either got a rule or it
+ * didn't, and a rule either resolves or it references a custom property
+ * declared nowhere in the same stylesheet.
+ *
+ * A selector can appear more than once (Tailwind emits a plain fallback
+ * alongside a `@supports (color: color-mix(...))`-gated enhancement for any
+ * opacity-modified color utility), so this only fails a class if *every*
+ * occurrence is dangling — one clean occurrence is enough for the class to
+ * work in every browser that reaches it.
+ */
+function resolveUtility(
+  css: string,
+  prefix: string,
+  suffix: string,
+  declaredVars: Set<string>
+): UtilityResolution {
+  const selector = `.${prefix}-${escapeForSelector(suffix)}`;
+  const bodies = findRuleBodies(css, selector);
+
+  if (bodies.length === 0) {
+    return { ok: false, reason: "Tailwind generated no rule for this class" };
+  }
+
+  const danglingPerBody = bodies.map((body) =>
+    findDanglingVarName(body, declaredVars)
+  );
+
+  if (danglingPerBody.some((dangling) => dangling === undefined)) {
+    return { ok: true };
+  }
+
+  const [firstDangling] = danglingPerBody;
+
+  return {
+    ok: false,
+    reason: `resolves to var(--${firstDangling}), which is never declared`,
+  };
+}
+
+const builtCss = readBuiltCss();
+
+describe.skipIf(builtCss === undefined)(
+  "utility-class tokens against the built stylesheet",
+  () => {
+    it("resolves every bg-/text-/border- utility referenced in source", () => {
+      const css = builtCss as string;
+      const declaredVars = collectDeclaredCssVars(css);
+      const usages = listSourceFiles(SRC_DIR).flatMap((path) =>
+        collectUtilityUsages(path, readFileSync(path, "utf8"))
+      );
+
+      const unresolved: string[] = [];
+
+      for (const usage of usages) {
+        const resolution = resolveUtility(
+          css,
+          usage.prefix,
+          usage.suffix,
+          declaredVars
+        );
+
+        if (!resolution.ok) {
+          unresolved.push(
+            `${usage.prefix}-${usage.suffix} — ${resolution.reason} (${usage.location})`
+          );
+        }
+      }
+
+      expect(
+        unresolved,
+        `unresolved utility class(es):\n${unresolved.join("\n")}`
+      ).toEqual([]);
+    });
+  }
+);
