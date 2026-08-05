@@ -1,22 +1,105 @@
 import type { MDXComponents } from "mdx/types";
+import type { ComponentPropsWithoutRef } from "react";
+import { MdxPre } from "@/components/docs/mdx-pre";
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
-    code: ({ children }) => (
-      <code className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-sm">
+    a: ({ children, ...props }: ComponentPropsWithoutRef<"a">) => (
+      <a
+        className="text-foreground underline underline-offset-4 transition-colors hover:text-muted-foreground"
+        {...props}
+      >
+        {children}
+      </a>
+    ),
+    code: ({ children, ...props }: ComponentPropsWithoutRef<"code">) => (
+      <code
+        className="rounded-none bg-muted px-1 py-0.5 font-mono text-[0.85em]"
+        {...props}
+      >
         {children}
       </code>
     ),
-    h1: ({ children }) => (
-      <h1 className="mb-6 font-semibold text-3xl tracking-tight">{children}</h1>
+    h1: ({ children, ...props }: ComponentPropsWithoutRef<"h1">) => (
+      <h1
+        className="mb-4 font-semibold text-3xl text-foreground tracking-tight"
+        {...props}
+      >
+        {children}
+      </h1>
     ),
-    h2: ({ children }) => (
-      <h2 className="mt-10 mb-3 font-semibold text-xl tracking-tight">
+    h2: ({ children, ...props }: ComponentPropsWithoutRef<"h2">) => (
+      <h2
+        className="mt-10 mb-3 font-semibold text-foreground text-xl tracking-tight"
+        {...props}
+      >
         {children}
       </h2>
     ),
-    p: ({ children }) => (
-      <p className="mb-4 text-muted-foreground leading-7">{children}</p>
+    h3: ({ children, ...props }: ComponentPropsWithoutRef<"h3">) => (
+      <h3
+        className="mt-8 mb-2 font-semibold text-foreground text-lg tracking-tight"
+        {...props}
+      >
+        {children}
+      </h3>
+    ),
+    ol: ({ children, ...props }: ComponentPropsWithoutRef<"ol">) => (
+      <ol
+        className="my-3 list-decimal pl-5 text-muted-foreground text-sm leading-7"
+        {...props}
+      >
+        {children}
+      </ol>
+    ),
+    p: ({ children, ...props }: ComponentPropsWithoutRef<"p">) => (
+      <p className="my-3 text-muted-foreground text-sm leading-7" {...props}>
+        {children}
+      </p>
+    ),
+    pre: MdxPre,
+    table: ({ children, ...props }: ComponentPropsWithoutRef<"table">) => (
+      <div className="my-4 overflow-x-auto">
+        <table className="w-full border-collapse text-sm" {...props}>
+          {children}
+        </table>
+      </div>
+    ),
+    tbody: ({ children, ...props }: ComponentPropsWithoutRef<"tbody">) => (
+      <tbody className="divide-y divide-border" {...props}>
+        {children}
+      </tbody>
+    ),
+    td: ({ children, ...props }: ComponentPropsWithoutRef<"td">) => (
+      <td className="px-3 py-2 text-muted-foreground" {...props}>
+        {children}
+      </td>
+    ),
+    th: ({ children, ...props }: ComponentPropsWithoutRef<"th">) => (
+      <th
+        className="px-3 py-2 text-left font-medium text-foreground text-xs uppercase tracking-wider"
+        {...props}
+      >
+        {children}
+      </th>
+    ),
+    thead: ({ children, ...props }: ComponentPropsWithoutRef<"thead">) => (
+      <thead className="border-border border-b" {...props}>
+        {children}
+      </thead>
+    ),
+    tr: ({ children, ...props }: ComponentPropsWithoutRef<"tr">) => (
+      <tr className="transition-colors hover:bg-muted/30" {...props}>
+        {children}
+      </tr>
+    ),
+    ul: ({ children, ...props }: ComponentPropsWithoutRef<"ul">) => (
+      <ul
+        className="my-3 list-disc pl-5 text-muted-foreground text-sm leading-7"
+        {...props}
+      >
+        {children}
+      </ul>
     ),
     ...components,
   };

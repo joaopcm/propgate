@@ -1,0 +1,19 @@
+import { CodeTabs } from "@/components/docs/code-tabs";
+
+# Quickstart
+
+Placeholder page: proves the MDX pipeline highlights fenced code and that
+`CodeTabs` renders. Task 4 replaces this with the real quickstart.
+
+```bash
+curl -X POST https://api.propgate.dev/v1/signup \
+  -H "content-type: application/json" \
+  -d '{"email":"you@example.com"}'
+```
+
+<CodeTabs
+  items={[
+    { code: 'npx @propgate/cli signup --email you@example.com', label: "CLI", lang: "bash" },
+    { code: 'curl -X POST https://api.propgate.dev/v1/signup', label: "curl", lang: "bash" },
+  ]}
+/>
