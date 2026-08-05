@@ -20,8 +20,8 @@ export default function RootLayout({
       className={`dark h-full antialiased ${sans.variable} ${mono.variable}`}
       lang="en"
     >
-      <body className="flex min-h-full flex-col font-sans">
-        <main className="mx-auto w-full max-w-3xl px-6 py-16">{children}</main>
+      <body className="bg-background font-sans text-foreground">
+        {children}
       </body>
     </html>
   );
