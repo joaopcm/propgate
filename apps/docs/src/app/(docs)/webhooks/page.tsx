@@ -100,7 +100,7 @@ const PAYLOAD_SNIPPET = `{
 
 export default function WebhooksPage() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-16">
+    <>
       <h1 className="mb-3 font-semibold text-3xl tracking-tight">Webhooks</h1>
       <p className="mb-12 text-muted-foreground leading-7">
         Domain state changes, delivered over signed HTTP. Manage endpoints under{" "}
@@ -225,6 +225,6 @@ export default function WebhooksPage() {
           whose response we never saw will be sent again.
         </p>
       </Section>
-    </main>
+    </>
   );
 }
