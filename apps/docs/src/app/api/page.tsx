@@ -18,8 +18,10 @@ import {
  */
 
 export const metadata: Metadata = {
+  // No endpoint count. It said "seven" while the list had grown to thirteen,
+  // which is what a hardcoded tally of something rendered from a list does.
   description:
-    "Register domains, verify them, and read per-requirement results. Bearer authentication, seven endpoints, four verdicts.",
+    "Sign up for a key, register domains, verify them, and read per-requirement results. Bearer authentication and four verdicts.",
   title: "API reference",
 };
 
@@ -88,6 +90,43 @@ export default function ApiReferencePage() {
         Base URL{" "}
         <code className="font-mono text-sm">https://api.propgate.dev</code>.
       </p>
+
+      <Section id="accounts" title="Getting a key">
+        <p className="mb-4 text-muted-foreground leading-7">
+          Two calls, no sales conversation. The first sends a six-digit code to
+          the address you give it; the second exchanges that code for a key.
+        </p>
+        <Code>{`curl -X POST https://api.propgate.dev/v1/signup \\
+  -H "content-type: application/json" \\
+  -d '{"email":"you@example.com"}'
+
+curl -X POST https://api.propgate.dev/v1/signup/confirm \\
+  -H "content-type: application/json" \\
+  -d '{"email":"you@example.com","code":"123456"}'`}</Code>
+        <p className="mb-4 text-muted-foreground leading-7">
+          The code is valid for ten minutes and single-use. Confirmation returns
+          your key once — only a hash is stored, so no endpoint can show it
+          again.
+        </p>
+        <p className="mb-4 text-muted-foreground leading-7">
+          <code className="font-mono text-sm">POST /v1/signup</code> answers
+          identically whether or not the address already has an account. That is
+          deliberate: a signup endpoint that says <em>already registered</em>{" "}
+          tells whoever holds a leaked address list which of those addresses use
+          us.
+        </p>
+        <p className="mb-4 text-muted-foreground leading-7">
+          Running the flow again on an address that already has an account mints
+          an <strong>additional</strong> key against the same account rather
+          than a second account. That is also the recovery path if you lose a
+          key, which is why there is no separate sign-in.
+        </p>
+        <p className="text-muted-foreground leading-7">
+          Or from the terminal, which stores the key for you:
+        </p>
+        <Code>{`npx @propgate/cli signup  --email you@example.com
+npx @propgate/cli confirm --email you@example.com --code 123456`}</Code>
+      </Section>
 
       <Section id="authentication" title="Authentication">
         <p className="mb-4 text-muted-foreground leading-7">
@@ -404,15 +443,30 @@ GET /v1/domains?externalId=cust_1841
 
       <Section id="limits" title="Rate limits">
         <p className="mb-4 text-muted-foreground leading-7">
-          Per account, and sized as tripwires rather than quotas: 30,000
-          requests a minute overall, and 600 verifications a minute. A{" "}
+          Per account, and sized as tripwires rather than quotas:{" "}
+          <strong>250 requests a second</strong> overall, and{" "}
+          <strong>100 verifications a minute</strong>. A{" "}
           <code className="font-mono text-sm">429</code> names the limit it
           enforced and carries a{" "}
           <code className="font-mono text-sm">Retry-After</code>.
         </p>
+        <p className="mb-4 text-muted-foreground leading-7">
+          The request limit is a one-second window rather than the same average
+          over a minute, because a minute-long window permits the whole
+          allowance as a single burst — which is the shape that actually hurts a
+          connection pool.
+        </p>
+        <p className="mb-4 text-muted-foreground leading-7">
+          The verification limit is the one worth planning around. A check costs
+          up to twenty upstream queries aimed at whichever authoritative servers
+          you name, so it is sized against other people&apos;s infrastructure
+          rather than ours. Continuous re-checking is the sweeper&apos;s job and
+          does not come through this endpoint or count against this limit.
+        </p>
         <p className="text-muted-foreground leading-7">
           If a real integration reaches either of these, the number is wrong and
-          we would rather re-measure it than have you work around it. Tell us.
+          we would rather re-measure it than have you work around it. Tell us —
+          the request ceiling is a per-account value we can raise.
         </p>
       </Section>
     </>
