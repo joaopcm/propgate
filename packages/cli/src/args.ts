@@ -33,6 +33,12 @@ export const USAGE = `propgate — DNS diagnosis from the terminal
 
   propgate check <domain> [options]
 
+Account and domains (see \`propgate signup --help\`)
+  propgate signup --email <address>
+  propgate confirm --email <address> --code <code>
+  propgate keys list | create <name> | revoke <prefix>
+  propgate domains add <domain> --profile <key> | list
+
 Options
   --selector <name>     A DKIM selector to check. Repeatable.
   --spf-include <name>  An include: token that must authorise this domain.

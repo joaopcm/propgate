@@ -159,6 +159,42 @@ SERVFAIL and NXDOMAIN — and each of those is a diagnosis this tool reports.
 See [`@propgate/dns`](https://www.npmjs.com/package/@propgate/dns) for the
 detail.
 
+## Managing an account
+
+`check` needs no account and never talks to propgate — it resolves against
+whichever resolver you point it at. Everything in this section talks to
+[api.propgate.dev](https://api.propgate.dev) instead, and is the only part that
+needs a key.
+
+```sh
+npx @propgate/cli signup --email you@example.com
+npx @propgate/cli confirm --email you@example.com --code 123456
+```
+
+`confirm` prints the key once and stores it in
+`$XDG_CONFIG_HOME/propgate/config.json` at mode `0600`. There is no endpoint that
+can show it again — only a hash is stored — so a lost key means running the flow
+again, which mints an additional key against the same account rather than a
+second account.
+
+```sh
+npx @propgate/cli keys list
+npx @propgate/cli keys create ci
+npx @propgate/cli keys revoke pg_live_Ab3x
+
+npx @propgate/cli domains add example.com --profile sending
+npx @propgate/cli domains list --state failed
+```
+
+`keys revoke` takes the prefix, which is the part of a key still readable after
+it was issued. If a prefix matches more than one key it refuses and asks for an
+id rather than guessing which one you meant.
+
+| Variable | |
+|---|---|
+| `PROPGATE_API_KEY` | Overrides the stored key. For CI, where no config file exists |
+| `PROPGATE_API_URL` | Overrides the API base URL. `--api-url` beats both |
+
 ## Related
 
 - [`@propgate/dns`](https://www.npmjs.com/package/@propgate/dns) — the library
