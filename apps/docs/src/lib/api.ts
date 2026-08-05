@@ -153,6 +153,12 @@ export const ENDPOINTS: readonly Endpoint[] = [
       "Revoke a key. Takes effect on the next request. Revoking your last active key is refused.",
   },
   {
+    method: "GET",
+    path: "/v1/members",
+    summary:
+      "Who is on this account. Read-only — a member is added by proving control of a mailbox through signup.",
+  },
+  {
     method: "POST",
     path: "/v1/profiles",
     summary:
