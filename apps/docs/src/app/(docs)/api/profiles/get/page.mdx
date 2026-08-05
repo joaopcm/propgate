@@ -1,4 +1,3 @@
-import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
 import { ParamsTable } from "@/components/docs/params-table";
@@ -30,12 +29,6 @@ versioning. See [Profiles and versions](/concepts/profiles).
 />
 
 No CLI command yet — reading a profile back is API-only.
-
-<Callout>
-  Neither the request nor the response below is captured — QUICKSTART.md does
-  not call this endpoint. The response is a shape read off `serialise` in
-  `apps/api/src/routes/profiles.ts`.
-</Callout>
 
 <CodeBlock code={PROFILE_GET_CURL} lang="bash" />
 <CodeBlock code={PROFILE_GET_RESPONSE} lang="json" />

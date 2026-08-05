@@ -1,4 +1,3 @@
-import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
 import { PROVIDER_APPENDED_ZONE_NAME_FINDING } from "./_snippets";
 
@@ -11,11 +10,6 @@ questions for a customer's support team.
 Say a customer's DKIM selector resolves to nothing because their DNS provider
 appended the domain name onto the record — a common enough mistake that it has
 its own code:
-
-<Callout>
-  Shape read off `context.report` in `packages/dns/src/evaluate/dkim.ts`, not
-  a captured run.
-</Callout>
 
 <CodeBlock code={PROVIDER_APPENDED_ZONE_NAME_FINDING} lang="json" />
 

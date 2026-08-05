@@ -1,4 +1,3 @@
-import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
 import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
@@ -6,10 +5,10 @@ import { ParamsTable } from "@/components/docs/params-table";
 import {
   SIGNUP_CLI,
   SIGNUP_CURL,
-  SIGNUP_MISSING_EMAIL_400,
+  SIGNUP_MISSING_EMAIL_422,
   SIGNUP_RATE_LIMIT_429,
   SIGNUP_RESPONSE,
-  SIGNUP_SHORT_EMAIL_400,
+  SIGNUP_SHORT_EMAIL_422,
 } from "./_snippets";
 
 # Start a signup
@@ -32,12 +31,6 @@ minutes and single-use.
   ]}
 />
 
-<Callout>
-  The request and response below come from `apps/api/src/routes/signup.ts`
-  rather than a captured run — the flow this starts ends in a mailbox, not a
-  terminal.
-</Callout>
-
 <CodeTabs
   items={[
     { code: SIGNUP_CURL, label: "cURL", lang: "bash" },
@@ -59,12 +52,11 @@ Next, exchange the code with [`POST /v1/signup/confirm`](/api/accounts/confirm).
 
 ## Failure modes
 
-A malformed body is a `400`, not a `422` — the two routes in this file are the
-only ones that answer that way, because they predate the rest of the API's
-convention:
+A malformed body is a `422`, in the same `field: message` shape used
+throughout the API:
 
-<CodeBlock code={SIGNUP_MISSING_EMAIL_400} lang="json" />
-<CodeBlock code={SIGNUP_SHORT_EMAIL_400} lang="json" />
+<CodeBlock code={SIGNUP_MISSING_EMAIL_422} lang="json" />
+<CodeBlock code={SIGNUP_SHORT_EMAIL_422} lang="json" />
 
 Signup and confirm share a limiter of twenty requests per client address per
 hour — the tripwire against turning this into a spam relay against our own

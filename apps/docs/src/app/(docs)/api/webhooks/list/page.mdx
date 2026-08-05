@@ -1,0 +1,19 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { LIST_CURL, LIST_RESPONSE } from "./_snippets";
+
+# List webhook endpoints
+
+<EndpointHeader method="GET" path="/v1/webhooks" />
+
+Every endpoint on the account, disabled ones included.
+
+No CLI command yet — webhooks are managed over the API only.
+
+<CodeBlock code={LIST_CURL} lang="bash" />
+<CodeBlock code={LIST_RESPONSE} lang="json" />
+
+**No item here carries a `secret`.** A secret is returned once, when the
+endpoint is [created](/api/webhooks/create) or its secret is
+[rotated](/api/webhooks/rotate-secret), and never again — the same property
+[API keys](/api/api-keys/list) have, for the same reason.

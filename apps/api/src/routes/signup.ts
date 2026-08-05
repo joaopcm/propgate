@@ -150,14 +150,14 @@ export function createSignupRoute(options: {
     const parsed = signupSchema.safeParse(body);
 
     if (!parsed.success) {
-      return error(c, 400, firstIssue(parsed.error));
+      return error(c, 422, firstIssue(parsed.error));
     }
 
     const email = normaliseEmail(parsed.data.email);
     const rejection = rejectEmail(email);
 
     if (rejection !== null) {
-      return error(c, 400, rejection);
+      return error(c, 422, rejection);
     }
 
     const now = new Date();
@@ -219,7 +219,7 @@ export function createSignupRoute(options: {
     const parsed = confirmSchema.safeParse(body);
 
     if (!parsed.success) {
-      return error(c, 400, firstIssue(parsed.error));
+      return error(c, 422, firstIssue(parsed.error));
     }
 
     const email = normaliseEmail(parsed.data.email);

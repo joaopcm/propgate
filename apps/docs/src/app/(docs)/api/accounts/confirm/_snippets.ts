@@ -4,7 +4,7 @@
  * mailbox, not a terminal. `CONFIRM_RESPONSE` matches the body shown in
  * `QUICKSTART.md`, which carries the same note.
  *
- * `CONFIRM_SHORT_CODE_400` was produced by running the real `confirmSchema`
+ * `CONFIRM_SHORT_CODE_422` was produced by running the real `confirmSchema`
  * from `signup.ts` against a three-digit code in this repo's installed zod,
  * then passing the resulting issue through `firstIssue`. `CONFIRM_INVALID_409`
  * is copied verbatim from `signup.ts`.
@@ -28,7 +28,7 @@ export const CONFIRM_RESPONSE = `{
   "meta": null
 }`;
 
-export const CONFIRM_SHORT_CODE_400 = `{
+export const CONFIRM_SHORT_CODE_422 = `{
   "data": null,
   "error": {
     "message": "code: Too small: expected string to have >=6 characters"

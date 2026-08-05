@@ -4,7 +4,7 @@
  * endpoint starts ends in a mailbox, not a terminal. `SIGNUP_RESPONSE`
  * matches the body shown in `QUICKSTART.md`, which carries the same note.
  *
- * The two 400 bodies were produced by running the real `signupSchema` from
+ * The two 422 bodies were produced by running the real `signupSchema` from
  * `signup.ts` against a missing and a too-short email in this repo's
  * installed zod, then passing the resulting issue through `firstIssue` —
  * not typed from memory, but not an HTTP capture either.
@@ -25,7 +25,7 @@ export const SIGNUP_RESPONSE = `{
   "meta": null
 }`;
 
-export const SIGNUP_MISSING_EMAIL_400 = `{
+export const SIGNUP_MISSING_EMAIL_422 = `{
   "data": null,
   "error": {
     "message": "email: Invalid input: expected string, received undefined"
@@ -33,7 +33,7 @@ export const SIGNUP_MISSING_EMAIL_400 = `{
   "meta": null
 }`;
 
-export const SIGNUP_SHORT_EMAIL_400 = `{
+export const SIGNUP_SHORT_EMAIL_422 = `{
   "data": null,
   "error": {
     "message": "email: Too small: expected string to have >=3 characters"

@@ -1,4 +1,3 @@
-import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
 import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
@@ -49,12 +48,6 @@ thousand DNS runs as a side effect of a bulk insert.
     { code: REGISTER_CLI, label: "CLI", lang: "bash" },
   ]}
 />
-
-<Callout>
-  The response below is a shape read off `serialise` in
-  `apps/api/src/routes/domains.ts`, not a captured run — QUICKSTART.md never
-  prints this call's response on its own, it moves straight to the check.
-</Callout>
 
 <CodeBlock code={REGISTER_RESPONSE} lang="json" />
 

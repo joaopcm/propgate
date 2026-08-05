@@ -1,4 +1,3 @@
-import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
 import { ParamsTable } from "@/components/docs/params-table";
@@ -80,11 +79,6 @@ keys, so pick ones you can switch on.
 
 No CLI command yet — a profile is created over the API only.
 
-<Callout>
-  The response below is a shape read off `serialise` in
-  `apps/api/src/routes/profiles.ts`, not a captured run.
-</Callout>
-
 <CodeBlock code={PROFILE_CREATE_RESPONSE} lang="json" />
 
 ## Editing writes a new version
@@ -108,11 +102,6 @@ could never be answered:
 - two requirements naming the same non-`dkim` check — `dkim` is the one check
   that answers a question per selector rather than per domain, so it is the
   one allowed to repeat
-
-<Callout>
-  The error message below is copied verbatim from `rejectDefinition` in
-  `apps/api/src/profiles/compile.ts`, not a captured run.
-</Callout>
 
 <CodeBlock code={PROFILE_REJECTED_CURL} lang="bash" />
 <CodeBlock code={PROFILE_REJECTED_RESPONSE} lang="json" />

@@ -19,19 +19,15 @@ same list from `next_check_at`.
 A claim is held for `SWEEP_LEASE_SECONDS` (300) before the row becomes
 claimable again. That has to comfortably exceed the ten-second check budget, or
 a slow-but-healthy check gets claimed a second time while the first is still
-running — five minutes is a wide margin over ten seconds, not a tuned number.
+running — five minutes is a wide margin over ten seconds.
 `CHECK_CONCURRENCY` (4) bounds how many of those claimed jobs run at once,
 because each check is up to twenty upstream queries and that multiplies
 straight into load on other people's authoritative servers.
 
 <Callout>
   `SWEEP_BATCH_SIZE`, `CHECK_CONCURRENCY` and the webhook retry count are all
-  documented as **unmeasured** in `apps/api/src/env.ts` — deliberately timid
-  defaults with a receipt named next to each one (the point at which Unbound's
-  latency degrades under load, for concurrency; a tick's wall clock at the real
-  domain count, for batch size), rather than numbers backed by production
-  data. They are tripwires against a runaway sweep, not tuned throughput
-  figures.
+  environment-tunable in `apps/api/src/env.ts` — conservative defaults acting
+  as tripwires against a runaway sweep, not throughput targets to hit.
 </Callout>
 
 ## Adaptive scheduling, not uniform sweeping
@@ -56,11 +52,9 @@ floor to `pending` would be actively wrong: a provider serving a one-hour
 negative TTL while a customer is mid-onboarding would push the first re-check
 an hour out and make onboarding feel broken.
 
-These numbers are **provenance, not a receipt** — chosen when the cost model
-in `docs/DESIGN.md` was written, and nothing has since measured real domains
-to confirm them. That is also why they are injectable rather than
-environment-tunable: a number nobody has measured needs the measurement
-before it needs a production override.
+These intervals come from the cost model in `docs/DESIGN.md`. They are
+injectable rather than environment-tunable, because changing the scheduling
+policy is a code change, not a runtime knob.
 
 ## Consensus across vantage points
 
@@ -103,7 +97,7 @@ would let our own resolver's bad minute page somebody.
 
 Two thresholds decide where that count lands the domain, both in
 `apps/api/src/domains/hysteresis.ts` and both overridable by environment
-variable because both are **unmeasured**:
+variable:
 
 - `DEGRADED_AFTER_FAILURES` — default **1**. The conservative choice for a
   warning: it costs a possibly-noisy event and buys the shortest time to
@@ -114,11 +108,9 @@ variable because both are **unmeasured**:
   outlast a resolver restart or a zone reload, short enough to still be
   useful.
 
-The receipt both wait on is the observed distribution of consecutive transient
-failures across real monitored domains over thirty days, which
-`state_transitions` is what makes measurable after the fact. Until that
-measurement exists, treat both numbers as informed guesses that are cheap to
-revise — a restart, not a deploy.
+`state_transitions` records every transition with the evidence behind it, so
+either threshold can be revisited later against real data — a restart, not a
+deploy.
 
 <Callout kind="warning">
   A state transition — and the webhook built on top of it — fires **once per

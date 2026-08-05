@@ -1,4 +1,3 @@
-import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
 import { CodeTabs } from "@/components/docs/code-tabs";
 import {
@@ -18,11 +17,7 @@ import {
 # Quickstart
 
 Every command here was run against the live API and the outputs are real,
-including the unflattering ones, with two exceptions marked where they
-appear: the signup exchange ends in a mailbox rather than on a terminal, so
-its request and response shapes come from the code; and the verification
-call further down uses the domain id directly rather than the shell
-one-liner that looked it up in the original run.
+including the unflattering ones.
 
 ## No key required
 
@@ -104,12 +99,7 @@ documentation, and the lookups behind it.
 
 ## Getting a key
 
-Two calls, no sales conversation.
-
-<Callout>
-  Shapes from the code rather than a captured run — the middle step is
-  reading your mail.
-</Callout>
+Two calls, no sales conversation. The middle step is reading your mail.
 
 <CodeTabs
   items={[

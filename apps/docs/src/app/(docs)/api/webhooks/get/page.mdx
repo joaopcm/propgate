@@ -1,0 +1,21 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { GET_CURL, GET_NOT_FOUND, GET_RESPONSE } from "./_snippets";
+
+# Get a webhook endpoint
+
+<EndpointHeader method="GET" path="/v1/webhooks/:id" />
+
+One endpoint's configuration: its URL, which events it subscribes to, and
+whether it is currently disabled.
+
+No CLI command yet — webhooks are managed over the API only.
+
+<CodeBlock code={GET_CURL} lang="bash" />
+<CodeBlock code={GET_RESPONSE} lang="json" />
+
+An id that does not exist, or belongs to a different account, is a `404` —
+the two are deliberately indistinguishable, so this endpoint cannot be used
+to discover whether an id exists on someone else's account:
+
+<CodeBlock code={GET_NOT_FOUND} lang="json" />

@@ -1,0 +1,42 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import { ROTATE_CURL, ROTATE_LEAK_CURL, ROTATE_RESPONSE } from "./_snippets";
+
+# Rotate a webhook secret
+
+<EndpointHeader method="POST" path="/v1/webhooks/:id/secret" />
+
+Issues a new signing secret for an endpoint, with a window in which the old
+one still verifies so you can redeploy on your own schedule.
+
+The path is `/:id/secret` rather than `/:id/rotate-secret`: this call
+*creates* a secret, so the noun in the path is the resource and `POST` is the
+verb. Once a family has one route spelling the verb in the path and another
+that doesn't, which one a given action gets stops being predictable.
+
+No CLI command yet — webhooks are managed over the API only.
+
+<ParamsTable
+  rows={[
+    {
+      description:
+        "How long the previous secret keeps being accepted, so you can redeploy on your own schedule. Default 24, max 168 (a week).",
+      name: "windowHours",
+      type: "number",
+    },
+  ]}
+/>
+
+<CodeBlock code={ROTATE_CURL} lang="bash" />
+<CodeBlock code={ROTATE_RESPONSE} lang="json" />
+
+Until `previousSecretExpiresAt`, every delivery is signed with **both**
+secrets at once — see [Webhooks](/webhooks#rotation) for the header format
+and how to verify against either. That overlap is what lets a rotation be a
+deploy rather than an outage.
+
+Rotating because a secret leaked? Pass `windowHours: 0` and the old one stops
+being accepted immediately:
+
+<CodeBlock code={ROTATE_LEAK_CURL} lang="bash" />

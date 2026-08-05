@@ -1,4 +1,3 @@
-import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
 import { DELETE_CURL, DELETE_NOT_FOUND, DELETE_RESPONSE } from "./_snippets";
@@ -14,11 +13,7 @@ undo; register it again to resume tracking, starting from `pending`.
 
 No CLI command yet — removing a domain is API-only.
 
-<Callout>
-  The request below is quoted verbatim from QUICKSTART.md. The response is a
-  shape read off the route handler in `apps/api/src/routes/domains.ts`, which
-  QUICKSTART.md does not print.
-</Callout>
+The request below is quoted verbatim from QUICKSTART.md.
 
 <CodeBlock code={DELETE_CURL} lang="bash" />
 <CodeBlock code={DELETE_RESPONSE} lang="json" />

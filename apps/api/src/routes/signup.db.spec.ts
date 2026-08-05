@@ -175,7 +175,7 @@ describe("POST /v1/signup", () => {
   it("rejects something that is not an address", async () => {
     const response = await post("/v1/signup", { email: "not-an-address" });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
     expect(mailer.sent).toHaveLength(0);
   });
 

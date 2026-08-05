@@ -1,0 +1,45 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import { EVENT_NAMES } from "@/lib/webhooks";
+import { CREATE_CURL, CREATE_REJECTED, CREATE_RESPONSE } from "./_snippets";
+
+# Create a webhook endpoint
+
+<EndpointHeader method="POST" path="/v1/webhooks" />
+
+Registers a URL to receive events. For the event payloads and how to verify a
+signature, see [Webhooks](/webhooks).
+
+No CLI command yet — webhooks are managed over the API only.
+
+<ParamsTable
+  rows={[
+    {
+      description:
+        "https only, and not a loopback or private address — the signature protects the body, not the connection, so plain http would sign a request that travels unprotected anyway.",
+      name: "url",
+      required: true,
+      type: "string",
+    },
+    {
+      description: `Which events to send. Omitted or empty means all of them: ${EVENT_NAMES.join(", ")}.`,
+      name: "events",
+      type: "array",
+    },
+  ]}
+/>
+
+<CodeBlock code={CREATE_CURL} lang="bash" />
+<CodeBlock code={CREATE_RESPONSE} lang="json" />
+
+Creating is idempotent on `(account, url)` — posting the same URL again
+returns the existing endpoint rather than a second one, and `meta.created`
+tells the two apart. `secret` is only ever present in **this** response: on a
+retry that matched an existing endpoint, the stored secret is not this call's
+to hand back, since it exists to sign with, not to be read. To replace a
+secret you have lost, [rotate it](/api/webhooks/rotate-secret).
+
+A URL that fails the `https`-and-not-private check is a `422`:
+
+<CodeBlock code={CREATE_REJECTED} lang="json" />

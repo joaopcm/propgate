@@ -1,4 +1,3 @@
-import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
 import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
@@ -8,7 +7,7 @@ import {
   CONFIRM_CURL,
   CONFIRM_INVALID_409,
   CONFIRM_RESPONSE,
-  CONFIRM_SHORT_CODE_400,
+  CONFIRM_SHORT_CODE_422,
 } from "./_snippets";
 
 # Confirm a signup
@@ -40,11 +39,6 @@ account and a key. The code is single-use — a second `confirm` with it is a
   ]}
 />
 
-<Callout>
-  The request and response below come from `apps/api/src/routes/signup.ts`
-  rather than a captured run — this call ends in a mailbox, not a terminal.
-</Callout>
-
 <CodeTabs
   items={[
     { code: CONFIRM_CURL, label: "cURL", lang: "bash" },
@@ -65,10 +59,10 @@ tenant.
 
 ## The single 409
 
-<CodeBlock code={CONFIRM_SHORT_CODE_400} lang="json" />
+<CodeBlock code={CONFIRM_SHORT_CODE_422} lang="json" />
 
 A malformed body — a code that isn't six characters, a missing field — is a
-`400` in the same `field: message` shape used above. Everything else about
+`422` in the same `field: message` shape used above. Everything else about
 "this code doesn't work" collapses into one `409`, regardless of which of four
 reasons produced it:
 
@@ -82,7 +76,7 @@ confirm someone is actively guessing at it. Either leaking to a caller turns
 this endpoint into an oracle for the exact thing [`POST
 /v1/signup`](/api/accounts/signup)'s identical response is designed to hide.
 
-`409` rather than `400` because the common case by a wide margin is a code
+`409` rather than `422` because the common case by a wide margin is a code
 that was already spent — a double-submitted form, a second click — which is a
 conflict with state rather than a malformed request. The message says what to
 do next: call `signup` again.
