@@ -10,6 +10,7 @@ import {
 import { ACCOUNT_USAGE, isAccountCommand, runAccountCommand } from "./account";
 import { type Options, parse, parseResolver, USAGE } from "./args";
 import { exitCodeFor, render, type Style } from "./report";
+import { version } from "./version";
 
 /**
  * `propgate check <domain>`
@@ -19,8 +20,6 @@ import { exitCodeFor, render, type Style } from "./report";
  * something odd, because it runs against whichever resolver *they* are using
  * rather than against ours.
  */
-
-export const VERSION = "0.1.0";
 
 /** Generous enough that a slow authority is not mistaken for a dead one. */
 const BUDGET_MS = 15_000;
@@ -161,7 +160,7 @@ export async function main(argv: readonly string[]): Promise<number> {
   }
 
   if (parsed.kind === "version") {
-    process.stdout.write(`${VERSION}\n`);
+    process.stdout.write(`${version()}\n`);
     return 0;
   }
 
