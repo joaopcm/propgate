@@ -1,7 +1,12 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { findNavEntry, flattenNavigation, navigation } from "./navigation";
+import {
+  findNavEntry,
+  flattenNavigation,
+  isGroupedSection,
+  navigation,
+} from "./navigation";
 
 /**
  * The sidebar against the filesystem.
@@ -52,5 +57,23 @@ describe("navigation", () => {
 
   it("has no entry for a page nobody wrote", () => {
     expect(findNavEntry("/nope")).toBeUndefined();
+  });
+
+  it("never yields an entry for a section with no items", () => {
+    const emptySectionTitles = new Set(
+      navigation
+        .filter((section) =>
+          isGroupedSection(section)
+            ? section.groups.every((group) => group.items.length === 0)
+            : section.items.length === 0
+        )
+        .map((section) => section.title)
+    );
+
+    const flattenedSections = flattenNavigation().map((entry) => entry.section);
+
+    expect(
+      flattenedSections.some((title) => emptySectionTitles.has(title))
+    ).toBe(false);
   });
 });

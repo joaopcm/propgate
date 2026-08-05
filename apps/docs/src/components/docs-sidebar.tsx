@@ -3,12 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { isGroupedSection, type NavItem, navigation } from "@/lib/navigation";
+import {
+  isGroupedSection,
+  type NavItem,
+  type NavSection,
+  navigation,
+} from "@/lib/navigation";
 
 const BADGE_LABELS: Record<NonNullable<NavItem["badge"]>, string> = {
   beta: "Beta",
   new: "New",
 };
+
+function sectionHasItems(section: NavSection): boolean {
+  return isGroupedSection(section)
+    ? section.groups.some((group) => group.items.length > 0)
+    : section.items.length > 0;
+}
 
 function ItemList({
   items,
@@ -57,7 +68,7 @@ export function DocsSidebar({ onNavigate }: { onNavigate?: () => void }) {
       aria-label="Documentation"
       className="flex flex-col gap-6 px-4 py-6 md:px-6"
     >
-      {navigation.map((section) => (
+      {navigation.filter(sectionHasItems).map((section) => (
         <div className="flex flex-col gap-3" key={section.title}>
           <h2 className="px-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
             {section.title}
