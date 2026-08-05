@@ -138,14 +138,37 @@ registration and on-demand verification, a continuous sweeper on an adaptive
 schedule, consensus across three vantage points, the hysteresis state machine
 with `degraded` reachable, and signed webhooks with a delivery ledger.
 
+Shipped after that, and the piece that makes the gate below reachable by someone
+who has not spoken to us: **self-serve accounts.** `POST /v1/signup` mails a
+six-digit code, `POST /v1/signup/confirm` exchanges it for a key, and
+`/v1/api-keys` manages the rest — all of it reachable from `@propgate/cli`. Until
+this landed, evaluating propgate required sending an email and waiting for a
+human, which is a strange thing to ask of a platform assessing whether to depend
+on us.
+
+Two consequences worth recording, because both changed the shape of the product
+rather than being details:
+
+- **The default quotas came down.** Every key used to be handed out
+  deliberately; now anybody with an email address gets one. 30,000 requests a
+  minute became 250 a second — the same order of magnitude on average, a very
+  different burst — and 600 verifications a minute became 100, because a check
+  aims up to twenty queries at authoritative servers *the caller* names.
+  `tenants.request_quota_per_second` raises it for an account we have vetted.
+- **A tenant is no longer a single identity.** The address that signed up lives
+  on `tenant_members`, not on `tenants`, because a tenant is an integration that
+  will eventually have several people on it. Roles are a column on that table
+  when they are needed; nothing about `tenants` has to move.
+
 Three things in Phase 2's original scope did not ship, each for a stated reason.
 The **dashboard** and the **SDK**: the API is the product for a platform
 integrating us, and neither changes whether anyone pays. The **day-partitioned
 `checks` table**: `state_transitions` plus `last_result` answers the
 diagnosability question at a fraction of the rows.
 
-**The gate is now answerable.** [#5](https://github.com/joaopcm/propgate/issues/5)
-asks whether anyone converts to paid, and there is now something to convert onto.
+**The gate is now answerable, and answerable without us in the loop.**
+[#5](https://github.com/joaopcm/propgate/issues/5) asks whether anyone converts to
+paid, and there is now something to convert onto and a way to reach it unaided.
 That question is not an engineering one, and no amount of further building
 answers it — which is the whole reason the phasing puts a gate here rather than
 rolling straight into Phase 3's ~$250/month authoritative fleet.

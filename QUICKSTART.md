@@ -1,7 +1,9 @@
 # Quickstart
 
-Every command here was run against the live API. The outputs are real, including
-the unflattering ones.
+Every command here was run against the live API and the outputs are real,
+including the unflattering ones. The one exception is the signup exchange below,
+which ends in a mailbox rather than on a terminal — its request and response
+shapes come from the code, and it is marked where it appears.
 
 ```sh
 export A=https://api.propgate.dev
@@ -82,6 +84,60 @@ the class of problem that reads as "intermittent" and never reproduces.
 Every finding carries a [diagnosis code](https://docs.propgate.dev/taxonomy),
 a `slug` linking to its documentation, and the lookups behind it.
 
+## Getting a key
+
+Two calls, no sales conversation. **Shapes from the code rather than a captured
+run** — the middle step is reading your mail.
+
+```sh
+curl -s -X POST $A/v1/signup -H 'content-type: application/json' \
+  -d '{"email":"you@example.com"}' | j
+```
+
+```json
+{ "data": { "object": "signup", "status": "pending" }, "error": null, "meta": null }
+```
+
+A six-digit code arrives, valid for ten minutes. That response is identical
+whether or not the address already has an account — a signup endpoint that says
+*already registered* tells whoever holds a leaked address list which of those
+addresses use us.
+
+```sh
+curl -s -X POST $A/v1/signup/confirm -H 'content-type: application/json' \
+  -d '{"email":"you@example.com","code":"123456"}' | j
+```
+
+```json
+{
+  "data": {
+    "apiKey": "pg_live_...",
+    "created": true,
+    "object": "account",
+    "tenantId": "019fcf4f-..."
+  },
+  "error": null,
+  "meta": null
+}
+```
+
+That is the only time the key is readable. Only a hash is stored, so no endpoint
+can show it again — losing it means running the flow again, which mints an
+*additional* key against the same account rather than a second account. That
+doubles as the recovery path, which is why there is no separate sign-in.
+
+The code is single-use: a second `confirm` with it returns `409`.
+
+Or let the CLI hold it for you:
+
+```sh
+npx @propgate/cli signup  --email you@example.com
+npx @propgate/cli confirm --email you@example.com --code 123456
+```
+
+`confirm` stores the key in `$XDG_CONFIG_HOME/propgate/config.json` at mode
+`0600` and prints it once. `PROPGATE_API_KEY` overrides it for CI.
+
 ## With a key
 
 Registration and verification are separate calls. Registration is a write;
@@ -89,7 +145,7 @@ verification is an action with latency. Importing ten thousand domains should
 not fire ten thousand DNS runs as a side effect of a bulk insert.
 
 ```sh
-export KEY=pg_live_...
+export KEY=pg_live_...        # from `confirm` above
 ```
 
 ### A profile: what you expect of a domain

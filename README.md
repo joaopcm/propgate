@@ -60,6 +60,7 @@ Neither is findable with a regex over a TXT record. That is the whole argument.
 | [`@propgate/cli`](https://www.npmjs.com/package/@propgate/cli) | `npx @propgate/cli check example.com` |
 | [propgate.dev](https://propgate.dev) | The free public checker |
 | [api.propgate.dev](https://docs.propgate.dev/api) | Register domains against a versioned profile, verify them, read per-requirement results and a change timeline |
+| Self-serve keys | `POST /v1/signup` then `POST /v1/signup/confirm` — an emailed code for a key, in two calls and no conversation |
 | Continuous monitoring | Domains are re-checked on an adaptive schedule without anyone asking. Consensus across three vantage points, hysteresis before anything is called failed |
 | [Webhooks](https://docs.propgate.dev/webhooks) | `domain.verified`, `domain.degraded`, `domain.failed`, `domain.recovered` — signed, Svix-compatible, at-least-once with a queryable delivery ledger |
 
@@ -71,6 +72,7 @@ product is the rest of the lifecycle.
 | | Status |
 |---|---|
 | Verification — checks, taxonomy, CLI, public checker | **shipped** |
+| Self-serve accounts — sign up by email, get a key, manage keys | **shipped** |
 | Registration and on-demand verification via API | **shipped** |
 | Continuous monitoring — sweeper, consensus across vantage points, hysteresis, webhooks | **shipped** |
 | Delegation — you delegate `pg.example.com` to us, one record instead of six | planned |
