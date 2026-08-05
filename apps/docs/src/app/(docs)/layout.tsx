@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { Breadcrumbs } from "@/components/docs/breadcrumbs";
+import { PagerFooter } from "@/components/docs/pager-footer";
 import { DocsHeader } from "@/components/docs-header";
 import { DocsSidebar } from "@/components/docs-sidebar";
 
@@ -13,7 +15,11 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
           </div>
         </aside>
         <main className="min-w-0 flex-1 px-4 py-8 md:px-10 md:py-12">
-          <div className="mx-auto max-w-3xl">{children}</div>
+          <div className="mx-auto max-w-3xl">
+            <Breadcrumbs />
+            {children}
+            <PagerFooter />
+          </div>
         </main>
       </div>
     </div>
