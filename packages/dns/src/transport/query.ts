@@ -195,6 +195,9 @@ function interpret(
       kind: "outcome",
       outcome: {
         elapsedMs: elapsedSince(start),
+        // `interpret` cannot know: it sees one exchange, not the pair. The caller
+        // that performed the fallback sets it.
+        retriedOverTcp: false,
         status: "timeout",
         timeoutMs,
         transport,
@@ -308,7 +311,12 @@ export async function query(spec: QuerySpec): Promise<QueryOutcome> {
   const retry = interpret(retryRaw, "tcp", timeoutMs, start, id);
 
   if (retry.kind === "outcome") {
-    return retry.outcome;
+    // The one place that knows UDP answered and TCP then did not. Losing it here
+    // is what made `TCP_SILENTLY_BLOCKED` unreachable: downstream, a swallowed
+    // TCP retry was indistinguishable from a server that never answered at all.
+    return retry.outcome.status === "timeout"
+      ? { ...retry.outcome, retriedOverTcp: true }
+      : retry.outcome;
   }
 
   return {

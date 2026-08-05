@@ -166,6 +166,16 @@ last test rather than the one that leaked.
 - Prefer REFUSED-based fixtures over blackholes. `lame.test` is delegated to
   `dns-decoy`, which is authoritative for `decoy.test` only and so refuses
   instantly.
+- **One exception, and it clarifies the rule rather than bending it.**
+  `startTcpBlackhole` (`packages/dns-fixtures/src/tcp-blackhole.ts`) answers over
+  UDP with the TC bit set and then accepts the TCP retry and says nothing, which
+  is the only way to reach `TCP_SILENTLY_BLOCKED` — no zone file can express what
+  a middlebox does to a conversation. It waits out a deadline, so it is slow by
+  design, but it is **deterministic**: a listener that reliably stays silent, not
+  a packet that might arrive. The rule above exists to keep *flakiness* out, and
+  a 150 ms wall-clock cost with a guaranteed outcome does not spend that budget.
+  Reach for this shape only when the behaviour under test genuinely belongs to the
+  network rather than to a record.
 - Never commit `.only` or `.skip`.
 
 ## Adding a fixture
@@ -215,7 +225,7 @@ and the coverage spec requires the reason to be substantive.
 |---|---|
 | **GeoDNS, anycast, geography-dependent network paths** | `split.test` is served with a different SPF record by `dns-auth` and `dns-divergent`, both in the delegation, which is what the consensus logic consumes — so `ANSWER_DIVERGES_BY_VANTAGE_POINT` *is* fixture-backed. What stays out of reach is real geographic behaviour: our vantage points share one egress IP, so a domain answering differently in Frankfurt than in São Paulo looks identical from here. |
 | **Wall-clock TTL and negative-cache expiry** | The repo bans sleeps. The computed TTL from the authority-section SOA is asserted directly; expiry arithmetic is unit-tested against an injectable clock. |
-| **A middlebox silently dropping TCP/53** | Needs `NET_ADMIN` and an iptables DROP in a bridged container. Without it you get ECONNREFUSED, a different timing profile. Optional Phase 1 fixture. |
+| ~~**A middlebox silently dropping TCP/53**~~ | **Now covered**, and the entry was wrong about why it could not be. An iptables DROP needs `NET_ADMIN`, but the resolver arms one deadline across connect and read — so a listener that accepts and never replies produces the identical outcome without any capability. See `tcp-blackhole.ts` for what the substitution does and does not cover. |
 | **Provider mangling that never reaches DNS** | Nothing observable. Permanently out of scope. |
 | **Real public-resolver quirks** | Would need network access from CI. If ever wanted, put them in `*.live.spec.ts` excluded by default. |
 

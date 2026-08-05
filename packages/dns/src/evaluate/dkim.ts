@@ -2,7 +2,7 @@ import { DiagnosisCode } from "../diagnosis/codes";
 import type { QueryOutcome } from "../transport/types";
 import { RecordType } from "../wire/constants";
 import { recordsOfType } from "../wire/message";
-import { reportAnswerShape, reportTransport } from "./answer";
+import { reportAnswerShape, reportTcpBlocked, reportTransport } from "./answer";
 import type { EvaluationContext } from "./context";
 import {
   type DkimRecord,
@@ -89,7 +89,14 @@ async function findRecords(
   // The outcome travels with the absence: the *shape* of the nothing that came
   // back is as actionable as the nothing. See `reportAnswerShape`.
   | { readonly kind: "absent"; readonly outcome: QueryOutcome }
-  | { readonly kind: "indeterminate"; readonly detail: string }
+  // The outcome travels here too, for the same reason it travels with `absent`:
+  // "we could not tell" has shapes, and one of them — a swallowed TCP retry — is
+  // specific enough to name.
+  | {
+      readonly kind: "indeterminate";
+      readonly detail: string;
+      readonly outcome: QueryOutcome;
+    }
 > {
   const name = dkimRecordName(check);
   const outcome = await context.lookup({
@@ -122,6 +129,7 @@ async function findRecords(
           ? "the nameserver returned SERVFAIL"
           : `the lookup ${outcome.status === "timeout" ? "timed out" : outcome.status}`,
       kind: "indeterminate",
+      outcome,
     };
   }
 
@@ -262,6 +270,12 @@ export async function evaluateDkim(
   const name = dkimRecordName(check);
 
   if (found.kind === "indeterminate") {
+    // Why we could not tell, when the reason is nameable. The verdict stays
+    // `indeterminate` — a blocked retry means the key may well be published and
+    // simply unreachable at this size, so calling it broken would be a guess —
+    // but a finding turns "we could not tell" into something actionable.
+    reportTcpBlocked(context, found.outcome, name);
+
     // Deliberately not a failure. See the Verdict docs: "we could not tell" and
     // "it is broken" must never collapse into one another.
     return {

@@ -716,8 +716,6 @@ export const NOT_LOCALLY_REPRODUCIBLE: Readonly<
 > = {
   RRSET_TTL_MISMATCH:
     "A zone file cannot express it. Measured: named-checkzone silently rewrites a mismatched TTL to the first one it saw, and nsd-checkzone warns — so a fixture would be normalised before it was served and the test would assert nothing. In the wild it comes from a server assembling an answer from several sources, or a resolver merging cached records. The comparison itself is pure and unit-tested.",
-  TCP_SILENTLY_BLOCKED:
-    "Requires a middlebox that drops TCP/53 without an RST. Reproducing it needs NET_ADMIN and an iptables DROP rule inside a bridged container; without that we get ECONNREFUSED, which is a different timing profile. Deferred to Phase 1 as an optional fixture.",
 };
 
 /**
@@ -737,6 +735,4 @@ export const NOT_YET_EMITTED: Readonly<Partial<Record<DiagnosisCode, string>>> =
   {
     PROVIDER_FLATTENED_CNAME:
       "Needs the addresses of our own infrastructure to compare against, so a flattened CNAME can be told from a genuinely wrong target. That is a deployment fact rather than a DNS one, and there is no deployment yet.",
-    TCP_SILENTLY_BLOCKED:
-      "See NOT_LOCALLY_REPRODUCIBLE: distinguishing a silent drop from a refusal needs a middlebox, and the timing profile is what identifies it.",
   };

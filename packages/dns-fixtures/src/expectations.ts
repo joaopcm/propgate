@@ -18,13 +18,31 @@ export interface FixtureExpectation {
   readonly codes: readonly string[];
   /** Why the fixture exists, in one line. */
   readonly reason: string;
-  /** Which server serves it. */
-  readonly role: "auth" | "root" | "decoy" | "divergent";
-  /** Zone the fixture lives in. */
+  /**
+   * Which server serves it.
+   *
+   * `listener` is the odd one out: an in-process server started by a spec rather
+   * than an `nsd` container. Some behaviour is not a property of a zone at all —
+   * a middlebox eating TCP is done *to* a conversation — and no zone file can
+   * express it. See `tcp-blackhole.ts`.
+   */
+  readonly role: "auth" | "root" | "decoy" | "divergent" | "listener";
+  /**
+   * Zone the fixture lives in.
+   *
+   * For `listener`, the name the spec queries — there is no zone file behind it.
+   */
   readonly zone: string;
 }
 
 export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
+  {
+    codes: ["TCP_SILENTLY_BLOCKED"],
+    reason:
+      "Answers over UDP with the TC bit set, then accepts the TCP retry and never replies — the resolver-visible shape of a middlebox blocking TCP port 53. No zone can express it, so it is an in-process listener rather than an nsd container.",
+    role: "listener",
+    zone: "blocked.test",
+  },
   {
     codes: ["PROVIDER_APPENDED_ZONE_NAME"],
     reason:

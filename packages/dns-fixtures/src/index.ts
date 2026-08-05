@@ -26,3 +26,5 @@ export {
   fixtureTarget,
   uniqueLabel,
 } from "./resolver";
+export type { Blackhole } from "./tcp-blackhole";
+export { startTcpBlackhole } from "./tcp-blackhole";

@@ -146,6 +146,8 @@ export class EvaluationContext {
     if (this.remainingLookups <= 0 || timeoutMs <= 0) {
       const exhausted: QueryOutcome = {
         elapsedMs: 0,
+        // No exchange happened at all, let alone a fallback.
+        retriedOverTcp: false,
         status: "timeout",
         timeoutMs: 0,
         transport: "udp",

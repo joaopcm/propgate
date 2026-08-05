@@ -234,6 +234,13 @@ describe("fixture expectations table", () => {
     const testZone = read("src", "test.zone");
 
     const dangling = FIXTURE_EXPECTATIONS.filter((row) => {
+      // A `listener` fixture is an in-process server, not a zone — there is
+      // deliberately no file to find. Exempting the role rather than the name
+      // keeps this check strict for everything that *is* served from a zone.
+      if (row.role === "listener") {
+        return false;
+      }
+
       if (zoneNames.has(row.zone)) {
         return false;
       }

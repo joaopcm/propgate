@@ -100,6 +100,43 @@ export function reportTransport(
 }
 
 /**
+ * The other half of `reportTransport`: the fallback that never came back.
+ *
+ * The condition is narrow on purpose, and the narrowness is what makes it a
+ * diagnosis rather than a guess. A bare TCP timeout says nothing — the server may
+ * be down, the network may be broken, the name may be somewhere unreachable. This
+ * fires only when **the same server already answered over UDP** in the same
+ * exchange and set the TC bit asking us to come back over TCP. At that point the
+ * server is demonstrably alive and reachable, it has told us the answer exists
+ * and is too big, and the connection it invited us to make produced silence.
+ *
+ * That is the shape of a middlebox eating TCP port 53. It reads to everyone else
+ * as an intermittent outage: the record is fine, the server is fine, and a
+ * 2048-bit DKIM key simply never arrives — which is why it is worth its own code
+ * rather than being folded into a timeout.
+ *
+ * A *refusal* is deliberately not this. `ECONNREFUSED` is an answer of a kind —
+ * something is there and said no — and it surfaces as `unreachable` instead.
+ */
+export function reportTcpBlocked(
+  context: EvaluationContext,
+  outcome: QueryOutcome,
+  name: string
+): void {
+  if (outcome.status !== "timeout" || !outcome.retriedOverTcp) {
+    return;
+  }
+
+  context.report(DiagnosisCode.TCP_SILENTLY_BLOCKED, {
+    detail:
+      "this server answered over UDP and asked us to retry over TCP because the answer was too large, then the TCP connection produced nothing at all — which is what a middlebox blocking TCP port 53 looks like, and it means large records here never arrive",
+    expected: "an answer over TCP, as the truncated UDP reply invited",
+    name,
+    observed: `no response within ${outcome.timeoutMs}ms over TCP`,
+  });
+}
+
+/**
  * An RRset whose records disagree about their TTL.
  *
  * §5.2 requires them to be equal, and a receiver "should treat as an error" a
