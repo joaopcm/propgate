@@ -1,0 +1,88 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import {
+  CONFIRM_CLI,
+  CONFIRM_CURL,
+  CONFIRM_INVALID_409,
+  CONFIRM_RESPONSE,
+  CONFIRM_SHORT_CODE_400,
+} from "./_snippets";
+
+# Confirm a signup
+
+<EndpointHeader
+  cliCommand="propgate confirm"
+  method="POST"
+  path="/v1/signup/confirm"
+/>
+
+Exchanges the code from [`POST /v1/signup`](/api/accounts/signup) for an
+account and a key. The code is single-use — a second `confirm` with it is a
+`409`, not a second key.
+
+<ParamsTable
+  rows={[
+    {
+      description: "The same address `signup` was called with.",
+      name: "email",
+      required: true,
+      type: "string",
+    },
+    {
+      description: "The six-digit code sent to that address. Valid for ten minutes.",
+      name: "code",
+      required: true,
+      type: "string",
+    },
+  ]}
+/>
+
+<Callout>
+  The request and response below come from `apps/api/src/routes/signup.ts`
+  rather than a captured run — this call ends in a mailbox, not a terminal.
+</Callout>
+
+<CodeTabs
+  items={[
+    { code: CONFIRM_CURL, label: "cURL", lang: "bash" },
+    { code: CONFIRM_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+<CodeBlock code={CONFIRM_RESPONSE} lang="json" />
+
+**`apiKey` is readable exactly once, here.** Only its hash is stored, so
+there is no endpoint — not this one on a retry, not a future one — that could
+ever show it again. Losing it means running `signup` again, which mints an
+additional key against the same account rather than a second one.
+
+`created` distinguishes a brand-new account from a code confirmed on an
+address that already had one — both mint a key, but only one is a new
+tenant.
+
+## The single 409
+
+<CodeBlock code={CONFIRM_SHORT_CODE_400} lang="json" />
+
+A malformed body — a code that isn't six characters, a missing field — is a
+`400` in the same `field: message` shape used above. Everything else about
+"this code doesn't work" collapses into one `409`, regardless of which of four
+reasons produced it:
+
+<CodeBlock code={CONFIRM_INVALID_409} lang="json" />
+
+A wrong code, an expired one, one that has already hit its attempt cap, and
+one that was never issued all answer identically. The route can tell these
+apart internally — that distinction exists for the log, not the client:
+"expired" would confirm the address signed up here, and "exhausted" would
+confirm someone is actively guessing at it. Either leaking to a caller turns
+this endpoint into an oracle for the exact thing [`POST
+/v1/signup`](/api/accounts/signup)'s identical response is designed to hide.
+
+`409` rather than `400` because the common case by a wide margin is a code
+that was already spent — a double-submitted form, a second click — which is a
+conflict with state rather than a malformed request. The message says what to
+do next: call `signup` again.

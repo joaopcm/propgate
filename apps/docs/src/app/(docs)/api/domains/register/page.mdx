@@ -1,0 +1,70 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import {
+  REGISTER_CLI,
+  REGISTER_CURL,
+  REGISTER_NAME_TAKEN,
+  REGISTER_RESPONSE,
+} from "./_snippets";
+
+# Register a domain
+
+<EndpointHeader
+  cliCommand="propgate domains add <domain> --profile <key> [--external-id <id>]"
+  method="POST"
+  path="/v1/domains"
+/>
+
+A write, not a check. Registering a domain **does not touch DNS** — it starts
+`pending` with no result, and stays that way until something calls
+[verify](/api/domains/verify) on it. Registration and verification are
+separate calls on purpose: importing ten thousand domains must not fire ten
+thousand DNS runs as a side effect of a bulk insert.
+
+<ParamsTable
+  rows={[
+    { description: "The domain to track.", name: "name", required: true, type: "string" },
+    {
+      description:
+        "The profile key to pin this domain to. Must already exist, or this call is a 422.",
+      name: "profile",
+      required: true,
+      type: "string",
+    },
+    {
+      description:
+        "Your own identifier for this domain, unique per account. Re-sending one you already used returns the existing domain rather than erroring, and meta.created tells the two apart.",
+      name: "externalId",
+      type: "string",
+    },
+  ]}
+/>
+
+<CodeTabs
+  items={[
+    { code: REGISTER_CURL, label: "cURL", lang: "bash" },
+    { code: REGISTER_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+<Callout>
+  The response below is a shape read off `serialise` in
+  `apps/api/src/routes/domains.ts`, not a captured run — QUICKSTART.md never
+  prints this call's response on its own, it moves straight to the check.
+</Callout>
+
+<CodeBlock code={REGISTER_RESPONSE} lang="json" />
+
+`externalId` is your retry key: sending the same one again does not create a
+second row, it returns the domain that already exists. `meta.created` is what
+lets your retry logic tell "this is the customer I already had" from "this is
+a new one" without keeping a mapping table of its own.
+
+Registering a name that already exists under a **different** external id is a
+`409` — that would be two records of one domain, and quietly returning one of
+them would hide it:
+
+<CodeBlock code={REGISTER_NAME_TAKEN} lang="json" />

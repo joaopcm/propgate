@@ -1,0 +1,73 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import {
+  SIGNUP_CLI,
+  SIGNUP_CURL,
+  SIGNUP_MISSING_EMAIL_400,
+  SIGNUP_RATE_LIMIT_429,
+  SIGNUP_RESPONSE,
+  SIGNUP_SHORT_EMAIL_400,
+} from "./_snippets";
+
+# Start a signup
+
+<EndpointHeader cliCommand="propgate signup" method="POST" path="/v1/signup" />
+
+The only unauthenticated route that writes to the database, besides its own
+`confirm` step — there is no key to present yet, so the mailbox is the
+credential. Sends a six-digit code to the address given, valid for ten
+minutes and single-use.
+
+<ParamsTable
+  rows={[
+    {
+      description: "The address to send the code to. Lowercased and trimmed before storage, so `A@b.com` and `a@b.com` are one account.",
+      name: "email",
+      required: true,
+      type: "string",
+    },
+  ]}
+/>
+
+<Callout>
+  The request and response below come from `apps/api/src/routes/signup.ts`
+  rather than a captured run — the flow this starts ends in a mailbox, not a
+  terminal.
+</Callout>
+
+<CodeTabs
+  items={[
+    { code: SIGNUP_CURL, label: "cURL", lang: "bash" },
+    { code: SIGNUP_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+<CodeBlock code={SIGNUP_RESPONSE} lang="json" />
+
+**The response is identical whether or not the address already has an
+account.** That reads like a missing feature until you know why: a signup
+endpoint that answers *already registered* tells whoever holds a leaked
+address list which of those addresses use us. Running this again on an
+address that already has one mints an **additional** key against the same
+account rather than a second account — that is also the recovery path if you
+lose a key, which is why there is no separate sign-in.
+
+Next, exchange the code with [`POST /v1/signup/confirm`](/api/accounts/confirm).
+
+## Failure modes
+
+A malformed body is a `400`, not a `422` — the two routes in this file are the
+only ones that answer that way, because they predate the rest of the API's
+convention:
+
+<CodeBlock code={SIGNUP_MISSING_EMAIL_400} lang="json" />
+<CodeBlock code={SIGNUP_SHORT_EMAIL_400} lang="json" />
+
+Signup and confirm share a limiter of twenty requests per client address per
+hour — the tripwire against turning this into a spam relay against our own
+sending reputation. A `429` names the wait and sets `Retry-After`:
+
+<CodeBlock code={SIGNUP_RATE_LIMIT_429} lang="json" />

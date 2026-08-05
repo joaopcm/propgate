@@ -1,0 +1,78 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import {
+  AUTH_HEADER_CLI,
+  AUTH_HEADER_CURL,
+  REVOKED_401,
+  SIGNUP_CLI,
+  SIGNUP_CURL,
+  UNKNOWN_401,
+} from "./_snippets";
+
+# Authentication
+
+## Getting a key
+
+Two calls, no sales conversation. The first sends a six-digit code to the
+address you give it; the second exchanges that code for a key.
+
+<Callout>
+  The confirm step ends in a mailbox rather than on a terminal, so the request
+  and response shapes below come from the code — `apps/api/src/routes/signup.ts`
+  — rather than a captured run.
+</Callout>
+
+<CodeTabs
+  items={[
+    { code: SIGNUP_CURL, label: "cURL", lang: "bash" },
+    { code: SIGNUP_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+The code is valid for ten minutes and single-use. Confirmation returns your
+key once — only a hash is stored, so no endpoint can show it again.
+
+`POST /v1/signup` answers identically whether or not the address already has
+an account. That reads like a missing feature until you know it is deliberate:
+a signup endpoint that says *already registered* tells whoever holds a leaked
+address list which of those addresses use us.
+
+Running the flow again on an address that already has an account mints an
+**additional** key against the same account rather than a second account.
+That is also the recovery path if you lose a key, which is why there is no
+separate sign-in.
+
+To mint a named key without repeating the email flow, see
+[Creating an API key](/api/api-keys/create).
+
+## Authenticating requests
+
+A bearer token on every request. Keys are stored hashed; the plaintext is
+shown once when the key is issued and cannot be recovered afterwards.
+
+<CodeTabs
+  items={[
+    { code: AUTH_HEADER_CURL, label: "cURL", lang: "bash" },
+    { code: AUTH_HEADER_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+`PROPGATE_API_KEY` overrides whatever `confirm` wrote to
+`$XDG_CONFIG_HOME/propgate/config.json`, which is what makes it the right
+variable for CI. `PROPGATE_API_URL` overrides the API the CLI talks to.
+`propgate check` needs neither — it resolves locally and never sends the key
+anywhere.
+
+A `401` distinguishes a key we do not recognise from one that has been
+revoked. You hold the key either way, so saying which saves you looking for a
+typo that is not there.
+
+<Callout>
+  These bodies are derived from `apps/api/src/middleware/auth.ts` rather than
+  a captured run.
+</Callout>
+
+<CodeBlock code={UNKNOWN_401} lang="json" />
+
+<CodeBlock code={REVOKED_401} lang="json" />

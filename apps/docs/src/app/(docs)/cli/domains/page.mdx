@@ -1,0 +1,52 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import {
+  ADD_CLI,
+  ADD_CURL,
+  ADD_OUTPUT,
+  LIST_CLI,
+  LIST_CURL,
+  LIST_EMPTY_OUTPUT,
+  LIST_OUTPUT,
+} from "./_snippets";
+
+# domains
+
+`domains add` and `domains list` are thin clients over `POST /v1/domains` and
+`GET /v1/domains` — the cURL beside each command issues the identical
+request, so the two references agree on the shape.
+
+## `domains add --profile`
+
+Registration is a write, not a verification. It does not touch DNS.
+
+<CodeTabs
+  items={[
+    { code: ADD_CURL, label: "cURL", lang: "bash" },
+    { code: ADD_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+<CodeBlock code={ADD_OUTPUT} lang="text" />
+
+`--profile` is required — a domain that names no profile has nothing to be
+checked against, so the API refuses it with a `422` rather than accepting a
+domain with no meaning. Nothing has been checked yet: `state: pending` here
+means "nobody has looked", not "broken". The sweeper picks up the first check
+on its own schedule.
+
+## `domains list --state`
+
+<CodeTabs
+  items={[
+    { code: LIST_CURL, label: "cURL", lang: "bash" },
+    { code: LIST_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+<CodeBlock code={LIST_OUTPUT} lang="text" />
+
+`--state` filters to one of the five states `domain_state` defines: `pending`,
+`verifying`, `verified`, `degraded`, or `failed`. Omit it to list everything.
+An empty result prints its own line rather than nothing at all — a blank
+terminal after a real command looks like a failure:
+
+<CodeBlock code={LIST_EMPTY_OUTPUT} lang="text" />

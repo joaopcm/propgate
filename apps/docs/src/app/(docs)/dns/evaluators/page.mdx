@@ -1,0 +1,104 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import { REQUIREMENT_TYPES } from "@/lib/api";
+import { CHECK_KINDS } from "@propgate/dns";
+import {
+  CAA_SAMPLE,
+  DELEGATION_SAMPLE,
+  DKIM_SAMPLE,
+  DMARC_SAMPLE,
+  MX_SAMPLE,
+  RUN_CHECKS_BASIC,
+  SPF_SAMPLE,
+} from "./_snippets";
+
+export const EVALUATOR_ENTRIES = {
+  caa: {
+    code: CAA_SAMPLE,
+    nonObvious:
+      "the climb goes to the top-level domain, never to the organizational domain — the Public Suffix List plays no part — and stops at the first CAA RRset it finds. A parent's policy is replaced by a nearer one, never merged with it.",
+  },
+  delegation: {
+    code: DELEGATION_SAMPLE,
+    nonObvious:
+      "every nameserver in the delegation is queried individually, because a lame delegation is a fact about one server, not about the zone — resolvers that happen to pick it get SERVFAIL while everyone else is fine.",
+  },
+  dkim: {
+    code: DKIM_SAMPLE,
+    nonObvious:
+      "the key is parsed rather than pattern-matched, and DNS names fold case while base64 does not — a published key differing only in letter case from the one you issued is a different key, not a formatting quirk.",
+  },
+  dmarc: {
+    code: DMARC_SAMPLE,
+    nonObvious:
+      "a record is valid at the exact name or, failing that, at the organizational domain — and an external rua= destination has to publish its own authorisation record back, or the reports it is sent are silently discarded.",
+  },
+  mx: {
+    code: MX_SAMPLE,
+    nonObvious:
+      "expectsMail is tri-state — true, false, or omitted — because a null MX is correct on a sending-only domain and a total failure on one that receives mail, and no amount of looking at DNS tells you which.",
+  },
+  spf: {
+    code: SPF_SAMPLE,
+    nonObvious:
+      "include: is expanded recursively the way a receiving MTA does it, with RFC 7208's ten-lookup and two-void-lookup ceilings counted across the whole expanded tree rather than per record.",
+  },
+};
+
+# The evaluators
+
+Six evaluators exist — delegation, SPF, DKIM, DMARC, MX, CAA — and
+`runChecks` is what a caller actually reaches for. It takes a `DomainProfile`
+(what a domain is *for*, stated as data) and runs whichever checks that
+profile asks for against one `EvaluationContext`.
+
+<CodeBlock code={RUN_CHECKS_BASIC} lang="ts" />
+
+Two decisions live in `runChecks` that no single evaluator could make on its
+own:
+
+- **Checks run concurrently**, each against its own context. They share
+  nothing and none is ordered relative to another, so the wall clock is the
+  slowest check rather than the sum of all six.
+- **A skipped check is not a passing check.** A profile that never asks about
+  DKIM produces no DKIM outcome at all — not a green one. `sendingOnly`,
+  `fullMail`, and `webOnly` are the three profile constructors that ship with
+  the package; a `DomainProfile` is otherwise plain data you can construct
+  and store yourself.
+
+The verdict on the result is the worst of its parts, and `indeterminate`
+ranks above `warn`: one check that could not run makes the whole answer
+uncertain, but a definite failure you did observe is more actionable than
+uncertainty about the rest.
+
+## The six checks
+
+Rendered from `REQUIREMENT_TYPES`, the same record the API reference reads —
+this list cannot say something the resolver cannot actually check.
+
+<div>
+  {CHECK_KINDS.map((kind) => {
+    const type = REQUIREMENT_TYPES[kind];
+    const entry = EVALUATOR_ENTRIES[kind];
+
+    return (
+      <section className="my-8 border-white/5 border-t pt-6" key={kind}>
+        <h3 className="mb-2 font-mono text-base text-foreground">{kind}</h3>
+        <p className="mb-3 text-muted-foreground text-sm leading-6">
+          {type.summary}
+        </p>
+        <p className="mb-3 text-sm leading-6">
+          <span className="text-foreground">The non-obvious part: </span>
+          <span className="text-muted-foreground">{entry.nonObvious}</span>
+        </p>
+        <CodeBlock code={entry.code} lang="ts" />
+      </section>
+    );
+  })}
+</div>
+
+## Next
+
+[Recipes](/dns/recipes) puts this together into three complete files: check a
+domain and switch on the verdict, query a specific resolver on a
+non-standard port, and read the lookups behind a finding well enough to
+explain it to a customer.

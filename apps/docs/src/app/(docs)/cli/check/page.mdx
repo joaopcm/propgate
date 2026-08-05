@@ -1,0 +1,94 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import {
+  ASSERT_OUTPUT,
+  ASSERT_RUN,
+  CHECK_USAGE,
+  CI_GATE_RUN,
+  JSON_OUTPUT,
+  JSON_RUN,
+  SPF_OUTPUT,
+  SPF_RUN,
+} from "./_snippets";
+
+# check
+
+`propgate check <domain>` needs no account, no config file, and no network
+beyond DNS. It resolves against whichever server you point it at — the
+system resolver by default — using the same engine as the public checker and
+the API.
+
+<CodeBlock code={CHECK_USAGE} lang="text" />
+
+## Every flag
+
+| Flag | What it does |
+|---|---|
+| `--selector <name>` | A DKIM selector to check. Repeatable — pass it once per selector in use. |
+| `--spf-include <name>` | An `include:` token that must authorise this domain, after recursive expansion. |
+| `--caa-issuer <name>` | A certificate authority that must be authorised, climbed per RFC 8659. |
+| `--receives-mail` | This domain should receive mail, so undeliverable mail is a problem. Unstated by default — see "`--receives-mail`" below. |
+| `--only <kinds>` | Comma-separated subset of `delegation, spf, dkim, dmarc, mx, caa`. Runs all six when omitted. |
+| `--resolver <addr>` | Resolver to query, as `address` or `address:port`. Defaults to the system resolver — never assumed to be port 53. |
+| `--trace` | Print every DNS query behind the answer: server, name, type, and outcome. |
+| `--json` | Machine-readable output — see "`--json`" below. |
+| `--help`, `--version` | |
+
+<CodeBlock code={SPF_RUN} lang="bash" />
+<CodeBlock code={SPF_OUTPUT} lang="text" />
+
+GitHub's SPF record works today and sits at exactly the ten DNS lookups RFC
+7208 allows. The next `include:` anyone adds breaks mail delivery, with no
+error at the moment of the edit. Finding that needs recursive `include:`
+expansion with the lookup and void-lookup limits actually counted — a regex
+over a TXT record cannot do it.
+
+Asserting something specific fails loudly when it is missing:
+
+<CodeBlock code={ASSERT_RUN} lang="bash" />
+<CodeBlock code={ASSERT_OUTPUT} lang="text" />
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Nothing to fix. Warnings count as nothing to fix — they describe something that works. |
+| `1` | Something is wrong. |
+| `2` | A check could not be completed. |
+
+That third code is the one worth pausing on: **it is not a failure.** A
+resolver that timed out, or a lookup that came back `SERVFAIL`, says nothing
+about the domain — the resolver kept `indeterminate` separate from `fail` all
+the way down specifically so this exit code could exist. Collapsing it into
+`1` is how a deployment gate starts blocking releases over someone else's bad
+second, on a domain that was never actually misconfigured.
+
+<CodeBlock code={CI_GATE_RUN} lang="bash" />
+
+## `--receives-mail`
+
+Whether a null MX is correct depends entirely on what the domain is *for*,
+and no amount of looking at DNS reveals that — a sending-only domain and a
+domain that has forgotten to set up mail publish the identical record. The
+underlying model has three states: expects mail, does not, and unstated.
+
+The flag itself can only reach two of them. Passing `--receives-mail` asserts
+`true`; leaving it off leaves the check unstated. There is no flag for
+asserting `false` — no way from the CLI to say "this domain deliberately
+sends no mail" — because a check that makes no claim already produces the
+right answer for that domain: `mx` observes a null MX and reports it as
+`MX_NULL`, informational, never a failure, without anyone having to say
+anything.
+
+Pass the flag and that same null MX becomes `MX_MAIL_NOT_ACCEPTED`, an error:
+the check now knows mail was expected and cannot be delivered.
+
+## `--json`
+
+<CodeBlock code={JSON_RUN} lang="bash" />
+<CodeBlock code={JSON_OUTPUT} lang="json" />
+
+Every result carries its **derivation**: which lookups happened, against
+which server, and what each returned — not just the verdict. A verdict you
+cannot audit is a verdict you have to take on faith. `--trace` prints the
+same underlying data in human form alongside the findings, rather than as a
+separate machine-readable document.

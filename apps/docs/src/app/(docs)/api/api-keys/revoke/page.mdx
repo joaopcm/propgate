@@ -1,0 +1,79 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import {
+  REVOKE_ALREADY_RESPONSE,
+  REVOKE_CLI,
+  REVOKE_CURL,
+  REVOKE_LAST_ACTIVE_409,
+  REVOKE_NOT_FOUND_404,
+  REVOKE_RESPONSE,
+} from "./_snippets";
+
+# Revoke an API key
+
+<EndpointHeader
+  cliCommand="propgate keys revoke"
+  method="DELETE"
+  path="/v1/api-keys/:id"
+/>
+
+Takes effect on the next request against that key — there is no un-revoke.
+Any member of the tenant can revoke any of the tenant's keys, including the
+one authenticating this call: rotating away from a key that just leaked is
+the normal case, not an edge case.
+
+<ParamsTable
+  rows={[
+    {
+      description: "The key's id, from `GET /v1/api-keys`. Path parameter, not a body field.",
+      name: "id",
+      required: true,
+      type: "string",
+    },
+  ]}
+/>
+
+<Callout>
+  The CLI accepts a prefix (`pg_live_7c1d`) as well as an id, and resolves it
+  to one here before calling this endpoint — the route itself only ever takes
+  an id. A four-character prefix carries no unique index, so an endpoint that
+  accepted one directly would occasionally have to guess which key you meant.
+  If a prefix matches more than one key, the CLI refuses and lists the
+  candidates rather than picking one.
+</Callout>
+
+<CodeTabs
+  items={[
+    { code: REVOKE_CURL, label: "cURL", lang: "bash" },
+    { code: REVOKE_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+<CodeBlock code={REVOKE_RESPONSE} lang="json" />
+
+`meta.alreadyRevoked` distinguishes the key you just revoked from one that
+already was. Both return the same `200` and the same key — revoking is
+idempotent — but a script re-running its own cleanup step deserves to know it
+was not the one that changed anything this time:
+
+<CodeBlock code={REVOKE_ALREADY_RESPONSE} lang="json" />
+
+## Failure modes
+
+<CodeBlock code={REVOKE_NOT_FOUND_404} lang="json" />
+
+A `404` covers an id that never existed and an id that belongs to a
+different tenant identically — a `403` for the second case would confirm the
+id exists somewhere, which is exactly the leak a 404 avoids.
+
+Revoking your last active key is refused outright:
+
+<CodeBlock code={REVOKE_LAST_ACTIVE_409} lang="json" />
+
+There is no un-revoke, so honoring that request would strand the tenant with
+a valid key they cannot authenticate anything with, including a request to
+mint a replacement. Create the replacement first with
+[`POST /v1/api-keys`](/api/api-keys/create), then revoke the old one.

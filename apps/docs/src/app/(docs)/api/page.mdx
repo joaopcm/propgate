@@ -1,0 +1,78 @@
+import { ENDPOINTS } from "@/lib/api";
+
+export const METHOD_STYLE = {
+  DELETE: "text-[var(--color-destructive)]",
+  GET: "text-muted-foreground",
+  POST: "text-[var(--color-warning)]",
+};
+
+# API reference
+
+You keep the list of domains. You register each one against a profile, ask
+us to verify it, and read back which of your requirements are met and which
+are not. We do not render instructions for your customers — you already have
+a UI for that, and being wrong about a provider's naming conventions is
+visible to your customer, not to us.
+
+Base URL `https://api.propgate.dev`.
+
+## The envelope
+
+Every response — success and error alike — is the same shape, so you write
+one unwrap path rather than one per status code:
+
+```json
+{ "data": { ... }, "error": null, "meta": null }
+{ "data": null, "error": { "message": "..." }, "meta": null }
+```
+
+Error messages name the field that is wrong and, where the check is a shape
+check, the value that would fix it — `email: Invalid input: expected string,
+received undefined` rather than `invalid request`. They are written to be
+actionable by the agent reading them, not only by the person who wrote the
+integration.
+
+## Endpoints
+
+<ul className="my-6 list-none pl-0">
+  {ENDPOINTS.map((endpoint) => (
+    <li
+      className="flex flex-col gap-1 border-white/5 border-b py-3 last:border-0 sm:flex-row sm:items-baseline sm:gap-4"
+      key={`${endpoint.method} ${endpoint.path}`}
+    >
+      <span
+        className={`shrink-0 font-mono text-[0.6875rem] uppercase tracking-widest ${METHOD_STYLE[endpoint.method]}`}
+      >
+        {endpoint.method}
+      </span>
+      <code className="shrink-0 font-mono text-sm">{endpoint.path}</code>
+      <span className="flex-1 text-muted-foreground text-sm leading-6">
+        {endpoint.summary}
+      </span>
+    </li>
+  ))}
+</ul>
+
+Start with [starting a signup](/api/accounts/signup) if you don't have a key
+yet, or [authentication](/authentication) for how to use one you already
+have.
+
+## Rate limits
+
+Per account, and sized as tripwires rather than quotas: **250 requests a
+second** overall, and **100 verifications a minute**. A `429` names the
+limit it enforced and carries a `Retry-After` header.
+
+The request limit is a one-second window rather than the same average over a
+minute, because a minute-long window permits the whole allowance as a single
+burst — the shape that actually hurts a connection pool.
+
+The verification limit is the one worth planning around. A check costs up to
+twenty upstream queries aimed at whichever authoritative servers you name, so
+it is sized against other people's infrastructure rather than ours.
+Continuous re-checking is the sweeper's job and does not come through this
+endpoint or count against this limit.
+
+If a real integration reaches either of these, the number is wrong and we
+would rather re-measure it than have you work around it. Tell us — the
+request ceiling is a per-account value we can raise.

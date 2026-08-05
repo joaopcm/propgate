@@ -1,0 +1,72 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import {
+  CREATE_CLI,
+  CREATE_CURL,
+  CREATE_LIMIT_422,
+  CREATE_MISSING_NAME_422,
+  CREATE_RESPONSE,
+} from "./_snippets";
+
+# Create an API key
+
+<EndpointHeader
+  cliCommand="propgate keys create"
+  method="POST"
+  path="/v1/api-keys"
+/>
+
+Mints a key for the tenant the presenting key belongs to, without repeating
+the signup flow. Any of a tenant's own keys can authenticate this call,
+including a key created from [`confirm`](/api/accounts/confirm).
+
+<ParamsTable
+  rows={[
+    {
+      description: "A label for this key, up to 64 characters. Shown back in `GET /v1/api-keys` to tell keys apart — e.g. `staging`, `ci`.",
+      name: "name",
+      required: true,
+      type: "string",
+    },
+  ]}
+/>
+
+<Callout>
+  The response below is a shape read off `serialise` in
+  `apps/api/src/routes/api-keys.ts`, not a captured run.
+</Callout>
+
+<CodeTabs
+  items={[
+    { code: CREATE_CURL, label: "cURL", lang: "bash" },
+    { code: CREATE_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+<CodeBlock code={CREATE_RESPONSE} lang="json" />
+
+**`key` is returned exactly once, here, and never again on any endpoint.**
+Only its hash is stored, so there is no code path that could show it a second
+time even by accident — that is what makes "we cannot show you that key
+again" a property of the storage rather than a policy someone could quietly
+change.
+
+`createdBy` propagates from whichever key authenticated this request: an
+operator-minted key has no creator, and null propagates as null rather than
+being filled in with a guess.
+
+## Failure modes
+
+<CodeBlock code={CREATE_MISSING_NAME_422} lang="json" />
+
+A tenant may hold at most fifty active keys — a tripwire against an
+unattended loop turning this endpoint into unbounded row growth, not a quota
+any real integration is expected to approach. Revoked keys don't count
+toward it. The `422` names both halves of the problem: the limit, and how
+many you currently hold, so an agent reading it knows exactly what to do
+next.
+
+<CodeBlock code={CREATE_LIMIT_422} lang="json" />

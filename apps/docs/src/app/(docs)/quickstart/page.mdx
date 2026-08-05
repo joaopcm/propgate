@@ -1,0 +1,235 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import {
+  CHECK_CLI,
+  CHECK_CURL,
+  CONFIRM_CLI,
+  CONFIRM_CURL,
+  PROFILE_CURL,
+  REGISTER_CLI,
+  REGISTER_CURL,
+  SIGNUP_CLI,
+  SIGNUP_CURL,
+  VERIFY_CURL,
+  VERIFY_RESPONSE,
+} from "./_snippets";
+
+# Quickstart
+
+Every command here was run against the live API and the outputs are real,
+including the unflattering ones. The one exception is the signup exchange
+below, which ends in a mailbox rather than on a terminal — its request and
+response shapes come from the code, and it is marked where it appears.
+
+```bash
+export A=https://api.propgate.dev
+alias j='python3 -m json.tool'      # or jq
+```
+
+## No key required
+
+`POST /v1/checks` is open. One field, no signup.
+
+<CodeTabs
+  items={[
+    { code: CHECK_CURL, label: "cURL", lang: "bash" },
+    { code: CHECK_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+```
+delegation  pass
+spf         pass
+dmarc       pass
+mx          pass    MX_NULL
+```
+
+`MX_NULL` on a **passing** check is the first thing worth understanding: the
+domain declares it accepts no mail, which is correct rather than broken. Read
+`satisfied`, not the presence of findings.
+
+### What a real domain looks like
+
+```bash
+curl -s -X POST $A/v1/checks -H 'content-type: application/json' \
+  -d '{"domain":"github.com"}' | j
+```
+
+```
+delegation  warn    NS_SERIAL_MISMATCH
+spf         warn    SPF_MACRO_NOT_EVALUATED, SPF_LOOKUP_LIMIT_NEAR
+dmarc       pass
+mx          pass
+```
+
+Two findings on a domain nobody would call misconfigured, and neither is the
+kind of thing a hand-rolled verifier looks for.
+
+**Their SPF has no room left.**
+
+```json
+{
+  "code": "SPF_LOOKUP_LIMIT_NEAR",
+  "evidence": {
+    "detail": "0 of the ten lookups are left, so the next sending service added is likely to break SPF outright",
+    "expected": "at most 7 lookups, to leave room to grow",
+    "observed": "10 lookups"
+  }
+}
+```
+
+RFC 7208 caps SPF evaluation at ten DNS lookups. GitHub is at exactly ten. The
+record works today and the next `include:` anyone adds breaks mail delivery,
+with no error at the moment of the edit. Finding this needs recursive
+`include:` expansion, which is why a regex over a TXT record is not a
+verifier.
+
+**Their nameservers disagree.**
+
+```json
+{
+  "code": "NS_SERIAL_MISMATCH",
+  "evidence": {
+    "detail": "a zone transfer has stopped: every answer is valid, some are simply older, and which one a customer sees depends on which server they reach",
+    "observed": "ns-520.awsdns-01.net, … at 1; dns1.p08.nsone.net, … at 1656468023"
+  }
+}
+```
+
+Two nameserver sets, two different zone serials. Every answer is valid; some
+are older. Which one a customer gets depends on which server they happen to
+reach — the class of problem that reads as "intermittent" and never
+reproduces.
+
+Every finding carries a [diagnosis code](/taxonomy), a `slug` linking to its
+documentation, and the lookups behind it.
+
+## Getting a key
+
+Two calls, no sales conversation.
+
+<Callout>
+  Shapes from the code rather than a captured run — the middle step is
+  reading your mail.
+</Callout>
+
+<CodeTabs
+  items={[
+    { code: SIGNUP_CURL, label: "cURL", lang: "bash" },
+    { code: SIGNUP_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+```json
+{ "data": { "object": "signup", "status": "pending" }, "error": null, "meta": null }
+```
+
+A six-digit code arrives, valid for ten minutes. That response is identical
+whether or not the address already has an account — a signup endpoint that
+says *already registered* tells whoever holds a leaked address list which of
+those addresses use us.
+
+<CodeTabs
+  items={[
+    { code: CONFIRM_CURL, label: "cURL", lang: "bash" },
+    { code: CONFIRM_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+```json
+{
+  "data": {
+    "apiKey": "pg_live_...",
+    "created": true,
+    "object": "account",
+    "tenantId": "019fcf4f-..."
+  },
+  "error": null,
+  "meta": null
+}
+```
+
+That is the only time the key is readable. Only a hash is stored, so no
+endpoint can show it again — losing it means running the flow again, which
+mints an *additional* key against the same account rather than a second
+account. That doubles as the recovery path, which is why there is no separate
+sign-in.
+
+The code is single-use: a second `confirm` with it returns `409`.
+
+`confirm` stores the key in `$XDG_CONFIG_HOME/propgate/config.json` at mode
+`0600` and prints it once. `PROPGATE_API_KEY` overrides it for CI. See
+[Authentication](/authentication) for the full key lifecycle, including how a
+`401` distinguishes a revoked key from an unknown one.
+
+## With a key
+
+Registration and verification are separate calls. Registration is a write;
+verification is an action with latency. Importing ten thousand domains should
+not fire ten thousand DNS runs as a side effect of a bulk insert.
+
+```bash
+export KEY=pg_live_...        # from `confirm` above
+```
+
+### A profile: what you expect of a domain
+
+<CodeBlock code={PROFILE_CURL} lang="bash" />
+
+The CLI has no equivalent yet — a profile is created over the API only.
+
+Editing a profile writes a **new version**; it never changes the old one, and
+domains stay pinned to the version they were registered against. Otherwise
+one edit silently reclassifies every domain at once.
+
+A definition is refused at write time if any requirement could never be
+answered — a duplicate key, a DKIM requirement with no selector, a CAA
+requirement with no issuer. Accepting those would be a promise this API could
+not keep.
+
+### Register, then verify
+
+<CodeTabs
+  items={[
+    { code: REGISTER_CURL, label: "cURL", lang: "bash" },
+    { code: REGISTER_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+<CodeBlock code={VERIFY_CURL} lang="bash" />
+
+The CLI has no equivalent yet — triggering a check is API-only.
+
+<CodeBlock code={VERIFY_RESPONSE} lang="json" />
+
+"3 of 5 met", the unmet ones named, and the DNS name the missing record
+belongs at. No instructions are rendered — you already have a UI that tells
+your customer what to paste, and being wrong about a provider's naming
+conventions is visible to your customer rather than to us.
+
+### Read it back, and watch it change
+
+```bash
+curl -s $A/v1/domains/$ID -H "authorization: Bearer $KEY" | j          # stored, no re-check
+curl -s $A/v1/domains/$ID/timeline -H "authorization: Bearer $KEY" | j
+```
+
+Check twice in a row and the timeline does not grow. An entry is appended
+**only when an observation actually differs** — that is the difference
+between a $20 infrastructure bill and a $400 one, and it cannot be
+retrofitted.
+
+Fix the missing record, wait for the TTL, check again, and one entry appears:
+
+```json
+{ "requirementKey": "dkim",
+  "previous": "fail:DKIM_RECORD_MISSING",
+  "current": "pass",
+  "observedAt": "2026-08-03T14:02:11.000Z" }
+```
+
+## Next
+
+Full reference at [the API reference](/api). Every diagnosis code is
+documented at [the taxonomy](/taxonomy).

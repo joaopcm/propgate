@@ -1,0 +1,45 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import {
+  PROFILE_GET_CURL,
+  PROFILE_GET_NOT_FOUND,
+  PROFILE_GET_RESPONSE,
+} from "./_snippets";
+
+# Get a profile
+
+<EndpointHeader method="GET" path="/v1/profiles/:key" />
+
+Returns the **current** version only — the one a new registration against
+this `key` would pin to. There is no endpoint that lists every past version;
+a domain that is already registered keeps its own `profileVersionId`
+regardless of what this call returns later, which is the whole point of
+versioning. See [Profiles and versions](/concepts/profiles).
+
+<ParamsTable
+  rows={[
+    {
+      description: "The profile's identifier, as given to POST /v1/profiles.",
+      name: "key",
+      required: true,
+      type: "string",
+    },
+  ]}
+/>
+
+No CLI command yet — reading a profile back is API-only.
+
+<Callout>
+  Neither the request nor the response below is captured — QUICKSTART.md does
+  not call this endpoint. The response is a shape read off `serialise` in
+  `apps/api/src/routes/profiles.ts`.
+</Callout>
+
+<CodeBlock code={PROFILE_GET_CURL} lang="bash" />
+<CodeBlock code={PROFILE_GET_RESPONSE} lang="json" />
+
+A `key` with no version yet is a `404`, quoted from the same route:
+
+<CodeBlock code={PROFILE_GET_NOT_FOUND} lang="json" />

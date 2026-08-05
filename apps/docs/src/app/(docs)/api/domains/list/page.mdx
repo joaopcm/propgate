@@ -1,0 +1,68 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import { LIST_CLI, LIST_CURL, LIST_RESPONSE } from "./_snippets";
+
+# List domains
+
+<EndpointHeader
+  cliCommand="propgate domains list [--state <state>]"
+  method="GET"
+  path="/v1/domains"
+/>
+
+<ParamsTable
+  rows={[
+    {
+      description: "Default 50, max 200.",
+      name: "limit",
+      type: "number",
+    },
+    {
+      description: "From a previous page's meta.nextCursor. Omit for the first page.",
+      name: "cursor",
+      type: "string",
+    },
+    {
+      description: "One of pending, verifying, verified, degraded, failed.",
+      name: "state",
+      type: "string",
+    },
+    {
+      description: "Your own identifier, exact match. The filter to reach for if you did not keep our ids.",
+      name: "externalId",
+      type: "string",
+    },
+  ]}
+/>
+
+<CodeTabs
+  items={[
+    { code: LIST_CURL, label: "cURL", lang: "bash" },
+    { code: LIST_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+Paging is by cursor, ordered oldest first. Pass `meta.nextCursor` back until
+it is `null`. A domain registered while you are mid-walk lands after the
+cursor and appears at the end, so a full walk never misses a row it had not
+reached yet — the property an offset-based page cannot give you once rows are
+being inserted concurrently.
+
+<Callout>
+  The response below is a shape read off `serialise` in
+  `apps/api/src/routes/domains.ts` — QUICKSTART.md shows the request forms
+  above but never prints a body for this call. Trimmed to one item and one
+  requirement for length; a real page carries every requirement per domain.
+</Callout>
+
+<CodeBlock code={LIST_RESPONSE} lang="json" />
+
+**`lookups` is omitted here.** A stored result is about 389 bytes without it;
+including it on every item would multiply the page by roughly 4.4×, and at
+the maximum `limit` of 200 that is the difference between a page you can
+reconcile in one request and one that times out doing it. Fetch
+[a single domain](/api/domains/get) to get the lookups behind a specific
+result.
