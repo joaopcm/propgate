@@ -62,7 +62,11 @@ export interface FlatNavEntry {
  */
 export const navigation: readonly NavSection[] = [
   {
-    items: [{ href: "/", title: "Introduction" }],
+    items: [
+      { href: "/", title: "Introduction" },
+      { href: "/quickstart", title: "Quickstart" },
+      { href: "/authentication", title: "Authentication" },
+    ],
     title: "Get started",
   },
   { items: [], title: "Concepts" },

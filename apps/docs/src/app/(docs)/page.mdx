@@ -1,0 +1,61 @@
+import { CodeTabs } from "@/components/docs/code-tabs";
+import { CHECK_CLI, CHECK_CURL } from "./_snippets";
+
+# propgate
+
+**Domain verification that tells you what is wrong, not just that something
+is.**
+
+Companies whose customers configure DNS — email platforms, custom domains,
+anything with a "verify your domain" screen — rebuild the same brittle
+checker. This is the part they never get to: the semantics, the provider
+quirks, and the difference between *broken* and *we could not tell*.
+
+## See it
+
+No signup, no key:
+
+<CodeTabs
+  items={[
+    { code: CHECK_CURL, label: "cURL", lang: "bash" },
+    { code: CHECK_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+That returns two findings on a domain nobody would call misconfigured:
+
+```
+spf         warn    SPF_LOOKUP_LIMIT_NEAR   0 of the ten lookups are left
+delegation  warn    NS_SERIAL_MISMATCH      … at 1656468023; … at 1
+```
+
+GitHub's SPF sits at exactly the ten DNS lookups RFC 7208 allows. It works
+today, and the next `include:` anyone adds breaks mail delivery — with no
+error at the moment of the edit. Separately, their AWS and NS1 nameservers
+report different zone serials, so which answer a customer gets depends on
+which server they happen to reach.
+
+Neither is findable with a regex over a TXT record. That is the whole
+argument.
+
+## What you get
+
+- **73 diagnosis codes**, each a stable contract you can switch on, each
+  either reproduced by a fixture in the test harness or carrying a written
+  reason why it cannot be. `PROVIDER_APPENDED_ZONE_NAME` deflects a support
+  ticket; "record not found" creates one.
+- **Semantics, not string matching.** SPF expanded recursively the way an MTA
+  does it, with the ten-lookup and two-void-lookup limits counted. DKIM keys
+  parsed. The CAA tree climbed per RFC 8659.
+- **Four verdicts, not two.** `pass`, `warn`, `fail`, and `indeterminate` —
+  because "this is broken" and "we could not tell" are different answers, and
+  collapsing them is how a monitoring product pages someone at 3am over its
+  own bad second.
+- **The derivation, not just the verdict.** Every result carries the lookups
+  behind it: which name, which server, what came back.
+
+## Next
+
+- [Quickstart](/quickstart) — get a key, register a domain, verify it
+- [API reference](/api) — every endpoint, request and response shape
+- [Diagnosis taxonomy](/taxonomy) — every code, what it means, how to fix it
