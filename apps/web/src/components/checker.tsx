@@ -1,7 +1,9 @@
 "use client";
 
 import { ArrowRight, Loader2 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { parseAsString, useQueryState } from "nuqs";
+import type { ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { byUrgency, type CheckResult, runCheck, summarise } from "@/lib/check";
 import { cn } from "@/lib/utils";
 import { CheckPanel } from "./check-panel";
@@ -15,7 +17,13 @@ import { Rail, verdictTone, verdictWord } from "./verdict";
  * the domain receives mail — is a profile decision that belongs to an
  * onboarding flow, not to someone typing a domain to see what happens. So this
  * asks for none of it and reads the domain as it is.
+ *
+ * The field is `?domain=`, so the URL is always the thing worth sending to
+ * whoever owns the DNS, and opening one runs the check rather than waiting for a
+ * click.
  */
+
+const DOMAIN = parseAsString.withDefault("");
 
 type State =
   | { readonly kind: "idle" }
@@ -23,34 +31,42 @@ type State =
   | { readonly kind: "done"; readonly result: CheckResult }
   | { readonly kind: "failed"; readonly message: string };
 
+// Reading the query string cannot be prerendered and this app is a static
+// export, so Next requires the boundary. The fallback is the same frame, which
+// is what keeps the field in the exported HTML.
 export function Checker() {
-  const [domain, setDomain] = useState("");
+  return (
+    <Suspense
+      fallback={
+        <Frame>
+          <Idle />
+        </Frame>
+      }
+    >
+      <Live />
+    </Suspense>
+  );
+}
+
+function Live() {
+  const [domain, setDomain] = useQueryState("domain", DOMAIN);
   const [state, setState] = useState<State>({ kind: "idle" });
   const inFlight = useRef<AbortController | null>(null);
+  const opened = useRef(domain);
 
   const running = state.kind === "running";
 
-  const submit = useCallback(
-    async (event: React.FormEvent) => {
-      event.preventDefault();
+  const run = useCallback((target: string) => {
+    // A second submission replaces the first rather than racing it, so a
+    // slow answer can never overwrite a newer one.
+    inFlight.current?.abort();
 
-      const trimmed = domain.trim();
+    const controller = new AbortController();
 
-      if (trimmed === "" || running) {
-        return;
-      }
+    inFlight.current = controller;
+    setState({ domain: target, kind: "running" });
 
-      // A second submission replaces the first rather than racing it, so a
-      // slow answer can never overwrite a newer one.
-      inFlight.current?.abort();
-
-      const controller = new AbortController();
-
-      inFlight.current = controller;
-      setState({ domain: trimmed, kind: "running" });
-
-      const response = await runCheck({ domain: trimmed }, controller.signal);
-
+    runCheck({ domain: target }, controller.signal).then((response) => {
       if (controller.signal.aborted) {
         return;
       }
@@ -60,19 +76,68 @@ export function Checker() {
           ? { kind: "done", result: response.result }
           : { kind: "failed", message: response.message }
       );
+    });
+  }, []);
+
+  // The domain the page was opened with, never a later keystroke.
+  useEffect(() => {
+    if (opened.current !== "") {
+      run(opened.current);
+    }
+  }, [run]);
+
+  const submit = useCallback(
+    (event: React.FormEvent) => {
+      event.preventDefault();
+
+      const trimmed = domain.trim();
+
+      if (trimmed !== "" && !running) {
+        run(trimmed);
+      }
     },
-    [domain, running]
+    [domain, run, running]
   );
 
   const onDomainChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) =>
       setDomain(event.target.value),
-    []
+    [setDomain]
   );
 
   return (
+    <Frame
+      onChange={onDomainChange}
+      onSubmit={submit}
+      running={running}
+      value={domain}
+    >
+      {state.kind === "idle" ? <Idle /> : null}
+      {state.kind === "running" ? <Running domain={state.domain} /> : null}
+      {state.kind === "failed" ? <Failed message={state.message} /> : null}
+      {state.kind === "done" ? <Report result={state.result} /> : null}
+    </Frame>
+  );
+}
+
+function Frame({
+  children,
+  onChange,
+  onSubmit,
+  running,
+  value,
+}: {
+  children: ReactNode;
+  onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onSubmit?: (event: React.FormEvent) => void;
+  running?: boolean;
+  value?: string;
+}) {
+  const domain = value ?? "";
+
+  return (
     <div className="w-full">
-      <form className="group relative" onSubmit={submit}>
+      <form className="group relative" onSubmit={onSubmit}>
         <label className="sr-only" htmlFor="domain">
           Domain
         </label>
@@ -92,8 +157,10 @@ export function Checker() {
             className="min-w-0 flex-1 bg-transparent font-mono text-xl outline-none placeholder:text-muted-foreground/40 sm:text-2xl"
             id="domain"
             name="domain"
-            onChange={onDomainChange}
+            onChange={onChange}
             placeholder="example.com"
+            // Nothing to type into before hydration.
+            readOnly={onChange === undefined}
             spellCheck={false}
             value={domain}
           />
@@ -113,12 +180,7 @@ export function Checker() {
         </div>
       </form>
 
-      <div className="mt-16">
-        {state.kind === "idle" ? <Idle /> : null}
-        {state.kind === "running" ? <Running domain={state.domain} /> : null}
-        {state.kind === "failed" ? <Failed message={state.message} /> : null}
-        {state.kind === "done" ? <Report result={state.result} /> : null}
-      </div>
+      <div className="mt-16">{children}</div>
     </div>
   );
 }
