@@ -25,6 +25,20 @@ import { firstIssue } from "../utils/validation";
  * revoking the key you are currently holding is the normal "rotate away from
  * something that leaked" move. It must keep working, so nothing here special-cases
  * the presented key.
+ *
+ * **Any member of a tenant can revoke any of that tenant's keys, and that is
+ * deliberate for now.** `created_by_member_id` records who made each key, so the
+ * question "who added this" has an answer — but authorisation is not gated on it,
+ * because the obvious gate is wrong: "only the creator may revoke" locks a tenant
+ * out of its departed colleague's key at exactly the moment revoking it matters
+ * most. Doing this properly needs roles, so an admin can act on somebody else's
+ * key while a normal member cannot, and roles are a column on `tenant_members`
+ * plus a policy — a deliberate piece of work rather than something to infer from
+ * an attribution column.
+ *
+ * What this milestone buys is that the attribution exists *before* it is needed.
+ * It cannot be backfilled: a key created today with no record of its creator is
+ * unattributable forever.
  */
 
 const MAX_NAME_LENGTH = 64;
@@ -51,6 +65,15 @@ const createSchema = z.object({
 function serialise(key: TenantApiKey) {
   return {
     createdAt: key.createdAt.toISOString(),
+    /**
+     * Who made it, by address, or null when nobody is on record.
+     *
+     * The address rather than the member id: "who" is the question, and an id
+     * requires a second lookup nobody can make yet — there is no members endpoint.
+     * Null is a normal answer, not an error — see the column's comment for the
+     * three cases that produce it.
+     */
+    createdBy: key.createdByEmail,
     id: key.id,
     lastUsedAt: key.lastUsedAt?.toISOString() ?? null,
     name: key.name,
@@ -94,7 +117,28 @@ export function createApiKeysRoute(options: { db: Database }) {
       );
     }
 
+    /**
+     * Attribution follows the key that authenticated the request.
+     *
+     * There is no session here — a key is not a person — so the only member this
+     * request can honestly name is the one the *presenting* key is attributed to.
+     * Propagating it means a chain of keys rotated over a year still points back at
+     * whoever started it, which is the question an audit actually asks.
+     *
+     * Null propagates as null rather than being filled in with a guess. An
+     * operator-minted key has no creator, and anything created with it inherits
+     * that honestly instead of being attributed to whoever happens to hold it.
+     */
+    const presenting = await apiKeyForTenant(db, {
+      apiKeyId: c.get("apiKeyId"),
+      tenantId,
+    });
+
     const created = await createApiKey(db, {
+      ...(presenting?.createdByMemberId === null ||
+      presenting?.createdByMemberId === undefined
+        ? {}
+        : { createdByMemberId: presenting.createdByMemberId }),
       name: parsed.data.name,
       tenantId,
     });

@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import type { Database } from "../client";
 import { apiKeys } from "../schema/api-keys";
+import { tenantMembers } from "../schema/tenant-members";
 
 /**
  * Keys, scoped to one tenant, for a tenant managing its own.
@@ -22,6 +23,16 @@ import { apiKeys } from "../schema/api-keys";
 
 export interface TenantApiKey {
   readonly createdAt: Date;
+  /**
+   * The address of the member who created it, or null when nobody is on record.
+   *
+   * Null has three honest causes and none of them are errors: the key predates the
+   * column, an operator minted it over a shell, or it was created by a key that
+   * itself had no creator. Rendered rather than the member id, because an id
+   * answers "which row" and the question being asked is "who".
+   */
+  readonly createdByEmail: string | null;
+  readonly createdByMemberId: string | null;
   readonly id: string;
   readonly lastUsedAt: Date | null;
   readonly name: string;
@@ -37,6 +48,8 @@ export interface TenantApiKey {
 
 const SUMMARY = {
   createdAt: apiKeys.createdAt,
+  createdByEmail: tenantMembers.email,
+  createdByMemberId: apiKeys.createdByMemberId,
   id: apiKeys.id,
   lastUsedAt: apiKeys.lastUsedAt,
   name: apiKeys.name,
@@ -58,6 +71,11 @@ export async function listApiKeysForTenant(
   return await db
     .select(SUMMARY)
     .from(apiKeys)
+    // Left, emphatically. `created_by_member_id` is null for every key that
+    // predates it and for every operator-minted one, and an inner join would drop
+    // exactly those rows — a list that silently omits the oldest keys, which are
+    // the ones somebody auditing is most likely to be looking for.
+    .leftJoin(tenantMembers, eq(tenantMembers.id, apiKeys.createdByMemberId))
     .where(eq(apiKeys.tenantId, tenantId))
     .orderBy(asc(apiKeys.createdAt), asc(apiKeys.id));
 }
@@ -69,6 +87,7 @@ export async function apiKeyForTenant(
   const [row] = await db
     .select(SUMMARY)
     .from(apiKeys)
+    .leftJoin(tenantMembers, eq(tenantMembers.id, apiKeys.createdByMemberId))
     .where(
       // Both predicates, always. Filtering on the id alone and checking the
       // tenant afterwards is the same bug written later, and it is the one that
@@ -113,6 +132,7 @@ export async function revokeApiKeyForTenant(
     const [key] = await tx
       .select(SUMMARY)
       .from(apiKeys)
+      .leftJoin(tenantMembers, eq(tenantMembers.id, apiKeys.createdByMemberId))
       .where(
         and(
           eq(apiKeys.id, input.apiKeyId),
@@ -157,19 +177,25 @@ export async function revokeApiKeyForTenant(
       return { key, kind: "last-active" };
     }
 
-    // `returning` rather than a second read: the caller renders `revoked_at`, and
-    // reporting the row as it was before the update would hand back a null the
-    // database no longer holds.
+    /**
+     * Only `revoked_at` comes back from the update.
+     *
+     * `SUMMARY` now reaches into `tenant_members` for the creator's address, and
+     * `RETURNING` cannot see a joined table — it returns columns of the row being
+     * written and nothing else. So the update returns the one field it changed and
+     * that is merged into the row already read above, which keeps the response
+     * honest about `revoked_at` without paying for a second joined read.
+     */
     const [revoked] = await tx
       .update(apiKeys)
       .set({ revokedAt: new Date() })
       .where(eq(apiKeys.id, key.id))
-      .returning(SUMMARY);
+      .returning({ revokedAt: apiKeys.revokedAt });
 
     if (revoked === undefined) {
       throw new Error("revoke returned no row");
     }
 
-    return { key: revoked, kind: "revoked" };
+    return { key: { ...key, revokedAt: revoked.revokedAt }, kind: "revoked" };
   });
 }
