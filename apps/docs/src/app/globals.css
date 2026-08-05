@@ -8,6 +8,9 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 }
@@ -19,6 +22,12 @@
   --muted: #27272a;
   --muted-foreground: #a1a1aa;
   --border: rgba(255, 255, 255, 0.08);
+  /* Same register as --muted-foreground's zinc-400: the 400 shade, chosen for
+     contrast against #0b0b0d rather than the more common 500, which is tuned
+     for a light background. */
+  --warning: #fbbf24;
+  --destructive: #f87171;
+  --success: #4ade80;
 }
 
 @layer base {
