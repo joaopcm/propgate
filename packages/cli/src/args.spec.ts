@@ -23,6 +23,14 @@ describe("parse", () => {
     expect(run("--help").kind).toBe("help");
   });
 
+  it("reports the version, which also takes no positionals", () => {
+    // The regression this exists for: `--version` and "no arguments" look
+    // identical to a positional count, so a help branch checked first ate it and
+    // `propgate --version` printed usage in every release that shipped.
+    expect(run("--version").kind).toBe("version");
+    expect(run("-v").kind).toBe("version");
+  });
+
   it("collects repeated selectors", () => {
     const parsed = run(
       "check",

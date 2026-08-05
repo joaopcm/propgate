@@ -126,12 +126,21 @@ export function parse(argv: readonly string[]): Parsed {
 
   const { positionals, values } = result.parsed;
 
-  if (values.help === true || positionals.length === 0) {
-    return { kind: "help" };
-  }
-
+  /**
+   * Before the help branch, and that order is the whole point.
+   *
+   * `--version` arrives with no positionals, so the "no arguments means help"
+   * check below swallowed it: `propgate --version` printed usage in every release
+   * that has ever shipped. Nothing caught it because the version path had no spec
+   * and the constant it printed was stale anyway, so neither half of the feature
+   * worked and each hid the other.
+   */
   if (values.version === true) {
     return { kind: "version" };
+  }
+
+  if (values.help === true || positionals.length === 0) {
+    return { kind: "help" };
   }
 
   const [command, domain, ...extra] = positionals;
