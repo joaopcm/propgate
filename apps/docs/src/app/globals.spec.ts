@@ -39,9 +39,11 @@ const VAR_COLOR_REFERENCE_PATTERN = /var\(--color-([a-z][a-z0-9-]*)\)/g;
  * usages from the scan entirely reopens this file's reason to exist for one
  * class of usage: a token used *only* behind a variant (`dark:bg-newtoken`
  * with no bare twin anywhere) is then never checked at all. Stripping the
- * prefix and checking the bare suffix instead fails the other way — nothing in
- * this tree uses bare `border-0`, so there is no `.border-0` rule for
- * `last:border-0` to resolve against, and every such usage cries wolf.
+ * prefix and validating the bare suffix instead makes the answer depend on
+ * whether a bare companion rule happens to be in the bundle — a fact about
+ * what else the build emitted, not about the class under test. Keeping the
+ * prefix asks Tailwind about the exact class the source wrote, so it needs no
+ * companion rule to exist.
  *
  * The lookbehind anchors each match to the start of a whitespace- or
  * quote-delimited token, which is what a class name in a `className` string or
@@ -49,6 +51,13 @@ const VAR_COLOR_REFERENCE_PATTERN = /var\(--color-([a-z][a-z0-9-]*)\)/g;
  * boundary: it stops `bg-foo` inside a URL path and `bg-muted</code>` inside
  * JSX text from being read as class names and then failing as classes Tailwind
  * never generated.
+ *
+ * Known gap: a bracket-leading arbitrary variant (`[&>svg]:text-x`) is matched
+ * and reconstructed as `.\[\&\>svg\]\:text-x`, but whether `escapeForSelector`
+ * reproduces Tailwind's escaping of `&` and `>` is unverified — this tree has
+ * no such usage to check it against. If one is added and this test cries wolf,
+ * compare the reconstruction against the real selector in the built CSS before
+ * assuming the class is broken.
  */
 const UTILITY_CLASS_PATTERN =
   /(?<=^|[\s"'`])(?:[^\s:"'`]*:)*(?:bg|text|border)-[^\s"'`]+/g;
