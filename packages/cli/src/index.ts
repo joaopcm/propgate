@@ -1,4 +1,6 @@
 import { getServers } from "node:dns";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   CHECK_KINDS,
   type CheckResult,
@@ -172,7 +174,38 @@ export async function main(argv: readonly string[]): Promise<number> {
   return await check(parsed.options);
 }
 
+/**
+ * Whether this file was run as a program, rather than imported by a spec.
+ *
+ * **The previous version of this guard made every published release a silent
+ * no-op.** It asked whether `process.argv[1]` ended in `index.js`, and npm links
+ * a package's bin as a symlink — `.bin/propgate` → `dist/index.js`. Node reports
+ * `argv[1]` as the path it was *invoked* by, not the file that path resolves to,
+ * so under `npx @propgate/cli` the check saw `.../.bin/propgate`, decided this
+ * was an import, and exited 0 having printed nothing. Every documented
+ * invocation went through that symlink.
+ *
+ * Comparing realpaths is what makes it true in every case that matters: the
+ * POSIX symlink, `node dist/index.js` with a relative path, and the Windows
+ * `.cmd` shim that passes the script path directly. A spec importing this module
+ * still sees the test runner in `argv[1]` and correctly declines to run.
+ */
+function runAsProgram(): boolean {
+  const [, entry] = process.argv;
+
+  if (entry === undefined) {
+    return false;
+  }
+
+  try {
+    return realpathSync(entry) === fileURLToPath(import.meta.url);
+  } catch {
+    // `argv[1]` naming something unreadable means we were not started from it.
+    return false;
+  }
+}
+
 // tsup adds the shebang; this guard keeps the module importable from tests.
-if (process.argv[1]?.endsWith("index.js")) {
+if (runAsProgram()) {
   process.exitCode = await main(process.argv.slice(2));
 }
