@@ -19,7 +19,7 @@ import {
 />
 
 Exchanges the code from [`POST /v1/signup`](/api/accounts/signup) for an
-account and a key. The code is single-use — a second `confirm` with it is a
+account and a key. The code is single-use: a second `confirm` with it is a
 `409`, not a second key.
 
 <ParamsTable
@@ -48,35 +48,35 @@ account and a key. The code is single-use — a second `confirm` with it is a
 
 <CodeBlock code={CONFIRM_RESPONSE} lang="json" />
 
-**`apiKey` is readable exactly once, here.** Only its hash is stored, so
-there is no endpoint — not this one on a retry, not a future one — that could
-ever show it again. Losing it means running `signup` again, which mints an
-additional key against the same account rather than a second one.
+**`apiKey` is readable exactly once, here.** Only its hash is stored, so no
+endpoint can ever show it again, not this one on a retry and not a future one.
+Losing it means running `signup` again, which mints an additional key against
+the same account rather than a second one.
 
 `created` distinguishes a brand-new account from a code confirmed on an
-address that already had one — both mint a key, but only one is a new
-tenant.
+address that already had one. Both mint a key, but only one is a new tenant.
 
-## The single 409
+## Failure modes
+
+A malformed body, whether a code that isn't six characters or a missing
+field, is a `422` in the same `field: message` shape used throughout the API:
 
 <CodeBlock code={CONFIRM_SHORT_CODE_422} lang="json" />
 
-A malformed body — a code that isn't six characters, a missing field — is a
-`422` in the same `field: message` shape used above. Everything else about
-"this code doesn't work" collapses into one `409`, regardless of which of four
-reasons produced it:
+Everything else about "this code doesn't work" collapses into one `409`,
+regardless of which of four reasons produced it:
 
 <CodeBlock code={CONFIRM_INVALID_409} lang="json" />
 
 A wrong code, an expired one, one that has already hit its attempt cap, and
 one that was never issued all answer identically. The route can tell these
-apart internally — that distinction exists for the log, not the client:
-"expired" would confirm the address signed up here, and "exhausted" would
-confirm someone is actively guessing at it. Either leaking to a caller turns
-this endpoint into an oracle for the exact thing [`POST
+apart internally, but that distinction exists for the log rather than for the
+client: "expired" would confirm the address signed up here, and "exhausted"
+would confirm someone is actively guessing at it. Either one leaking to a
+caller turns this endpoint into an oracle for the exact thing [`POST
 /v1/signup`](/api/accounts/signup)'s identical response is designed to hide.
 
-`409` rather than `422` because the common case by a wide margin is a code
-that was already spent — a double-submitted form, a second click — which is a
-conflict with state rather than a malformed request. The message says what to
-do next: call `signup` again.
+It is a `409` rather than a `422` because the common case by a wide margin is
+a code that was already spent, from a double-submitted form or a second click,
+which is a conflict with state rather than a malformed request. The message
+says what to do next: call `signup` again.

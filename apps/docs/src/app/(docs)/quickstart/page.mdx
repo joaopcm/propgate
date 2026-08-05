@@ -113,7 +113,7 @@ Two calls, no sales conversation. The middle step is reading your mail.
 ```
 
 A six-digit code arrives, valid for ten minutes. That response is identical
-whether or not the address already has an account — a signup endpoint that
+whether or not the address already has an account. A signup endpoint that
 says *already registered* tells whoever holds a leaked address list which of
 those addresses use us.
 
@@ -138,7 +138,7 @@ those addresses use us.
 ```
 
 That is the only time the key is readable. Only a hash is stored, so no
-endpoint can show it again — losing it means running the flow again, which
+endpoint can show it again. Losing it means running the flow again, which
 mints an *additional* key against the same account rather than a second
 account. That doubles as the recovery path, which is why there is no separate
 sign-in.
@@ -167,7 +167,7 @@ domains stay pinned to the version they were registered against. Otherwise
 one edit silently reclassifies every domain at once.
 
 A definition is refused at write time if any requirement could never be
-answered — a duplicate key, a DKIM requirement with no selector, a CAA
+answered: a duplicate key, a DKIM requirement with no selector, a CAA
 requirement with no issuer. Accepting those would be a promise this API could
 not keep.
 
@@ -180,8 +180,8 @@ not keep.
   ]}
 />
 
-Triggering a check needs the domain's id — here, the one a fresh
-registration above would return:
+Triggering a check needs the domain's id, here the one a fresh registration
+above would return:
 
 <CodeBlock code={VERIFY_CURL} lang="bash" />
 
@@ -190,7 +190,7 @@ The CLI has no equivalent yet — triggering a check is API-only.
 <CodeBlock code={VERIFY_RESPONSE} lang="json" />
 
 "3 of 5 met", the unmet ones named, and the DNS name the missing record
-belongs at. No instructions are rendered — you already have a UI that tells
+belongs at. No instructions are rendered: you already have a UI that tells
 your customer what to paste, and being wrong about a provider's naming
 conventions is visible to your customer rather than to us.
 

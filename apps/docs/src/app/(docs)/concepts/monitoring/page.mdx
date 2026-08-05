@@ -2,32 +2,33 @@ import { Callout } from "@/components/docs/callout";
 
 # Monitoring and hysteresis
 
-Registering a domain does not just verify it once. A sweeper — one
-long-running process, never a per-invocation function — keeps re-checking it
-on a schedule that adapts to what state it is in, and reconciles what it sees
-across more than one resolver before it believes any of it.
+Registering a domain does not just verify it once. A sweeper keeps
+re-checking it on a schedule that adapts to what state it is in, and
+reconciles what it sees across more than one resolver before it believes any
+of it. That sweeper is one long-running process, never a per-invocation
+function.
 
 ## The sweeper
 
 Every `SWEEP_TICK_SECONDS` (60 by default) the sweeper looks for domains whose
 `next_check_at` has passed, claims up to `SWEEP_BATCH_SIZE` of them (100) with
 `select … for update skip locked`, and hands each one to the queue. Postgres
-decides what is due; Redis only carries the work — losing Redis costs
-in-flight attempts, never an obligation, because the next tick re-derives the
-same list from `next_check_at`.
+decides what is due; Redis only carries the work. Losing Redis costs in-flight
+attempts and never an obligation, because the next tick re-derives the same
+list from `next_check_at`.
 
 A claim is held for `SWEEP_LEASE_SECONDS` (300) before the row becomes
 claimable again. That has to comfortably exceed the ten-second check budget, or
 a slow-but-healthy check gets claimed a second time while the first is still
-running — five minutes is a wide margin over ten seconds.
+running. Five minutes is a wide margin over ten seconds.
 `CHECK_CONCURRENCY` (4) bounds how many of those claimed jobs run at once,
 because each check is up to twenty upstream queries and that multiplies
 straight into load on other people's authoritative servers.
 
 <Callout>
   `SWEEP_BATCH_SIZE`, `CHECK_CONCURRENCY` and the webhook retry count are all
-  environment-tunable in `apps/api/src/env.ts` — conservative defaults acting
-  as tripwires against a runaway sweep, not throughput targets to hit.
+  environment-tunable in `apps/api/src/env.ts`. They are conservative defaults
+  acting as tripwires against a runaway sweep, not throughput targets to hit.
 </Callout>
 
 ## Adaptive scheduling, not uniform sweeping
@@ -47,7 +48,7 @@ from `apps/api/src/sweep/schedule.ts`:
 
 The TTL floor only applies to `verified`. For a domain that already passes,
 nothing can change faster than the TTL, so polling inside it just re-reads a
-cache — raising the interval to match is free accuracy. Applying the same
+cache, and raising the interval to match is free accuracy. Applying the same
 floor to `pending` would be actively wrong: a provider serving a one-hour
 negative TTL while a customer is mid-onboarding would push the first re-check
 an hour out and make onboarding feel broken.
@@ -58,8 +59,8 @@ policy is a code change, not a runtime knob.
 
 ## Consensus across vantage points
 
-Every authenticated check runs against a pool of resolvers concurrently — the
-same pool for `POST /v1/domains/:id/checks` and for the sweeper, because a
+Every authenticated check runs against a pool of resolvers concurrently. It is
+the same pool for `POST /v1/domains/:id/checks` and for the sweeper, because a
 verify that consulted one resolver and a sweep that consulted another could
 disagree about the same domain a minute apart. A strict majority wins:
 
@@ -76,21 +77,19 @@ disagree about the same domain a minute apart. A strict majority wins:
 <Callout kind="warning">
   **What this can and cannot see.** Production runs our own Unbound plus two
   public resolvers, and all three are reached from one box and share its
-  egress IP — they are only weakly independent. They catch cache state,
+  egress IP, which makes them only weakly independent. They catch cache state,
   propagation lag, and one resolver being broken. They cannot see GeoDNS,
   anycast, or a network path that differs by geography: a domain answering
-  differently in Frankfurt than in São Paulo looks identical from here. This
-  is stated plainly in `apps/api/src/env.ts`, `.env.production.example`, and
-  `TESTING.md` for the same reason it is stated here — the docs must not
-  imply a stronger guarantee than three resolvers behind one egress IP can
-  make.
+  differently in Frankfurt than in São Paulo looks identical from here. The
+  docs must not imply a stronger guarantee than three resolvers behind one
+  egress IP can make.
 </Callout>
 
 ## Hysteresis: how many failures it takes to believe one
 
 A single failing check never fires a `domain.failed` webhook on its own. Each
 domain carries a running count of consecutive failures, reset to zero by any
-`pass` or `warn`, and left completely untouched by `indeterminate` — resetting
+`pass` or `warn`, and left completely untouched by `indeterminate`. Resetting
 it on uncertainty would let a domain behind a flaky resolver fail forever
 without ever accumulating enough evidence to be reported, and incrementing it
 would let our own resolver's bad minute page somebody.
@@ -104,16 +103,15 @@ variable:
   notice.
 - `FAILED_AFTER_FAILURES` — default **3**. The number that reaches a
   customer's pager. At the degraded cadence of five minutes, three consecutive
-  failures is roughly ten minutes of sustained failure — long enough to
-  outlast a resolver restart or a zone reload, short enough to still be
-  useful.
+  failures is roughly ten minutes of sustained failure: long enough to outlast
+  a resolver restart or a zone reload, short enough to still be useful.
 
 `state_transitions` records every transition with the evidence behind it, so
-either threshold can be revisited later against real data — a restart, not a
-deploy.
+either threshold can be revisited later against real data. Changing one is a
+restart, not a deploy.
 
 <Callout kind="warning">
-  A state transition — and the webhook built on top of it — fires **once per
+  A state transition, and the webhook built on top of it, fires **once per
   episode, not once per check**. A domain that stays `degraded` for a week
   produces one transition, not two thousand: the outcome only carries a
   transition when the state actually changed. Do not build a pager, a cron

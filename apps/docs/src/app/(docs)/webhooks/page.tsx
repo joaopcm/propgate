@@ -45,7 +45,7 @@ function Section({
 
 function Code({ children }: { children: string }) {
   return (
-    <pre className="mb-4 overflow-x-auto rounded-md border border-white/5 bg-black/30 p-4 font-mono text-[0.8125rem] leading-6">
+    <pre className="mb-4 overflow-x-auto rounded-md border border-border bg-black/30 p-4 font-mono text-[0.8125rem] leading-6">
       <code>{children}</code>
     </pre>
   );
@@ -119,7 +119,7 @@ export default function WebhooksPage() {
         <ul className="mb-4">
           {EVENT_NAMES.map((event) => (
             <li
-              className="border-white/5 border-b py-3 last:border-0"
+              className="border-border border-b py-3 last:border-0"
               key={event}
             >
               <code className="font-mono text-sm">{event}</code>

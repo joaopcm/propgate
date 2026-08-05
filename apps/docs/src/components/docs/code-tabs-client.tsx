@@ -58,8 +58,8 @@ export function CodeTabsClient({ items }: { items: readonly RenderedTab[] }) {
   }
 
   return (
-    <div className="my-4 border border-white/5 bg-muted">
-      <div className="flex items-center gap-1 border-white/5 border-b px-2">
+    <div className="my-4 border border-border bg-muted">
+      <div className="flex items-center gap-1 border-border border-b px-2">
         {items.map((item, index) => (
           <TabButton
             active={index === active}

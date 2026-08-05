@@ -6,10 +6,10 @@ import { CHECK_CLI, CHECK_CURL } from "./_snippets";
 **Domain verification that tells you what is wrong, not just that something
 is.**
 
-Companies whose customers configure DNS — email platforms, custom domains,
-anything with a "verify your domain" screen — rebuild the same brittle
-checker. This is the part they never get to: the semantics, the provider
-quirks, and the difference between *broken* and *we could not tell*.
+Companies whose customers configure DNS all rebuild the same brittle checker:
+email platforms, custom domains, anything with a "verify your domain" screen.
+This is the part they never get to. The semantics, the provider quirks, and
+the difference between *broken* and *we could not tell*.
 
 ## See it
 
@@ -30,7 +30,7 @@ delegation  warn    NS_SERIAL_MISMATCH      … at 1656468023; … at 1
 ```
 
 GitHub's SPF sits at exactly the ten DNS lookups RFC 7208 allows. It works
-today, and the next `include:` anyone adds breaks mail delivery — with no
+today, and the next `include:` anyone adds breaks mail delivery, with no
 error at the moment of the edit. Separately, their AWS and NS1 nameservers
 report different zone serials, so which answer a customer gets depends on
 which server they happen to reach.
@@ -47,7 +47,7 @@ argument.
 - **Semantics, not string matching.** SPF expanded recursively the way an MTA
   does it, with the ten-lookup and two-void-lookup limits counted. DKIM keys
   parsed. The CAA tree climbed per RFC 8659.
-- **Four verdicts, not two.** `pass`, `warn`, `fail`, and `indeterminate` —
+- **Four verdicts, not two.** `pass`, `warn`, `fail`, and `indeterminate`,
   because "this is broken" and "we could not tell" are different answers, and
   collapsing them is how a monitoring product pages someone at 3am over its
   own bad second.
@@ -56,6 +56,6 @@ argument.
 
 ## Next
 
-- [Quickstart](/quickstart) — get a key, register a domain, verify it
-- [API reference](/api) — every endpoint, request and response shape
-- [Diagnosis taxonomy](/taxonomy) — every code, what it means, how to fix it
+- [Quickstart](/quickstart): get a key, register a domain, verify it
+- [API reference](/api): every endpoint, request and response shape
+- [Diagnosis taxonomy](/taxonomy): every code, what it means, how to fix it

@@ -8,20 +8,20 @@ machine-readable code, because a boolean and a code answer different
 questions for a customer's support team.
 
 Say a customer's DKIM selector resolves to nothing because their DNS provider
-appended the domain name onto the record — a common enough mistake that it has
+appended the domain name onto the record, a common enough mistake that it has
 its own code:
 
 <CodeBlock code={PROVIDER_APPENDED_ZONE_NAME_FINDING} lang="json" />
 
-`PROVIDER_APPENDED_ZONE_NAME` deflects a support ticket: the customer's
-dashboard can say exactly what is wrong and how to fix it — *enter only the
-part before the domain* — without anyone on either side opening a thread.
+`PROVIDER_APPENDED_ZONE_NAME` deflects a support ticket. The customer's
+dashboard can say exactly what is wrong and how to fix it (*enter only the
+part before the domain*) without anyone on either side opening a thread.
 "Record not found" would have created one, because it says nothing about
 *why* the record is not found, and the customer has no way to tell a typo from
 a provider quirk from a record that genuinely was never added.
 
-That gap — a boolean forces a human to re-derive the diagnosis a machine
-already made — is what the whole taxonomy exists to close.
+Closing that gap is what the whole taxonomy exists for. A boolean forces a
+human to re-derive the diagnosis a machine already made.
 
 ## A public contract, not an implementation detail
 
@@ -31,14 +31,14 @@ they can change:
 - **Adding a code** requires either a fixture in the DNS test harness that
   reproduces it, or a written reason it cannot be reproduced locally
   (`NOT_LOCALLY_REPRODUCIBLE`). `packages/dns/src/diagnosis/coverage.spec.ts`
-  enforces this for every code that exists — a code with no fixture and no
+  enforces this for every code that exists: a code with no fixture and no
   written reason fails the test suite, not just a review.
 - **Changing or removing a code is a breaking change.** If your integration
   has a `switch` statement with `PROVIDER_APPENDED_ZONE_NAME` as a case, that
   case keeps working. We do not rename codes to tidy them up, and we do not
   remove one because the underlying bug got rarer.
 
-Each code also carries a severity — `error`, `warning`, or `info` — and maps
+Each code also carries a severity (`error`, `warning`, or `info`) and maps
 to exactly one verdict-affecting outcome per requirement, but the code itself
 is the part that is safe to build logic on. The summary text is prose and can
 improve; the code is the identifier.

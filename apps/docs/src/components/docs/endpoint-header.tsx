@@ -22,7 +22,7 @@ export function EndpointHeader({
   path: string;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-white/5 border-b pb-3">
+    <div className="mb-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-border border-b pb-3">
       <span
         className={`font-mono text-[0.6875rem] uppercase tracking-widest ${METHOD_STYLE[method]}`}
       >
