@@ -251,6 +251,9 @@ export function createSignupRoute(options: {
 
     const account = await findOrCreateAccountForEmail(options.db, { email });
     const key = await createApiKey(options.db, {
+      // The one place attribution is unambiguous: this member just proved control
+      // of the mailbox, in this request.
+      createdByMemberId: account.memberId,
       name: KEY_NAME,
       tenantId: account.tenantId,
     });

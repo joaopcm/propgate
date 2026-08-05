@@ -45,13 +45,24 @@ const LAST_USED_RESOLUTION_MS = 60_000;
 
 export async function createApiKey(
   db: Database,
-  input: { readonly name: string; readonly tenantId: string }
+  input: {
+    /**
+     * Who is making it, when that is knowable. Omitted by the operator CLI, where
+     * there is no member in the transaction at all.
+     */
+    readonly createdByMemberId?: string | undefined;
+    readonly name: string;
+    readonly tenantId: string;
+  }
 ): Promise<GeneratedApiKey & { readonly id: string }> {
   const generated = generateApiKey();
 
   const [row] = await db
     .insert(apiKeys)
     .values({
+      ...(input.createdByMemberId === undefined
+        ? {}
+        : { createdByMemberId: input.createdByMemberId }),
       hashedKey: generated.hashedKey,
       name: input.name,
       prefix: generated.prefix,

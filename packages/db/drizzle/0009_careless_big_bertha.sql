@@ -1,0 +1,2 @@
+ALTER TABLE "api_keys" ADD COLUMN "created_by_member_id" text;--> statement-breakpoint
+ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_created_by_member_id_tenant_members_id_fk" FOREIGN KEY ("created_by_member_id") REFERENCES "public"."tenant_members"("id") ON DELETE set null ON UPDATE no action;

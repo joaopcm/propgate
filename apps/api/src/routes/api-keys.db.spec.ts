@@ -1,5 +1,6 @@
 import type { Database } from "@propgate/db";
 import { createApiKey, createDb, tenants, truncateAll } from "@propgate/db";
+import { createRecordingMailer } from "@propgate/emails";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app";
 
@@ -19,6 +20,7 @@ const db: Database = createDb(process.env.DATABASE_URL ?? "", {
 const app = createApp({ db, resolver: { address: "127.0.0.1", port: 53 } });
 
 const A_KEY = /^pg_/;
+const SIX_DIGITS = /\b(\d{6})\b/;
 
 beforeEach(async () => {
   await truncateAll(db);
@@ -284,6 +286,58 @@ describe("DELETE /v1/api-keys/:id", () => {
     // own cleanup deserves to know it was not the one that did it.
     expect(again.status).toBe(200);
     expect((await again.json()).meta.alreadyRevoked).toBe(true);
+  });
+});
+
+describe("attribution", () => {
+  it("has no creator for an operator-minted key", async () => {
+    const { key } = await tenantWithKeys("partner");
+    const listed = await request(key, "/v1/api-keys");
+    const body = (await listed.json()) as {
+      data: { createdBy: string | null }[];
+    };
+
+    // `mint.js` has no member in its transaction, and null says so rather than
+    // attributing the key to whoever happens to hold it.
+    expect(body.data[0]?.createdBy).toBeNull();
+  });
+
+  it("attributes a key created through the API to the presenting key's creator", async () => {
+    // The signup flow is the only path that establishes a creator, so go through
+    // it rather than reaching into the table.
+    const mailer = createRecordingMailer();
+    const app2 = createApp({
+      db,
+      mailer,
+      resolver: { address: "127.0.0.1", port: 53 },
+    });
+
+    await app2.request("/v1/signup", {
+      body: JSON.stringify({ email: "owner@example.com" }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const code = SIX_DIGITS.exec(mailer.sent.at(-1)?.text ?? "")?.[1];
+    const confirmed = await app2.request("/v1/signup/confirm", {
+      body: JSON.stringify({ code, email: "owner@example.com" }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const onboarding = (await confirmed.json()) as { data: { apiKey: string } };
+
+    const created = await request(onboarding.data.apiKey, "/v1/api-keys", {
+      body: { name: "ci" },
+      method: "POST",
+    });
+    const body = (await created.json()) as {
+      data: { createdBy: string | null };
+    };
+
+    // A key is not a session, so the only member this request can honestly name is
+    // the one the presenting key is attributed to. Propagating it means a chain of
+    // rotations still points back at whoever started it.
+    expect(body.data.createdBy).toBe("owner@example.com");
   });
 });
 

@@ -144,7 +144,7 @@ export const ENDPOINTS: readonly Endpoint[] = [
     method: "GET",
     path: "/v1/api-keys",
     summary:
-      "Your keys, oldest first, revoked ones included. Prefixes only; no endpoint returns a secret.",
+      "Your keys, oldest first, revoked ones included, each with the address that created it. Prefixes only; no endpoint returns a secret.",
   },
   {
     method: "DELETE",
