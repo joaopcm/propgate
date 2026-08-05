@@ -30,6 +30,8 @@ export {
   registerDomain,
   saveCheck,
 } from "./queries/domains";
+export type { TenantMember } from "./queries/members";
+export { listMembersForTenant } from "./queries/members";
 export type { Account, MintedKey } from "./queries/onboard";
 export { findOrCreateAccountForEmail, mintTenantKey } from "./queries/onboard";
 export type { ConsumeOutcome, IssueOutcome } from "./queries/otp";

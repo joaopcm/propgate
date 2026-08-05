@@ -25,6 +25,7 @@ import {
   CHECKS_PER_TENANT_PER_MINUTE,
   createDomainsRoute,
 } from "./routes/domains";
+import { createMembersRoute } from "./routes/members";
 import { createProfilesRoute } from "./routes/profiles";
 import {
   createSignupRoute,
@@ -163,6 +164,7 @@ export function createApp(options: {
       "/v1/domains/*",
       "/v1/webhooks/*",
       "/v1/api-keys/*",
+      "/v1/members/*",
     ]) {
       // Authentication first, then the limiter — it is keyed on the tenant the
       // first one resolved, which is the whole reason it is not spoofable.
@@ -174,6 +176,7 @@ export function createApp(options: {
     }
 
     app.route("/v1/api-keys", createApiKeysRoute({ db }));
+    app.route("/v1/members", createMembersRoute({ db }));
     app.route("/v1/profiles", createProfilesRoute({ db }));
     app.route("/v1/webhooks", createWebhooksRoute({ db }));
     app.route(
