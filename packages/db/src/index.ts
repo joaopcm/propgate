@@ -65,6 +65,15 @@ export {
 export type { ClaimedDomain, ClaimOptions } from "./queries/sweep";
 export { claimDueDomains, dueCount } from "./queries/sweep";
 export type {
+  TenantApiKey,
+  TenantRevokeOutcome,
+} from "./queries/tenant-keys";
+export {
+  apiKeyForTenant,
+  listApiKeysForTenant,
+  revokeApiKeyForTenant,
+} from "./queries/tenant-keys";
+export type {
   CreateEndpointOutcome,
   DeliveryAttemptContext,
   DeliveryPage,
