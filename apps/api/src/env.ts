@@ -37,6 +37,18 @@ export const env = createEnv({
      * `state_transitions` is what makes that measurable after the fact.
      */
     DEGRADED_AFTER_FAILURES: z.coerce.number().int().min(1).default(1),
+    /**
+     * The envelope sender for confirmation mail.
+     *
+     * A subdomain, never the apex. Transactional mail to strangers is the one
+     * thing here that can get a domain blocklisted, and keeping it off
+     * `propgate.dev` is the only way to stop that reaching the domain the product
+     * and the docs are served from.
+     */
+    EMAIL_FROM: z
+      .string()
+      .min(1)
+      .default("propgate <accounts@notifications.propgate.dev>"),
     FAILED_AFTER_FAILURES: z.coerce.number().int().min(1).default(3),
     NODE_ENV: z
       .enum(["development", "test", "production"])
@@ -52,6 +64,18 @@ export const env = createEnv({
      * here" would buy a subtler failure and nothing else.
      */
     REDIS_URL: z.string().url(),
+    /**
+     * Required at boot, like DATABASE_URL and REDIS_URL, and for the same reason
+     * in a sharper form.
+     *
+     * Without it `createApp` does not mount signup at all, so the failure mode of
+     * making it optional is a box that starts cleanly and 404s the endpoint the
+     * whole self-serve funnel depends on. That is discovered by a stranger trying
+     * to sign up, which is the worst possible reader. One image, one env schema —
+     * the worker never sends mail and still requires this, which is the same
+     * trade REDIS_URL makes in the other direction.
+     */
+    RESEND_API_KEY: z.string().min(1),
     /**
      * The recursive resolver every check queries.
      *

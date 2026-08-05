@@ -166,8 +166,25 @@ contract.
 
 ## Onboarding a tenant
 
-There is no signup and no admin API, both deliberately. Keys are minted on the
-box:
+Two ways in, and the self-serve one is now the normal one:
+
+```sh
+curl -X POST https://api.propgate.dev/v1/signup \
+  -H 'content-type: application/json' -d '{"email":"me@example.com"}'
+
+# then, with the code from the mail
+curl -X POST https://api.propgate.dev/v1/signup/confirm \
+  -H 'content-type: application/json' \
+  -d '{"email":"me@example.com","code":"123456"}'
+```
+
+That needs `RESEND_API_KEY` set and the sending domain verified in Resend, or
+the API refuses to start. Re-running the flow on an address that already has an
+account mints an **additional** key against the same tenant rather than a second
+account, which is also the recovery path for somebody who lost theirs.
+
+There is still no admin API. Minting on the box remains the operator path, and
+it is the only way to set a tenant's name to something other than the address:
 
 ```sh
 docker compose -f docker-compose.prod.yml run --rm api \
@@ -206,6 +223,25 @@ Deliberately not an API route. A key that can revoke keys is a
 privilege-escalation question, and the control plane is out of scope — but
 handing an operator raw `UPDATE` statements against the auth table is how
 someone eventually forgets a `WHERE` clause under pressure.
+
+### Raising a tenant's rate limit
+
+The defaults are **250 requests/second** and **100 checks/minute**, sized for a
+caller nobody has spoken to — anybody with an email address can mint a key now.
+For a partner you have vetted:
+
+```sql
+update tenants set request_quota_per_second = 2000 where name = 'Partner name';
+```
+
+It only ever raises: null means the default, and a value below it is still
+compared against that same window, so this cannot be used to throttle somebody
+below the floor everybody gets. Takes effect on their next request — the value
+is read during authentication, so there is no cache to wait out.
+
+The checks limit has no override. It is not about our capacity: a check aims up
+to ~20 queries at whatever authoritative servers the *caller* names, so raising
+it means pointing our resolver harder at infrastructure that is not ours.
 
 ## Looking at the database
 

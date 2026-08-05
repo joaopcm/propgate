@@ -41,6 +41,17 @@ export function listResponse<T>(
   });
 }
 
+/**
+ * 202, for work taken on but not finished when the response is written.
+ *
+ * Signup is the case: the code is stored, the mail is on its way, and neither
+ * the mailbox nor the account exists yet as far as this response can promise.
+ * A 200 there would claim something we cannot see.
+ */
+export function accepted<T>(c: Context, data: T) {
+  return c.json({ data, error: null, meta: null }, 202);
+}
+
 export function error(c: Context, status: ErrorStatus, message: string) {
   return c.json({ data: null, error: { message }, meta: null }, status);
 }

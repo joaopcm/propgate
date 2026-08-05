@@ -22,6 +22,14 @@ export interface RateLimitOptions {
 
 export interface RateLimitVerdict {
   readonly allowed: boolean;
+  /**
+   * The limit that was applied to *this* call.
+   *
+   * Reported rather than read back off the limiter because a caller may have an
+   * override, and a 429 naming the shared default when a different number was
+   * enforced sends an integrator hunting for a limit they never hit.
+   */
+  readonly limit: number;
   /** Seconds until the window resets, for Retry-After. */
   readonly retryAfterSeconds: number;
 }
@@ -39,7 +47,18 @@ export class RateLimiter {
     this.options = options;
   }
 
-  take(key: string, now = Date.now()): RateLimitVerdict {
+  /**
+   * `limit` overrides the configured one for this call only.
+   *
+   * The window is shared and the ceiling is per-caller, which is what lets one
+   * limiter serve tenants on different quotas without a limiter instance per
+   * tenant — the counting is identical, only the comparison differs.
+   */
+  take(
+    key: string,
+    now = Date.now(),
+    limit = this.options.limit
+  ): RateLimitVerdict {
     this.evictExpired(now);
 
     const existing = this.windows.get(key);
@@ -50,17 +69,18 @@ export class RateLimiter {
         resetAt: now + this.options.windowMs,
       });
 
-      return { allowed: true, retryAfterSeconds: 0 };
+      return { allowed: true, limit, retryAfterSeconds: 0 };
     }
 
     existing.count += 1;
 
-    if (existing.count <= this.options.limit) {
-      return { allowed: true, retryAfterSeconds: 0 };
+    if (existing.count <= limit) {
+      return { allowed: true, limit, retryAfterSeconds: 0 };
     }
 
     return {
       allowed: false,
+      limit,
       retryAfterSeconds: Math.max(
         1,
         Math.ceil((existing.resetAt - now) / 1000)

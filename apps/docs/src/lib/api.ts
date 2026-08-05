@@ -124,6 +124,18 @@ export interface Endpoint {
 export const ENDPOINTS: readonly Endpoint[] = [
   {
     method: "POST",
+    path: "/v1/signup",
+    summary:
+      "Start an account. Sends a six-digit code, valid ten minutes. Always answers the same way, whether or not the address is known.",
+  },
+  {
+    method: "POST",
+    path: "/v1/signup/confirm",
+    summary:
+      "Confirm the address and receive an API key. The code is single-use; the key is shown once and never again.",
+  },
+  {
+    method: "POST",
     path: "/v1/profiles",
     summary:
       "Create a profile version. Editing a profile writes a new version; it never changes an existing one.",

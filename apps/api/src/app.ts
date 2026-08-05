@@ -1,5 +1,6 @@
 import type { Database } from "@propgate/db";
 import type { ServerAddress } from "@propgate/dns";
+import type { Mailer } from "@propgate/emails";
 import type { DeliverWebhookPayload } from "@propgate/jobs";
 import { captureException } from "@sentry/node";
 import type { Queue } from "bullmq";
@@ -10,7 +11,7 @@ import type { HysteresisThresholds } from "./domains/hysteresis";
 import { bearerAuth } from "./middleware/auth";
 import {
   TENANT_RATE_LIMIT_WINDOW_MS,
-  TENANT_REQUESTS_PER_MINUTE,
+  TENANT_REQUESTS_PER_SECOND,
   tenantRateLimit,
 } from "./middleware/tenant-rate-limit";
 import {
@@ -24,6 +25,11 @@ import {
   createDomainsRoute,
 } from "./routes/domains";
 import { createProfilesRoute } from "./routes/profiles";
+import {
+  createSignupRoute,
+  SIGNUP_RATE_LIMIT_WINDOW_MS,
+  SIGNUPS_PER_IP_PER_HOUR,
+} from "./routes/signup";
 import { createWebhooksRoute } from "./routes/webhooks";
 import { RateLimiter } from "./utils/rate-limit";
 
@@ -42,6 +48,15 @@ import { RateLimiter } from "./utils/rate-limit";
  */
 export function createApp(options: {
   db?: Database;
+  /**
+   * Absent means signup is not mounted at all.
+   *
+   * A signup endpoint with nowhere to send the code would store credentials
+   * nobody can ever receive, so 404 is the honest answer. In production this is
+   * never absent — `RESEND_API_KEY` is required at boot for exactly that reason,
+   * so a misconfigured box fails loudly at start rather than quietly at signup.
+   */
+  mailer?: Mailer;
   /** The single resolver behind the public checker. */
   resolver: ServerAddress;
   /**
@@ -106,9 +121,31 @@ export function createApp(options: {
 
   if (db !== undefined) {
     const tenantLimiter = new RateLimiter({
-      limit: TENANT_REQUESTS_PER_MINUTE,
+      limit: TENANT_REQUESTS_PER_SECOND,
       windowMs: TENANT_RATE_LIMIT_WINDOW_MS,
     });
+
+    /**
+     * Signup, before the auth middleware and deliberately not in its list.
+     *
+     * Every other `/v1` family below is authenticated; these two cannot be,
+     * because the whole point of them is to hand out the first key. That makes
+     * them the only unauthenticated writes in the API, which is why their guards
+     * live in the route rather than in middleware — read them there, not here.
+     */
+    if (options.mailer !== undefined) {
+      app.route(
+        "/v1/signup",
+        createSignupRoute({
+          db,
+          limiter: new RateLimiter({
+            limit: SIGNUPS_PER_IP_PER_HOUR,
+            windowMs: SIGNUP_RATE_LIMIT_WINDOW_MS,
+          }),
+          mailer: options.mailer,
+        })
+      );
+    }
 
     // The wildcard covers the bare prefix too — `/v1/domains/*` matches
     // `/v1/domains`, which is worth knowing because registering both spellings

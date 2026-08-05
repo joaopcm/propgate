@@ -41,15 +41,20 @@ import { enqueueForTransition } from "../webhooks/enqueue";
  * **10 lookups** and returns in **23 ms**; one near SPF's ten-lookup limit
  * costs **19**.
  *
- * Ten checks a second from one tenant is therefore up to ~190 upstream queries
- * a second, aimed at whatever authoritative servers their customers use. That
- * is generous for verification at onboarding, which is what this endpoint is
- * for — a customer clicking "verify" — and it makes bulk re-verification of ten
- * thousand domains take seventeen minutes, which is the right shape for
- * something that should be the sweeper's job in milestone 2 rather than a loop
- * against this route.
+ * So 100 checks a minute is up to ~1,900 upstream queries a minute — roughly 33
+ * a second — aimed at whatever authoritative servers the *caller* names. That
+ * last part is why this number is the one that matters and why it came down from
+ * 600 when signup opened: a self-serve tenant is otherwise a way to point our
+ * resolver at somebody else's infrastructure, which is exactly what open DNS
+ * tooling gets used for. Thirty-three queries a second at servers we do not own
+ * is defensible for a caller nobody has spoken to.
+ *
+ * It stays generous for what the endpoint is actually for — a customer clicking
+ * "verify" during onboarding. Bulk re-verification is the sweeper's job, and has
+ * been since milestone 2; it does not come through here and is not limited by
+ * this.
  */
-export const CHECKS_PER_TENANT_PER_MINUTE = 600;
+export const CHECKS_PER_TENANT_PER_MINUTE = 100;
 export const CHECK_RATE_LIMIT_WINDOW_MS = 60_000;
 
 const MAX_EXTERNAL_ID_LENGTH = 255;

@@ -151,6 +151,11 @@ services:
       FAILED_AFTER_FAILURES: ${FAILED_AFTER_FAILURES:-}
       WEBHOOK_ATTEMPTS: ${WEBHOOK_ATTEMPTS:-}
       WEBHOOK_TIMEOUT_MS: ${WEBHOOK_TIMEOUT_MS:-}
+      # Confirmation mail. Required — without it the API refuses to start, which
+      # is deliberate: optional would mean a box that boots cleanly and 404s
+      # signup, discovered by a stranger trying to create an account.
+      RESEND_API_KEY: ${RESEND_API_KEY:?}
+      EMAIL_FROM: ${EMAIL_FROM:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
     depends_on:
       migrate:
@@ -187,6 +192,13 @@ services:
       RESOLVER_PORT: 53
       RESOLVER_ADDRESSES: ${RESOLVER_ADDRESSES:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
+      # The worker never sends mail, and still needs this.
+      #
+      # One image means one env schema, and `env.ts` requires the key. Leaving it
+      # out here would mean the worker container refusing to boot the moment
+      # signup shipped — which is exactly how a required REDIS_URL once broke the
+      # `migrate` container and gated a whole deploy.
+      RESEND_API_KEY: ${RESEND_API_KEY:?}
       # Passed through so `.env` can override them without a rebuild. Empty means
       # unset, which means the code's default — `emptyStringAsUndefined` in env.ts
       # is what makes that work, so these must never be given a literal fallback

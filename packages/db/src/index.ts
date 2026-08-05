@@ -30,8 +30,8 @@ export {
   registerDomain,
   saveCheck,
 } from "./queries/domains";
-export type { MintedKey } from "./queries/onboard";
-export { mintTenantKey } from "./queries/onboard";
+export type { Account, MintedKey } from "./queries/onboard";
+export { findOrCreateAccountForEmail, mintTenantKey } from "./queries/onboard";
 export type { ConsumeOutcome, IssueOutcome } from "./queries/otp";
 export {
   consumeCode,
@@ -107,6 +107,7 @@ export type {
   TransitionEvidence,
 } from "./schema/state-transitions";
 export { stateTransitions } from "./schema/state-transitions";
+export { tenantMembers } from "./schema/tenant-members";
 export { tenants } from "./schema/tenants";
 export type { DeliveryStatus } from "./schema/webhooks";
 export { webhookDeliveries, webhookEndpoints } from "./schema/webhooks";

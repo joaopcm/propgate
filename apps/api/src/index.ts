@@ -1,6 +1,7 @@
 import "./instrument";
 import { serve } from "@hono/node-server";
 import { createDb } from "@propgate/db";
+import { createMailer } from "@propgate/emails";
 import { createQueues } from "@propgate/jobs";
 import { createApp } from "./app";
 import { env } from "./env";
@@ -18,6 +19,7 @@ const queues = createQueues({ url: env.REDIS_URL });
 
 const app = createApp({
   db: createDb(env.DATABASE_URL),
+  mailer: createMailer({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM }),
   resolver,
   resolvers: vantagePoints(env, resolver),
   thresholds: {
