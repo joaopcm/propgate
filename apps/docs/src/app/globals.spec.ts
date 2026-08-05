@@ -28,19 +28,41 @@ const CUSTOM_PROPERTY_PATTERN = /--([a-z][a-z0-9-]*):\s*([^;]+);/g;
 const THEME_COLOR_VAR_PATTERN = /^var\(--([a-z][a-z0-9-]*)\)$/;
 const VAR_COLOR_REFERENCE_PATTERN = /var\(--color-([a-z][a-z0-9-]*)\)/g;
 /**
- * Deliberately excludes variant-prefixed classes (`last:border-0`,
- * `dark:bg-muted`) via the negative lookbehind — Tailwind compiles those to a
- * selector wrapped in a pseudo-class or `@media` block, not a plain
- * `.prefix-suffix` rule, so reconstructing a matching selector for the
- * variant form is a different problem than this scan solves. None of the
- * four historical bugs involved a variant, so narrowing here loses nothing
- * real and avoids a false "no rule" on every variant usage instead.
+ * Matches a `bg-`/`text-`/`border-` utility as a whole class-list token,
+ * variant prefix included. The prefix is part of the class name, so it is part
+ * of the selector to look for: `hover:bg-muted` compiles to
+ * `.hover\:bg-muted:hover` and `last:border-0` to `.last\:border-0:last-child`
+ * — wrapped in a pseudo-class or an `@media` block, but the escaped class name
+ * still appears verbatim, which is all `findRuleBodies` needs.
+ *
+ * Two narrower readings were tried and are both wrong. Dropping variant
+ * usages from the scan entirely reopens this file's reason to exist for one
+ * class of usage: a token used *only* behind a variant (`dark:bg-newtoken`
+ * with no bare twin anywhere) is then never checked at all. Stripping the
+ * prefix and checking the bare suffix instead fails the other way — nothing in
+ * this tree uses bare `border-0`, so there is no `.border-0` rule for
+ * `last:border-0` to resolve against, and every such usage cries wolf.
+ *
+ * The lookbehind anchors each match to the start of a whitespace- or
+ * quote-delimited token, which is what a class name in a `className` string or
+ * a `cn()` argument always is. That is deliberately stricter than a word
+ * boundary: it stops `bg-foo` inside a URL path and `bg-muted</code>` inside
+ * JSX text from being read as class names and then failing as classes Tailwind
+ * never generated.
  */
-const UTILITY_CLASS_PATTERN = /(?<![:\w-])(bg|text|border)-([^\s"'`]+)/g;
+const UTILITY_CLASS_PATTERN =
+  /(?<=^|[\s"'`])(?:[^\s:"'`]*:)*(?:bg|text|border)-[^\s"'`]+/g;
 const DECLARED_CSS_VAR_PATTERN = /--([a-z][a-z0-9-]*)\s*:/g;
 const VAR_REFERENCE_IN_RULE_PATTERN = /var\(--([a-z][a-z0-9-]*)\)/g;
 const NON_CLASS_NAME_CHAR_PATTERN = /[^a-zA-Z0-9_-]/g;
-const CLASS_NAME_CONTINUATION_PATTERN = /[a-zA-Z0-9-]/;
+/**
+ * Characters that can continue a class name inside an emitted selector,
+ * `_` and Tailwind's escaping backslash included. Without those two, searching
+ * for `.text-foreground` also matches the `.text-foreground\/80` rule beside
+ * it and would accept that rule's declarations as proof the bare class
+ * resolves.
+ */
+const CLASS_NAME_CONTINUATION_PATTERN = /[\\_a-zA-Z0-9-]/;
 const SOURCE_FILE_PATTERN = /\.(?:ts|tsx|mdx)$/;
 
 interface TokenChain {
@@ -54,9 +76,8 @@ interface TokenUsage {
 }
 
 interface UtilityUsage {
-  readonly location: string;
-  readonly prefix: string;
-  readonly suffix: string;
+  readonly className: string;
+  readonly path: string;
 }
 
 type UtilityResolution =
@@ -232,10 +253,10 @@ function collectUtilityUsages(path: string, content: string): UtilityUsage[] {
   const usages: UtilityUsage[] = [];
 
   for (const match of content.matchAll(UTILITY_CLASS_PATTERN)) {
-    const [fullMatch, prefix, suffix] = match;
+    const [className] = match;
 
-    if (prefix && suffix) {
-      usages.push({ location: `${path}: ${fullMatch}`, prefix, suffix });
+    if (className) {
+      usages.push({ className, path });
     }
   }
 
@@ -322,11 +343,10 @@ function findDanglingVarName(
  */
 function resolveUtility(
   css: string,
-  prefix: string,
-  suffix: string,
+  className: string,
   declaredVars: Set<string>
 ): UtilityResolution {
-  const selector = `.${prefix}-${escapeForSelector(suffix)}`;
+  const selector = `.${escapeForSelector(className)}`;
   const bodies = findRuleBodies(css, selector);
 
   if (bodies.length === 0) {
@@ -364,16 +384,11 @@ describe.skipIf(builtCss === undefined)(
       const unresolved: string[] = [];
 
       for (const usage of usages) {
-        const resolution = resolveUtility(
-          css,
-          usage.prefix,
-          usage.suffix,
-          declaredVars
-        );
+        const resolution = resolveUtility(css, usage.className, declaredVars);
 
         if (!resolution.ok) {
           unresolved.push(
-            `${usage.prefix}-${usage.suffix} — ${resolution.reason} (${usage.location})`
+            `${usage.className} — ${resolution.reason} (${usage.path})`
           );
         }
       }
