@@ -6,7 +6,7 @@
  */
 
 export const REVOKE_CURL = `curl -s -X DELETE https://api.propgate.dev/v1/api-keys/019fcb02-... \\
-  -H "authorization: Bearer $KEY"`;
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
 export const REVOKE_CLI = "propgate keys revoke pg_live_7c1d";
 
@@ -23,11 +23,33 @@ export const REVOKE_RESPONSE = `{
     "revokedAt": "2026-08-05T14:03:00.000Z"
   },
   "error": null,
-  "meta": { "alreadyRevoked": false }
+  "meta": {
+    "alreadyRevoked": false
+  }
 }`;
 
-export const REVOKE_ALREADY_RESPONSE = `{ "data": { "...": "..." }, "error": null, "meta": { "alreadyRevoked": true } }`;
+export const REVOKE_ALREADY_RESPONSE = `{
+  "data": {
+    "...": "..."
+  },
+  "error": null,
+  "meta": {
+    "alreadyRevoked": true
+  }
+}`;
 
-export const REVOKE_NOT_FOUND_404 = `{ "data": null, "error": { "message": "no such api key" }, "meta": null }`;
+export const REVOKE_NOT_FOUND_404 = `{
+  "data": null,
+  "error": {
+    "message": "no such api key"
+  },
+  "meta": null
+}`;
 
-export const REVOKE_LAST_ACTIVE_409 = `{ "data": null, "error": { "message": "this is your last active api key; revoking it would lock you out of this API and there is no un-revoke. Create a replacement first." }, "meta": null }`;
+export const REVOKE_LAST_ACTIVE_409 = `{
+  "data": null,
+  "error": {
+    "message": "this is your last active api key; revoking it would lock you out of this API and there is no un-revoke. Create a replacement first."
+  },
+  "meta": null
+}`;

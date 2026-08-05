@@ -7,9 +7,10 @@
  * `apps/api/src/routes/domains.ts`, before the first check has run.
  */
 
-export const REGISTER_CURL = `curl -s -X POST $A/v1/domains -H "authorization: Bearer $KEY" \\
+export const REGISTER_CURL = `curl -s -X POST https://api.propgate.dev/v1/domains \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H 'content-type: application/json' \\
-  -d '{"name":"yourdomain.dev","profile":"sending","externalId":"cust_1"}' | j`;
+  -d '{"name":"yourdomain.dev","profile":"sending","externalId":"cust_1"}'`;
 
 export const REGISTER_CLI =
   "npx @propgate/cli domains add yourdomain.dev --profile sending --external-id cust_1";
@@ -30,7 +31,9 @@ export const REGISTER_RESPONSE = `{
     "verdict": null
   },
   "error": null,
-  "meta": { "created": true }
+  "meta": {
+    "created": true
+  }
 }`;
 
 export const REGISTER_NAME_TAKEN = `{

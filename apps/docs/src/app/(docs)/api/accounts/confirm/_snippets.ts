@@ -28,6 +28,18 @@ export const CONFIRM_RESPONSE = `{
   "meta": null
 }`;
 
-export const CONFIRM_SHORT_CODE_400 = `{ "data": null, "error": { "message": "code: Too small: expected string to have >=6 characters" }, "meta": null }`;
+export const CONFIRM_SHORT_CODE_400 = `{
+  "data": null,
+  "error": {
+    "message": "code: Too small: expected string to have >=6 characters"
+  },
+  "meta": null
+}`;
 
-export const CONFIRM_INVALID_409 = `{ "data": null, "error": { "message": "that code is not valid or has already been used; request a new one with POST /v1/signup" }, "meta": null }`;
+export const CONFIRM_INVALID_409 = `{
+  "data": null,
+  "error": {
+    "message": "that code is not valid or has already been used; request a new one with POST /v1/signup"
+  },
+  "meta": null
+}`;

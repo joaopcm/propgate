@@ -18,14 +18,11 @@ import {
 # Quickstart
 
 Every command here was run against the live API and the outputs are real,
-including the unflattering ones. The one exception is the signup exchange
-below, which ends in a mailbox rather than on a terminal — its request and
-response shapes come from the code, and it is marked where it appears.
-
-```bash
-export A=https://api.propgate.dev
-alias j='python3 -m json.tool'      # or jq
-```
+including the unflattering ones, with two exceptions marked where they
+appear: the signup exchange ends in a mailbox rather than on a terminal, so
+its request and response shapes come from the code; and the verification
+call further down uses the domain id directly rather than the shell
+one-liner that looked it up in the original run.
 
 ## No key required
 
@@ -52,8 +49,8 @@ domain declares it accepts no mail, which is correct rather than broken. Read
 ### What a real domain looks like
 
 ```bash
-curl -s -X POST $A/v1/checks -H 'content-type: application/json' \
-  -d '{"domain":"github.com"}' | j
+curl -s -X POST https://api.propgate.dev/v1/checks -H 'content-type: application/json' \
+  -d '{"domain":"github.com"}'
 ```
 
 ```
@@ -169,10 +166,6 @@ Registration and verification are separate calls. Registration is a write;
 verification is an action with latency. Importing ten thousand domains should
 not fire ten thousand DNS runs as a side effect of a bulk insert.
 
-```bash
-export KEY=pg_live_...        # from `confirm` above
-```
-
 ### A profile: what you expect of a domain
 
 <CodeBlock code={PROFILE_CURL} lang="bash" />
@@ -197,6 +190,9 @@ not keep.
   ]}
 />
 
+Triggering a check needs the domain's id — here, the one a fresh
+registration above would return:
+
 <CodeBlock code={VERIFY_CURL} lang="bash" />
 
 The CLI has no equivalent yet — triggering a check is API-only.
@@ -211,14 +207,14 @@ conventions is visible to your customer rather than to us.
 ### Read it back, and watch it change
 
 ```bash
-curl -s $A/v1/domains/$ID -H "authorization: Bearer $KEY" | j          # stored, no re-check
-curl -s $A/v1/domains/$ID/timeline -H "authorization: Bearer $KEY" | j
+curl -s https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a \
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"          # stored, no re-check
+curl -s https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a/timeline \
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
 Check twice in a row and the timeline does not grow. An entry is appended
-**only when an observation actually differs** — that is the difference
-between a $20 infrastructure bill and a $400 one, and it cannot be
-retrofitted.
+**only when an observation actually differs.**
 
 Fix the missing record, wait for the TTL, check again, and one entry appears:
 

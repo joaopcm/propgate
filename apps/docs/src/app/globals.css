@@ -37,4 +37,19 @@
   html {
     @apply font-sans;
   }
+
+  /**
+   * Shiki paints its own theme's canvas colour as an inline style on every
+   * `<pre>` it emits — for `github-dark-dimmed` that's `#22272e`, a blue-tinted
+   * grey that doesn't belong to this site's palette and reads as an odd blue
+   * box against the rest of the UI. An inline `style` attribute beats any
+   * stylesheet rule except one marked `!important`, which is the only reason
+   * one appears here. The visible background instead comes from `bg-muted` on
+   * each component that wraps a highlighted block (`CodeBlock`, `MdxPre`,
+   * `CodeTabsClient`), so every block matches the app's own grey rather than
+   * carrying whatever colour the theme happens to ship.
+   */
+  .shiki {
+    background-color: transparent !important;
+  }
 }

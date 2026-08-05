@@ -7,7 +7,8 @@
  * which QUICKSTART.md does not print in full.
  */
 
-export const TIMELINE_CURL = `curl -s $A/v1/domains/$ID/timeline -H "authorization: Bearer $KEY" | j`;
+export const TIMELINE_CURL = `curl -s https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a/timeline \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
 export const TIMELINE_RESPONSE = `{
   "data": [

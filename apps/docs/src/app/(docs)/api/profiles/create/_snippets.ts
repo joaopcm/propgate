@@ -6,17 +6,18 @@
  * than a captured run. The page marks that with a `Callout` where it appears.
  */
 
-export const PROFILE_CREATE_CURL = `curl -s -X POST $A/v1/profiles -H "authorization: Bearer $KEY" \\
+export const PROFILE_CREATE_CURL = `curl -s -X POST https://api.propgate.dev/v1/profiles \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H 'content-type: application/json' -d '{
     "key": "sending",
     "requirements": [
-      { "key": "ns",    "check": "delegation" },
-      { "key": "spf",   "check": "spf", "include": "_spf.google.com" },
-      { "key": "dkim",  "check": "dkim", "selector": "google" },
+      { "key": "ns", "check": "delegation" },
+      { "key": "spf", "check": "spf", "include": "_spf.google.com" },
+      { "key": "dkim", "check": "dkim", "selector": "google" },
       { "key": "dmarc", "check": "dmarc" },
-      { "key": "mail",  "check": "mx", "expectsMail": true }
+      { "key": "mail", "check": "mx", "expectsMail": true }
     ]
-  }' | j`;
+  }'`;
 
 export const PROFILE_CREATE_RESPONSE = `{
   "data": {
@@ -24,11 +25,29 @@ export const PROFILE_CREATE_RESPONSE = `{
     "key": "sending",
     "object": "profile",
     "requirements": [
-      { "key": "ns", "check": "delegation" },
-      { "key": "spf", "check": "spf", "include": "_spf.google.com" },
-      { "key": "dkim", "check": "dkim", "selector": "google" },
-      { "key": "dmarc", "check": "dmarc" },
-      { "key": "mail", "check": "mx", "expectsMail": true }
+      {
+        "key": "ns",
+        "check": "delegation"
+      },
+      {
+        "key": "spf",
+        "check": "spf",
+        "include": "_spf.google.com"
+      },
+      {
+        "key": "dkim",
+        "check": "dkim",
+        "selector": "google"
+      },
+      {
+        "key": "dmarc",
+        "check": "dmarc"
+      },
+      {
+        "key": "mail",
+        "check": "mx",
+        "expectsMail": true
+      }
     ],
     "version": 1
   },
@@ -36,16 +55,19 @@ export const PROFILE_CREATE_RESPONSE = `{
   "meta": null
 }`;
 
-export const PROFILE_REJECTED_CURL = `curl -s -X POST $A/v1/profiles -H "authorization: Bearer $KEY" \\
+export const PROFILE_REJECTED_CURL = `curl -s -X POST https://api.propgate.dev/v1/profiles \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H 'content-type: application/json' -d '{
     "key": "sending",
     "requirements": [
       { "key": "dkim", "check": "dkim" }
     ]
-  }' | j`;
+  }'`;
 
 export const PROFILE_REJECTED_RESPONSE = `{
   "data": null,
-  "error": { "message": "requirement \\"dkim\\" checks dkim and must name a selector" },
+  "error": {
+    "message": "requirement \\"dkim\\" checks dkim and must name a selector"
+  },
   "meta": null
 }`;

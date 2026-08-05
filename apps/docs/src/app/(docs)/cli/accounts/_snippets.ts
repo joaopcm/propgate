@@ -30,7 +30,7 @@ export const CONFIRM_OUTPUT = `Account created.
 Stored in /home/you/.config/propgate/config.json. It will not be shown again.`;
 
 export const KEYS_LIST_CURL = `curl https://api.propgate.dev/v1/api-keys \\
-  -H "authorization: Bearer $PROPGATE_API_KEY"`;
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
 export const KEYS_LIST_CLI = "npx @propgate/cli keys list";
 
@@ -38,7 +38,7 @@ export const KEYS_LIST_OUTPUT = `active   pg_live_Ab3x  ci              used 202
 REVOKED  pg_live_Qz9m  old-laptop      used never`;
 
 export const KEYS_CREATE_CURL = `curl -X POST https://api.propgate.dev/v1/api-keys \\
-  -H "authorization: Bearer $PROPGATE_API_KEY" \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H "content-type: application/json" \\
   -d '{"name":"ci"}'`;
 
@@ -55,10 +55,10 @@ Shown once. This does not replace your stored key.`;
  * equivalent is two calls rather than one.
  */
 export const REVOKE_CURL = `curl https://api.propgate.dev/v1/api-keys \\
-  -H "authorization: Bearer $PROPGATE_API_KEY"
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 # find the id whose "prefix" is pg_live_Ab3x, then:
-curl -X DELETE https://api.propgate.dev/v1/api-keys/$ID \\
-  -H "authorization: Bearer $PROPGATE_API_KEY"`;
+curl -X DELETE https://api.propgate.dev/v1/api-keys/019fcf4f-3e6a-71aa-9120-99d104f062ac \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
 export const REVOKE_CLI = "npx @propgate/cli keys revoke pg_live_Ab3x";
 

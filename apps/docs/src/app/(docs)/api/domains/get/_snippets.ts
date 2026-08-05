@@ -13,7 +13,8 @@
  * `storedLookups()` in `apps/api/src/domains/check.ts` on the write path.
  */
 
-export const GET_CURL = `curl -s $A/v1/domains/$ID -H "authorization: Bearer $KEY" | j          # stored, no re-check`;
+export const GET_CURL = `curl -s https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"          # stored, no re-check`;
 
 export const GET_RESPONSE = `{
   "data": {
@@ -41,12 +42,23 @@ export const GET_RESPONSE = `{
     "object": "domain",
     "profileVersionId": "019fcf6b-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
     "requirements": [
-      { "key": "spf",  "satisfied": true,  "verdict": "pass", "findings": [] },
-      { "key": "dkim", "satisfied": false, "verdict": "fail",
+      {
+        "key": "spf",
+        "satisfied": true,
+        "verdict": "pass",
+        "findings": []
+      },
+      {
+        "key": "dkim",
+        "satisfied": false,
+        "verdict": "fail",
         "findings": [
-          { "code": "DKIM_RECORD_MISSING",
-            "name": "google._domainkey.yourdomain.dev" }
-        ] }
+          {
+            "code": "DKIM_RECORD_MISSING",
+            "name": "google._domainkey.yourdomain.dev"
+          }
+        ]
+      }
     ],
     "requirementsMet": 3,
     "requirementsTotal": 5,

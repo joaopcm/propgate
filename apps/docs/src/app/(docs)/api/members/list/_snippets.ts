@@ -5,7 +5,7 @@
  */
 
 export const MEMBERS_CURL = `curl -s https://api.propgate.dev/v1/members \\
-  -H "authorization: Bearer $KEY"`;
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
 export const MEMBERS_RESPONSE = `{
   "data": [

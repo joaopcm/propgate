@@ -6,22 +6,28 @@
  * their own object — secret rotation and deliveries) for the responses.
  */
 
-export const CREATE_CURL = `curl -s -X POST $A/v1/webhooks -H "authorization: Bearer $KEY" \\
+export const CREATE_CURL = `curl -s -X POST https://api.propgate.dev/v1/webhooks \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H 'content-type: application/json' \\
-  -d '{"url":"https://example.com/hooks/propgate","events":["domain.failed","domain.recovered"]}' | j`;
+  -d '{"url":"https://example.com/hooks/propgate","events":["domain.failed","domain.recovered"]}'`;
 
 export const CREATE_RESPONSE = `{
   "data": {
     "createdAt": "2026-08-03T12:00:00.000Z",
     "disabled": false,
-    "events": ["domain.failed", "domain.recovered"],
+    "events": [
+      "domain.failed",
+      "domain.recovered"
+    ],
     "id": "019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b",
     "object": "webhook",
     "secret": "whsec_...",
     "url": "https://example.com/hooks/propgate"
   },
   "error": null,
-  "meta": { "created": true }
+  "meta": {
+    "created": true
+  }
 }`;
 
 export const CREATE_REJECTED = `{
@@ -32,14 +38,18 @@ export const CREATE_REJECTED = `{
   "meta": null
 }`;
 
-export const LIST_CURL = `curl -s $A/v1/webhooks -H "authorization: Bearer $KEY" | j`;
+export const LIST_CURL = `curl -s https://api.propgate.dev/v1/webhooks \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
 export const LIST_RESPONSE = `{
   "data": [
     {
       "createdAt": "2026-08-03T12:00:00.000Z",
       "disabled": false,
-      "events": ["domain.failed", "domain.recovered"],
+      "events": [
+        "domain.failed",
+        "domain.recovered"
+      ],
       "id": "019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b",
       "object": "webhook",
       "url": "https://example.com/hooks/propgate"
@@ -49,23 +59,30 @@ export const LIST_RESPONSE = `{
   "meta": null
 }`;
 
-export const GET_CURL = `curl -s $A/v1/webhooks/$ENDPOINT_ID -H "authorization: Bearer $KEY" | j`;
+export const GET_CURL = `curl -s https://api.propgate.dev/v1/webhooks/019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
 export const GET_NOT_FOUND = `{
   "data": null,
-  "error": { "message": "no such webhook" },
+  "error": {
+    "message": "no such webhook"
+  },
   "meta": null
 }`;
 
-export const UPDATE_CURL = `curl -s -X PATCH $A/v1/webhooks/$ENDPOINT_ID -H "authorization: Bearer $KEY" \\
+export const UPDATE_CURL = `curl -s -X PATCH https://api.propgate.dev/v1/webhooks/019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H 'content-type: application/json' \\
-  -d '{"disabled":true}' | j`;
+  -d '{"disabled":true}'`;
 
 export const UPDATE_RESPONSE = `{
   "data": {
     "createdAt": "2026-08-03T12:00:00.000Z",
     "disabled": true,
-    "events": ["domain.failed", "domain.recovered"],
+    "events": [
+      "domain.failed",
+      "domain.recovered"
+    ],
     "id": "019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b",
     "object": "webhook",
     "url": "https://example.com/hooks/propgate"
@@ -74,16 +91,21 @@ export const UPDATE_RESPONSE = `{
   "meta": null
 }`;
 
-export const DELETE_CURL = `curl -s -X DELETE $A/v1/webhooks/$ENDPOINT_ID -H "authorization: Bearer $KEY" | j`;
+export const DELETE_CURL = `curl -s -X DELETE https://api.propgate.dev/v1/webhooks/019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
 export const DELETE_RESPONSE = `{
-  "data": { "deleted": true, "id": "019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b" },
+  "data": {
+    "deleted": true,
+    "id": "019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b"
+  },
   "error": null,
   "meta": null
 }`;
 
-export const ROTATE_CURL = `curl -s -X POST $A/v1/webhooks/$ENDPOINT_ID/secret -H "authorization: Bearer $KEY" \\
-  -H 'content-type: application/json' -d '{"windowHours":24}' | j`;
+export const ROTATE_CURL = `curl -s -X POST https://api.propgate.dev/v1/webhooks/019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b/secret \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
+  -H 'content-type: application/json' -d '{"windowHours":24}'`;
 
 export const ROTATE_RESPONSE = `{
   "data": {
@@ -92,14 +114,17 @@ export const ROTATE_RESPONSE = `{
     "secret": "whsec_..."
   },
   "error": null,
-  "meta": { "previousSecretExpiresAt": "2026-08-04T12:00:00.000Z" }
+  "meta": {
+    "previousSecretExpiresAt": "2026-08-04T12:00:00.000Z"
+  }
 }`;
 
-export const ROTATE_LEAK_CURL = `curl -s -X POST $A/v1/webhooks/$ENDPOINT_ID/secret -H "authorization: Bearer $KEY" \\
-  -H 'content-type: application/json' -d '{"windowHours":0}' | j`;
+export const ROTATE_LEAK_CURL = `curl -s -X POST https://api.propgate.dev/v1/webhooks/019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b/secret \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
+  -H 'content-type: application/json' -d '{"windowHours":0}'`;
 
-export const DELIVERIES_CURL = `curl -s "$A/v1/webhooks/$ENDPOINT_ID/deliveries?status=failed" \\
-  -H "authorization: Bearer $KEY" | j`;
+export const DELIVERIES_CURL = `curl -s "https://api.propgate.dev/v1/webhooks/019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b/deliveries?status=failed" \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
 export const DELIVERIES_RESPONSE = `{
   "data": [
@@ -128,5 +153,7 @@ export const DELIVERIES_RESPONSE = `{
     }
   ],
   "error": null,
-  "meta": { "nextCursor": null }
+  "meta": {
+    "nextCursor": null
+  }
 }`;

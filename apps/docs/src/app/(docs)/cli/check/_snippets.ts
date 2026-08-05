@@ -95,4 +95,4 @@ export const JSON_OUTPUT = `{
 }`;
 
 export const CI_GATE_RUN =
-  'npx @propgate/cli check "$DOMAIN" --only spf,dkim --selector app || exit $?';
+  "npx @propgate/cli check example.com --only spf,dkim --selector app || exit $?";
