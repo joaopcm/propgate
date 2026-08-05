@@ -1,0 +1,63 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import { CONFIG_PATH, INSTALL_GLOBAL, INSTALL_NPX, PRECEDENCE } from "./_snippets";
+
+# CLI
+
+`@propgate/cli` is the same engine as the public checker and the API, run
+from a terminal. `propgate check` is what you reach for when a customer
+reports something odd, because it runs against whichever resolver *they* are
+using rather than against ours.
+
+<CodeTabs
+  items={[
+    { code: INSTALL_NPX, label: "npx", lang: "bash" },
+    { code: INSTALL_GLOBAL, label: "global install", lang: "bash" },
+  ]}
+/>
+
+Published as `@propgate/cli`, MIT licensed, zero runtime dependencies beyond
+[`@propgate/dns`](https://www.npmjs.com/package/@propgate/dns), which has none
+of its own. `propgate --version` prints the version out of `package.json`
+rather than a constant baked in at build time, so it never drifts from what
+was actually published. Requires Node 20 or later.
+
+## The split that matters
+
+The CLI has two halves, and they do not touch:
+
+- **`propgate check`** needs no account, no config file, and no network
+  beyond DNS. It resolves against whichever server you point it at — the
+  system resolver by default — and never talks to propgate's API. A machine
+  that has never run `signup` loses nothing.
+- **Everything else** — `signup`, `confirm`, `keys`, `domains` — is a client
+  of [api.propgate.dev](https://api.propgate.dev). These are the commands
+  that need a key.
+
+See [`check`](/cli/check) for the diagnostic half, and
+[`accounts`](/cli/accounts) and [`domains`](/cli/domains) for the half that
+manages a tenant.
+
+## The config file
+
+`confirm` is the only command that writes to disk. It stores the key it
+receives at:
+
+<CodeBlock code={CONFIG_PATH} lang="text" />
+
+`$XDG_CONFIG_HOME` when it is set to an absolute path, `~/.config` otherwise.
+The file is written mode `0600` — via a temporary file with that mode,
+renamed over the target, rather than written in place and `chmod`ed after, so
+the key is never briefly world-readable on a shared machine.
+
+## Where the key and URL come from
+
+Every account command resolves a key and a base URL the same way, in this
+order:
+
+<CodeBlock code={PRECEDENCE} lang="text" />
+
+`PROPGATE_API_KEY` beats the stored file, which is what lets CI run without a
+config file on disk at all. `--api-url` beats everything, which is what makes
+pointing the CLI at a local stack a single flag rather than an environment
+change.

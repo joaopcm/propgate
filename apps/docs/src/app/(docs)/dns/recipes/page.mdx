@@ -1,0 +1,49 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import {
+  RECIPE_CHECK_AND_SWITCH,
+  RECIPE_CUSTOM_RESOLVER_PORT,
+  RECIPE_EXPLAIN_VERDICT,
+} from "./_snippets";
+
+# Recipes
+
+Three complete files, each one thing a caller of the library actually needs
+to do.
+
+## Check one domain and switch on the verdict
+
+The common case: build a profile, run it, and branch on the result. `pass`
+and `warn` both satisfy the profile; `fail` and `indeterminate` both leave it
+unsatisfied, and the difference between those two is "broken" versus "could
+not tell" — worth a different message to whoever reads the log.
+
+<CodeBlock code={RECIPE_CHECK_AND_SWITCH} lang="ts" />
+
+## Query a specific resolver, on a non-standard port
+
+Nothing in `runChecks` or `query` assumes port 53. `resolver.target` is
+always `{ address, port, transport }`, so pointing every lookup at a
+resolver container — or any nameserver that happens to run somewhere other
+than 53 — is the same call as pointing at a public resolver:
+
+<CodeBlock code={RECIPE_CUSTOM_RESOLVER_PORT} lang="ts" />
+
+This is the same reason the fixture tier behind `packages/dns`'s own tests
+needs `target` to carry a port at all: it serves real DNS on real port 53
+across several loopback addresses normally, and on a high port instead on
+macOS, where only one loopback address is available. A resolver that
+hardcoded either the address or the port could not run against both.
+
+## Read the lookups behind a finding
+
+A verdict and a code are enough for a `switch` statement. They are not
+enough for a support reply. Every `CheckOutcome` carries its own
+**derivation** — every lookup made, the name, why it was made, and what came
+back — so explaining a result to a customer does not mean re-running the
+check by hand to reconstruct what happened:
+
+<CodeBlock code={RECIPE_EXPLAIN_VERDICT} lang="ts" />
+
+`outcomeFor` returns `undefined` when the profile never asked about that
+check kind — a skipped check, not a passing one — which is why the sample
+checks for it before reading `.verdict`.

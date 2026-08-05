@@ -1,0 +1,183 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import { EVENT_NAMES, TIMESTAMP_TOLERANCE_SECONDS } from "@/lib/webhooks";
+import {
+  CREATE_CURL,
+  CREATE_REJECTED,
+  CREATE_RESPONSE,
+  DELETE_CURL,
+  DELETE_RESPONSE,
+  DELIVERIES_CURL,
+  DELIVERIES_RESPONSE,
+  GET_CURL,
+  GET_NOT_FOUND,
+  LIST_CURL,
+  LIST_RESPONSE,
+  ROTATE_CURL,
+  ROTATE_LEAK_CURL,
+  ROTATE_RESPONSE,
+  UPDATE_CURL,
+  UPDATE_RESPONSE,
+} from "./_snippets";
+
+# Webhook endpoints
+
+Seven routes under `/v1/webhooks`, documented on one page because they are
+one resource rather than seven. This page is the CRUD surface — creating,
+listing and configuring endpoints, rotating their secrets, and reading
+delivery attempts. For the four events, the payload shape, and verifying a
+signature, see [Webhooks](/webhooks); signatures are valid for
+{TIMESTAMP_TOLERANCE_SECONDS} seconds, which this page does not repeat.
+
+No CLI commands yet — webhooks are managed over the API only.
+
+<Callout>
+  None of the requests or responses on this page are captured — there is no
+  webhooks section in QUICKSTART.md to quote from. Every one is a shape read
+  off `apps/api/src/routes/webhooks.ts`: its zod schemas for the requests, and
+  its `serialise` function (or, for rotation and deliveries, the object the
+  route builds itself) for the responses.
+</Callout>
+
+## Create
+
+<EndpointHeader method="POST" path="/v1/webhooks" />
+
+<ParamsTable
+  rows={[
+    {
+      description:
+        "https only, and not a loopback or private address — the signature protects the body, not the connection, so plain http would sign a request that travels unprotected anyway.",
+      name: "url",
+      required: true,
+      type: "string",
+    },
+    {
+      description: `Which events to send. Omitted or empty means all of them: ${EVENT_NAMES.join(", ")}.`,
+      name: "events",
+      type: "array",
+    },
+  ]}
+/>
+
+<CodeBlock code={CREATE_CURL} lang="bash" />
+<CodeBlock code={CREATE_RESPONSE} lang="json" />
+
+Creating is idempotent on `(account, url)` — posting the same URL again
+returns the existing endpoint rather than a second one, and `meta.created`
+tells the two apart. `secret` is only ever present in **this** response: on a
+retry that matched an existing endpoint, the stored secret is not this call's
+to hand back, since it exists to sign with, not to be read.
+
+A URL that fails the `https`-and-not-private check is a `422`:
+
+<CodeBlock code={CREATE_REJECTED} lang="json" />
+
+## List
+
+<EndpointHeader method="GET" path="/v1/webhooks" />
+
+<CodeBlock code={LIST_CURL} lang="bash" />
+<CodeBlock code={LIST_RESPONSE} lang="json" />
+
+Every endpoint on the account. No `secret` on any item — it is returned once,
+at creation or rotation, and nowhere else.
+
+## Get
+
+<EndpointHeader method="GET" path="/v1/webhooks/:id" />
+
+<CodeBlock code={GET_CURL} lang="bash" />
+<CodeBlock code={GET_NOT_FOUND} lang="json" />
+
+## Update
+
+<EndpointHeader method="PATCH" path="/v1/webhooks/:id" />
+
+<ParamsTable
+  rows={[
+    {
+      description: "Pauses delivery without deleting the endpoint or its history.",
+      name: "disabled",
+      type: "boolean",
+    },
+    {
+      description: "Replaces the event list wholesale. Send every event you still want, not only the new one.",
+      name: "events",
+      type: "array",
+    },
+  ]}
+/>
+
+<CodeBlock code={UPDATE_CURL} lang="bash" />
+<CodeBlock code={UPDATE_RESPONSE} lang="json" />
+
+## Delete
+
+<EndpointHeader method="DELETE" path="/v1/webhooks/:id" />
+
+<CodeBlock code={DELETE_CURL} lang="bash" />
+<CodeBlock code={DELETE_RESPONSE} lang="json" />
+
+Deleting an endpoint does not delete its past deliveries.
+
+## Rotate the secret
+
+<EndpointHeader method="POST" path="/v1/webhooks/:id/secret" />
+
+`POST /:id/secret` rather than `/:id/rotate-secret`: this call *creates* a
+secret, so the noun in the path is the resource and `POST` is the verb. Once a
+family has one route spelling the verb in the path and another that doesn't,
+which one a given action gets stops being predictable.
+
+<ParamsTable
+  rows={[
+    {
+      description:
+        "How long the previous secret keeps being accepted, so you can redeploy on your own schedule. Default 24, max 168 (a week).",
+      name: "windowHours",
+      type: "number",
+    },
+  ]}
+/>
+
+<CodeBlock code={ROTATE_CURL} lang="bash" />
+<CodeBlock code={ROTATE_RESPONSE} lang="json" />
+
+Until `previousSecretExpiresAt`, every delivery is signed with **both**
+secrets at once — see [Webhooks](/webhooks#rotation) for the header format
+and how to verify against either. Rotating because a secret leaked? Pass
+`windowHours: 0` and the old one stops being accepted immediately:
+
+<CodeBlock code={ROTATE_LEAK_CURL} lang="bash" />
+
+## Deliveries
+
+<EndpointHeader method="GET" path="/v1/webhooks/:id/deliveries" />
+
+Nested under the endpoint rather than listed account-wide, for two reasons.
+First, a delivery belongs to exactly one endpoint, and "did *this* endpoint
+receive it" is the question this call answers — an account-wide list would
+answer a different one. Second, an account-wide `/v1/webhooks/deliveries`
+would collide with `/v1/webhooks/:id` in the route table, and which one wins
+would depend on declaration order rather than on anything the URL says.
+
+<ParamsTable
+  rows={[
+    { description: "One of pending, delivered, failed.", name: "status", type: "string" },
+    { description: "From a previous page's meta.nextCursor.", name: "cursor", type: "string" },
+    { description: "Default 50, max 200.", name: "limit", type: "number" },
+  ]}
+/>
+
+<CodeBlock code={DELIVERIES_CURL} lang="bash" />
+<CodeBlock code={DELIVERIES_RESPONSE} lang="json" />
+
+`lastError` is what makes a dead-lettered delivery answerable — null while
+pending and after an eventual success, and the transport error otherwise.
+`payload` is the same body that was sent, byte for byte, so a delivery that
+failed can be replayed by hand without recomputing it. See
+[Webhooks](/webhooks#retries) for the retry schedule and which status codes
+trigger one.

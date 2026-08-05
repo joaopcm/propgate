@@ -81,11 +81,68 @@ export const navigation: readonly NavSection[] = [
   {
     groups: [
       { items: [{ href: "/api", title: "Overview" }], title: "Get started" },
+      {
+        items: [
+          { href: "/api/accounts/signup", title: "Sign up" },
+          { href: "/api/accounts/confirm", title: "Confirm" },
+        ],
+        title: "Accounts",
+      },
+      {
+        items: [
+          { href: "/api/api-keys/create", title: "Create key" },
+          { href: "/api/api-keys/list", title: "List keys" },
+          { href: "/api/api-keys/revoke", title: "Revoke key" },
+        ],
+        title: "API keys",
+      },
+      {
+        items: [{ href: "/api/members/list", title: "List members" }],
+        title: "Members",
+      },
+      {
+        items: [
+          { href: "/api/profiles/create", title: "Create profile" },
+          { href: "/api/profiles/get", title: "Get profile" },
+        ],
+        title: "Profiles",
+      },
+      {
+        items: [
+          { href: "/api/domains/register", title: "Register domain" },
+          { href: "/api/domains/verify", title: "Verify domain" },
+          { href: "/api/domains/list", title: "List domains" },
+          { href: "/api/domains/get", title: "Get domain" },
+          { href: "/api/domains/timeline", title: "Timeline" },
+          { href: "/api/domains/delete", title: "Delete domain" },
+        ],
+        title: "Domains",
+      },
+      {
+        items: [{ href: "/api/webhooks/endpoints", title: "Endpoints" }],
+        title: "Webhooks",
+      },
     ],
     title: "API reference",
   },
-  { items: [], title: "CLI" },
-  { items: [], title: "@propgate/dns" },
+  {
+    items: [
+      { href: "/cli", title: "Overview" },
+      { href: "/cli/check", title: "check" },
+      { href: "/cli/accounts", title: "signup, confirm, keys" },
+      { href: "/cli/domains", title: "domains" },
+    ],
+    title: "CLI",
+  },
+  {
+    items: [
+      { href: "/dns", title: "Overview" },
+      { href: "/dns/resolver", title: "The resolver" },
+      { href: "/dns/evaluators", title: "The evaluators" },
+      { href: "/dns/recipes", title: "Recipes" },
+    ],
+    title: "@propgate/dns",
+  },
   {
     items: [
       { href: "/taxonomy", title: "Diagnosis taxonomy" },

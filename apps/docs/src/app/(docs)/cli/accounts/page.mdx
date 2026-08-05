@@ -1,0 +1,108 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import {
+  CONFIRM_CLI,
+  CONFIRM_CURL,
+  CONFIRM_OUTPUT,
+  KEYS_CREATE_CLI,
+  KEYS_CREATE_CURL,
+  KEYS_CREATE_OUTPUT,
+  KEYS_LIST_CLI,
+  KEYS_LIST_CURL,
+  KEYS_LIST_OUTPUT,
+  REVOKE_AMBIGUOUS,
+  REVOKE_CLI,
+  REVOKE_CURL,
+  REVOKE_OUTPUT,
+  SIGNUP_CLI,
+  SIGNUP_CURL,
+  SIGNUP_OUTPUT,
+} from "./_snippets";
+
+# accounts
+
+`signup`, `confirm`, and `keys` are the commands that talk to
+[api.propgate.dev](https://api.propgate.dev) — the half of the CLI that
+`check` does not touch. Every example below shows the cURL a script would use
+alongside the CLI command that does the same thing.
+
+<Callout>
+  `confirm` ends in a mailbox, not a terminal — so the outputs on this page
+  are shapes read off `packages/cli/src/account.ts`, the exact strings each
+  command prints, rather than a captured run.
+</Callout>
+
+## Getting a key
+
+Two calls. The first sends a six-digit code to the address you give it; the
+second exchanges that code for a key.
+
+<CodeTabs
+  items={[
+    { code: SIGNUP_CURL, label: "cURL", lang: "bash" },
+    { code: SIGNUP_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+<CodeBlock code={SIGNUP_OUTPUT} lang="text" />
+
+<CodeTabs
+  items={[
+    { code: CONFIRM_CURL, label: "cURL", lang: "bash" },
+    { code: CONFIRM_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+<CodeBlock code={CONFIRM_OUTPUT} lang="text" />
+
+<Callout>
+  `confirm` prints the key once and stores it in
+  `$XDG_CONFIG_HOME/propgate/config.json` at mode `0600`. Only a hash is kept
+  on the API side — there is no endpoint that can show the plaintext again.
+  Running the flow a second time on the same address mints an *additional*
+  key rather than a second account, which doubles as the recovery path for a
+  lost key.
+</Callout>
+
+## Managing keys
+
+<CodeTabs
+  items={[
+    { code: KEYS_LIST_CURL, label: "cURL", lang: "bash" },
+    { code: KEYS_LIST_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+<CodeBlock code={KEYS_LIST_OUTPUT} lang="text" />
+
+<CodeTabs
+  items={[
+    { code: KEYS_CREATE_CURL, label: "cURL", lang: "bash" },
+    { code: KEYS_CREATE_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+<CodeBlock code={KEYS_CREATE_OUTPUT} lang="text" />
+
+A created key is shown once and does not replace the key stored in your
+config file — the one `keys create` authenticated with keeps working
+afterwards.
+
+<CodeTabs
+  items={[
+    { code: REVOKE_CURL, label: "cURL", lang: "bash" },
+    { code: REVOKE_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+<CodeBlock code={REVOKE_OUTPUT} lang="text" />
+
+<Callout>
+  `keys revoke` takes a **prefix**, not an id — the prefix is the part of a
+  key still readable after it was issued, since only a hash of the rest is
+  ever stored. The API route itself takes an id, deliberately: a
+  four-character prefix carries no unique index, so the CLI lists your keys
+  and resolves the prefix on your side of the request, where an ambiguous
+  match can be reported rather than guessed.
+</Callout>
+
+<CodeBlock code={REVOKE_AMBIGUOUS} lang="text" />
+
+If a prefix matches more than one key, the command refuses and prints every
+id it matched instead of picking one.

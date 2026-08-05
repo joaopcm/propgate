@@ -1,0 +1,28 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { DELETE_CURL, DELETE_NOT_FOUND, DELETE_RESPONSE } from "./_snippets";
+
+# Delete a domain
+
+<EndpointHeader method="DELETE" path="/v1/domains/:id" />
+
+Stops tracking the domain. Nothing about it is checked again — the sweeper
+has no row left to pick up, its timeline entries and stored result are gone,
+and its `externalId` is free for a future registration to reuse. There is no
+undo; register it again to resume tracking, starting from `pending`.
+
+No CLI command yet — removing a domain is API-only.
+
+<Callout>
+  The request below is quoted verbatim from QUICKSTART.md. The response is a
+  shape read off the route handler in `apps/api/src/routes/domains.ts`, which
+  QUICKSTART.md does not print.
+</Callout>
+
+<CodeBlock code={DELETE_CURL} lang="bash" />
+<CodeBlock code={DELETE_RESPONSE} lang="json" />
+
+An id that does not exist, or belongs to a different account, is a `404`:
+
+<CodeBlock code={DELETE_NOT_FOUND} lang="json" />

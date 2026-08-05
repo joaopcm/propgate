@@ -1,0 +1,122 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import {
+  PROFILE_CREATE_CURL,
+  PROFILE_CREATE_RESPONSE,
+  PROFILE_REJECTED_CURL,
+  PROFILE_REJECTED_RESPONSE,
+} from "./_snippets";
+
+# Create a profile
+
+<EndpointHeader method="POST" path="/v1/profiles" />
+
+A profile is what you expect of a domain's records: a named list of
+requirements, each with a key you choose. Results are reported against those
+keys, so pick ones you can switch on.
+
+<ParamsTable
+  rows={[
+    {
+      description:
+        "The profile's identifier. Posting this key again does not change this version — it writes a new one. See Editing below.",
+      name: "key",
+      required: true,
+      type: "string",
+    },
+    {
+      description:
+        "At least one, at most 20. Each item names a check kind and the fields that kind needs — see Check kinds.",
+      name: "requirements",
+      required: true,
+      type: "array",
+    },
+    {
+      description: "A stable label you choose. Results are reported against it.",
+      name: "requirements[].key",
+      required: true,
+      type: "string",
+    },
+    {
+      description:
+        "One of caa, delegation, dkim, dmarc, mx, spf. See /concepts/profiles for what each asserts.",
+      name: "requirements[].check",
+      required: true,
+      type: "string",
+    },
+    {
+      description: "Required for check: dkim. The label before _domainkey.",
+      name: "requirements[].selector",
+      type: "string",
+    },
+    {
+      description:
+        "Optional, for check: dkim. The key you issued — turns \"a valid key is published\" into \"your key is published\".",
+      name: "requirements[].expectedPublicKey",
+      type: "string",
+    },
+    {
+      description: "Required for check: caa. The CA that must be authorised.",
+      name: "requirements[].caaIssuer",
+      type: "string",
+    },
+    {
+      description: "Optional, for check: spf. The include: token you publish.",
+      name: "requirements[].include",
+      type: "string",
+    },
+    {
+      description:
+        "Optional and tri-state, for check: mx. Omit if unknown; false asserts the domain receives no mail.",
+      name: "requirements[].expectsMail",
+      type: "boolean",
+    },
+  ]}
+/>
+
+<CodeBlock code={PROFILE_CREATE_CURL} lang="bash" />
+
+No CLI command yet — a profile is created over the API only.
+
+<Callout>
+  The response below is a shape read off `serialise` in
+  `apps/api/src/routes/profiles.ts`, not a captured run.
+</Callout>
+
+<CodeBlock code={PROFILE_CREATE_RESPONSE} lang="json" />
+
+## Editing writes a new version
+
+Posting the same `key` again never changes this version — it writes the next
+one, and every domain already registered against `sending` stays pinned to
+whichever version it was registered against. Full reasoning, and what "pinned"
+means for a domain mid-flight, is at
+[Profiles and versions](/concepts/profiles).
+
+## Rejected at write time
+
+A definition is refused before it is ever stored if a requirement inside it
+could never be answered:
+
+- no requirements, or more than 20
+- a duplicate requirement key
+- a `dkim` requirement with no `selector`, or two `dkim` requirements sharing
+  one `selector`
+- a `caa` requirement with no `caaIssuer`
+- two requirements naming the same non-`dkim` check — `dkim` is the one check
+  that answers a question per selector rather than per domain, so it is the
+  one allowed to repeat
+
+<Callout>
+  The error message below is copied verbatim from `rejectDefinition` in
+  `apps/api/src/profiles/compile.ts`, not a captured run.
+</Callout>
+
+<CodeBlock code={PROFILE_REJECTED_CURL} lang="bash" />
+<CodeBlock code={PROFILE_REJECTED_RESPONSE} lang="json" />
+
+Accepting a definition like this and failing later, once a customer already
+relies on it, would be a promise this API took and could not keep. A `422` at
+write time is the same finding delivered while it is still cheap to fix.

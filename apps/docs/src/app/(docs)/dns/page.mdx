@@ -1,0 +1,129 @@
+# @propgate/dns
+
+The resolver, the six evaluators, and the diagnosis taxonomy are one MIT
+package with **zero runtime dependencies** — Node built-ins only. It is not a
+simplified extract of what runs behind the API: it is the exact same code,
+`workspace:*`-linked into `apps/api` and this docs site. Nothing about the
+hosted product knows more than the package does.
+
+```bash
+pnpm add @propgate/dns
+```
+
+## Why take it alone
+
+- **No API key, no network call to us.** `query` and the evaluators talk
+  straight to whatever resolver you point them at.
+- **The taxonomy is the point.** 73 diagnosis codes, each either produced by a
+  fixture in the test harness or carrying a written reason it cannot be —
+  useful on its own if you are building diagnostics rather than a full
+  checker.
+- **MIT, forever.** `packages/db`, `packages/jobs`, and everything else in this
+  repo that talks to a database is private. This package is not, and never
+  becomes, gated behind an account.
+
+## Why not `node:dns`
+
+Node's built-in resolver wraps c-ares, which cannot express several things
+this package exists to report on. Each row below is load-bearing for at least
+one diagnosis code — lose the signal and the code becomes unreachable:
+
+<div className="my-4 overflow-x-auto">
+  <table className="w-full border-collapse text-sm">
+    <thead className="border-border border-b">
+      <tr>
+        <th className="px-3 py-2 text-left font-medium text-foreground text-xs uppercase tracking-wider">
+          Needed for
+        </th>
+        <th className="px-3 py-2 text-left font-medium text-foreground text-xs uppercase tracking-wider">
+          <code>node:dns</code>
+        </th>
+        <th className="px-3 py-2 text-left font-medium text-foreground text-xs uppercase tracking-wider">
+          Load-bearing for
+        </th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-border">
+      <tr>
+        <td className="px-3 py-2 text-muted-foreground">
+          The TC bit — was the answer truncated?
+        </td>
+        <td className="px-3 py-2 text-muted-foreground">
+          Not exposed. An oversized DKIM key is indistinguishable from a
+          missing record.
+        </td>
+        <td className="px-3 py-2 font-mono text-foreground text-xs">
+          TCP_SILENTLY_BLOCKED
+        </td>
+      </tr>
+      <tr>
+        <td className="px-3 py-2 text-muted-foreground">
+          DO bit / RRSIG records
+        </td>
+        <td className="px-3 py-2 text-muted-foreground">
+          Cannot set DO; never returns RRSIGs, so DNSSEC state is invisible.
+        </td>
+        <td className="px-3 py-2 font-mono text-foreground text-xs">
+          DNSSEC_BOGUS, DNSSEC_INSECURE_ISLAND
+        </td>
+      </tr>
+      <tr>
+        <td className="px-3 py-2 text-muted-foreground">
+          Authority-section SOA of an NXDOMAIN
+        </td>
+        <td className="px-3 py-2 text-muted-foreground">
+          Discarded, so the RFC 2308 negative-cache TTL cannot be computed.
+        </td>
+        <td className="px-3 py-2 font-mono text-foreground text-xs">
+          NEGATIVE_CACHE_LIKELY
+        </td>
+      </tr>
+      <tr>
+        <td className="px-3 py-2 text-muted-foreground">
+          Advertised EDNS buffer size
+        </td>
+        <td className="px-3 py-2 text-muted-foreground">
+          Not controllable, so truncation cannot be driven from the client.
+        </td>
+        <td className="px-3 py-2 font-mono text-foreground text-xs">
+          TCP_SILENTLY_BLOCKED
+        </td>
+      </tr>
+      <tr>
+        <td className="px-3 py-2 text-muted-foreground">
+          REFUSED vs SERVFAIL vs NXDOMAIN
+        </td>
+        <td className="px-3 py-2 text-muted-foreground">
+          Collapsed into error codes that lose the distinction.
+        </td>
+        <td className="px-3 py-2 font-mono text-foreground text-xs">
+          CAA_POLICY_FROM_ANCESTOR, SPF_TEMPORARY_FAILURE
+        </td>
+      </tr>
+      <tr>
+        <td className="px-3 py-2 text-muted-foreground">AA flag</td>
+        <td className="px-3 py-2 text-muted-foreground">
+          Not exposed, so a lame delegation is invisible.
+        </td>
+        <td className="px-3 py-2 font-mono text-foreground text-xs">
+          NS_DELEGATION_LAME
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+The trade is a hand-rolled wire codec over `node:dgram` and `node:net` —
+roughly 2 kLOC, checked against a fixture tier of deliberately broken
+servers — in exchange for being able to see everything on the wire. See
+[the resolver](/dns/resolver) for how that surfaces.
+
+## What's in the package
+
+- [The resolver](/dns/resolver) — `query`, `QueryOutcome`, port awareness,
+  truncation and the TCP fallback.
+- [The evaluators](/dns/evaluators) — `runChecks`, a `DomainProfile`, and the
+  six checks: delegation, SPF, DKIM, DMARC, MX, CAA.
+- [Recipes](/dns/recipes) — three complete files: check a domain and switch on
+  the verdict, query a specific resolver on a non-standard port, and read the
+  lookups behind a finding.

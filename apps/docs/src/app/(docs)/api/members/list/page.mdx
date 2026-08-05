@@ -1,0 +1,33 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { MEMBERS_CURL, MEMBERS_RESPONSE } from "./_snippets";
+
+# List members
+
+<EndpointHeader method="GET" path="/v1/members" />
+
+Who is on this account. There is no CLI command for this endpoint yet.
+
+<Callout>
+  The response below is a shape read off `serialise` in
+  `apps/api/src/routes/members.ts`, not a captured run.
+</Callout>
+
+<CodeBlock code={MEMBERS_CURL} lang="bash" />
+<CodeBlock code={MEMBERS_RESPONSE} lang="json" />
+
+**This endpoint is read-only, and deliberately so.** A member is added
+exactly one way — by proving control of a mailbox through
+[the signup flow](/api/accounts/signup) — because that is the only test of
+"can act on behalf of this address" that means anything. Removing a member
+is not offered here because it needs roles first: without them, any member
+could remove any other, including the founding address that created the
+tenant in the first place. That is the same gap
+[revoking a key](/api/api-keys/revoke) is ungated on today, and it points at
+the same missing piece rather than something this endpoint can work around.
+
+`GET /v1/api-keys` already reports the address that created each key in
+`createdBy` — this endpoint is what turns that address into something with a
+name on this account: a way to say which addresses on that list are actually
+supposed to be there.
