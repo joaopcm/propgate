@@ -50,7 +50,16 @@ export function otpMessage(input: OtpMessageInput): Message {
     "your address by mistake. No account has been created and nothing will happen",
     "if you ignore this message.</p>",
     "</div>",
-  ].join("");
+    /**
+     * Joined on a newline, not an empty string.
+     *
+     * These entries are source lines rather than complete elements, so a sentence
+     * wrapped across two of them was being glued together: "typedyour address",
+     * "happenif you ignore". HTML collapses whitespace, so a newline renders as
+     * the space the prose needs while leaving the markup identical — which also
+     * means the next person who wraps a line here cannot reintroduce it.
+     */
+  ].join("\n");
 
   return { html, subject, text, to: input.email };
 }
