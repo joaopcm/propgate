@@ -15,6 +15,8 @@ import { error } from "../utils/response";
 
 export interface AuthVariables {
   readonly apiKeyId: string;
+  /** The tenant's rate-limit override, or null for the default. */
+  readonly requestQuotaPerSecond: number | null;
   readonly tenantId: string;
 }
 
@@ -53,6 +55,7 @@ export function bearerAuth(db: Database) {
     }
 
     c.set("apiKeyId", outcome.authenticated.apiKeyId);
+    c.set("requestQuotaPerSecond", outcome.authenticated.requestQuotaPerSecond);
     c.set("tenantId", outcome.authenticated.tenantId);
 
     await next();

@@ -29,7 +29,6 @@ function expiry(from: Date, minutes = 10): Date {
 }
 
 beforeEach(async () => {
-  await db.delete(otpCodes);
   await truncateAll(db);
 });
 

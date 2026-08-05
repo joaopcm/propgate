@@ -44,9 +44,33 @@ describe("authenticateApiKey", () => {
     const outcome = await authenticateApiKey(db, created.key);
 
     expect(outcome).toEqual({
-      authenticated: { apiKeyId: created.id, tenantId },
+      authenticated: {
+        apiKeyId: created.id,
+        requestQuotaPerSecond: null,
+        tenantId,
+      },
       ok: true,
     });
+  });
+
+  it("carries the tenant's rate-limit override", async () => {
+    const tenantId = await tenant("vetted");
+
+    await db
+      .update(tenants)
+      .set({ requestQuotaPerSecond: 2000 })
+      .where(eq(tenants.id, tenantId));
+
+    const created = await createApiKey(db, { name: "prod", tenantId });
+    const outcome = await authenticateApiKey(db, created.key);
+
+    // Raising a partner's ceiling is a row update and nothing else. If this
+    // stops being carried out of authentication, the column silently becomes
+    // decoration and the only symptom is a partner hitting a limit they were
+    // told they did not have.
+    expect(outcome.ok && outcome.authenticated.requestQuotaPerSecond).toBe(
+      2000
+    );
   });
 
   it("keeps two tenants' keys apart", async () => {

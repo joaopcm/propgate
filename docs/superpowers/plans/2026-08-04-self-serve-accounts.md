@@ -203,8 +203,14 @@ a deliberate one at that point rather than something this schema quietly allowed
 Adding roles later is a column on this table. Adding invites is a second table
 beside it. Neither disturbs `tenants`, which is the point.
 
-`tenants` gains only `request_quota_per_minute` (nullable; null means the default,
+`tenants` gains only `request_quota_per_second` (nullable; null means the default,
 a value raises it — see risk 1).
+
+**A correction to this plan, made while implementing it.** The column is named
+`request_quota_per_second`, not `_per_minute`. The requests limit moved to a
+one-second window in risk 1 above, so a column named for a minute would hold a
+per-second number — the kind of mismatch that gets read wrong once and stays
+wrong. The window is the thing being enforced, so the column is named after it.
 
 `findOrCreateTenantForEmail` therefore becomes
 `findOrCreateAccountForEmail(db, { email })` →

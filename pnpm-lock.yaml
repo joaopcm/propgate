@@ -48,6 +48,9 @@ importers:
       '@propgate/dns':
         specifier: workspace:*
         version: link:../../packages/dns
+      '@propgate/emails':
+        specifier: workspace:*
+        version: link:../../packages/emails
       '@propgate/jobs':
         specifier: workspace:*
         version: link:../../packages/jobs

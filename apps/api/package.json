@@ -15,6 +15,7 @@
     "@hono/node-server": "^1",
     "@propgate/db": "workspace:*",
     "@propgate/dns": "workspace:*",
+    "@propgate/emails": "workspace:*",
     "@propgate/jobs": "workspace:*",
     "@propgate/webhooks": "workspace:*",
     "@sentry/node": "^10.47.0",

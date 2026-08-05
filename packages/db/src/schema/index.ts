@@ -16,6 +16,7 @@ export type {
   TransitionEvidence,
 } from "./state-transitions";
 export { stateTransitions } from "./state-transitions";
+export { tenantMembers } from "./tenant-members";
 export { tenants } from "./tenants";
 export type { DeliveryStatus } from "./webhooks";
 export {

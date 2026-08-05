@@ -3,9 +3,19 @@ import type { Database } from "../client";
 import type { GeneratedApiKey } from "../keys";
 import { generateApiKey, hashApiKey } from "../keys";
 import { apiKeys } from "../schema/api-keys";
+import { tenants } from "../schema/tenants";
 
 export interface Authenticated {
   readonly apiKeyId: string;
+  /**
+   * The tenant's override, or null for the default.
+   *
+   * Carried out of authentication rather than fetched by the limiter, because
+   * the limiter runs on every authenticated request and a second query there
+   * would double the fixed cost of the cheapest route in the API to read a
+   * column that is null for almost every tenant.
+   */
+  readonly requestQuotaPerSecond: number | null;
   readonly tenantId: string;
 }
 
@@ -82,14 +92,19 @@ export async function authenticateApiKey(
 ): Promise<AuthOutcome> {
   const hashed = hashApiKey(presented);
 
+  // Joined rather than looked up separately: the tenant is on the other end of a
+  // non-null foreign key, so this cannot lose a row, and it means the rate
+  // limiter downstream never has to ask the database anything.
   const [row] = await db
     .select({
       id: apiKeys.id,
       lastUsedAt: apiKeys.lastUsedAt,
+      requestQuotaPerSecond: tenants.requestQuotaPerSecond,
       revokedAt: apiKeys.revokedAt,
       tenantId: apiKeys.tenantId,
     })
     .from(apiKeys)
+    .innerJoin(tenants, eq(tenants.id, apiKeys.tenantId))
     .where(eq(apiKeys.hashedKey, hashed))
     .limit(1);
 
@@ -104,7 +119,11 @@ export async function authenticateApiKey(
   await touchLastUsed(db, row.id, now);
 
   return {
-    authenticated: { apiKeyId: row.id, tenantId: row.tenantId },
+    authenticated: {
+      apiKeyId: row.id,
+      requestQuotaPerSecond: row.requestQuotaPerSecond,
+      tenantId: row.tenantId,
+    },
     ok: true,
   };
 }
