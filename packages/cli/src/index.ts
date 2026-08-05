@@ -7,6 +7,7 @@ import {
   runChecks,
   type ServerAddress,
 } from "@propgate/dns";
+import { ACCOUNT_USAGE, isAccountCommand, runAccountCommand } from "./account";
 import { type Options, parse, parseResolver, USAGE } from "./args";
 import { exitCodeFor, render, type Style } from "./report";
 
@@ -132,6 +133,26 @@ async function check(options: Options): Promise<number> {
 }
 
 export async function main(argv: readonly string[]): Promise<number> {
+  const [first] = argv;
+
+  /**
+   * Account commands are routed before the check parser sees the arguments.
+   *
+   * Not for tidiness: `parseArgs` throws on an unknown flag, so `--email` would be
+   * an error rather than a command if this ran afterwards. Routing on the verb also
+   * keeps the two option tables disjoint, which is what stops
+   * `propgate check example.com --code 123456` from parsing.
+   */
+  if (first !== undefined && isAccountCommand(first)) {
+    if (argv.includes("--help") || argv.includes("-h")) {
+      process.stdout.write(ACCOUNT_USAGE);
+
+      return 0;
+    }
+
+    return await runAccountCommand(argv);
+  }
+
   const parsed = parse(argv);
 
   if (parsed.kind === "help") {
