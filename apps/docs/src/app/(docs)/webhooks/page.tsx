@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { CodeBlock } from "@/components/docs/code-block";
 import {
   EVENT_NAMES,
   EVENTS,
@@ -40,14 +41,6 @@ function Section({
       <h2 className="mb-4 font-semibold text-xl tracking-tight">{title}</h2>
       {children}
     </section>
-  );
-}
-
-function Code({ children }: { children: string }) {
-  return (
-    <pre className="mb-4 overflow-x-auto rounded-md border border-border bg-black/30 p-4 font-mono text-[0.8125rem] leading-6">
-      <code>{children}</code>
-    </pre>
   );
 }
 
@@ -151,7 +144,7 @@ export default function WebhooksPage() {
           <code>previous_state</code> is what lets you tell a first-time setup
           from a recovery without keeping your own state.
         </p>
-        <Code>{PAYLOAD_SNIPPET}</Code>
+        <CodeBlock code={PAYLOAD_SNIPPET} lang="json" />
       </Section>
 
       <Section id="verifying" title="Verifying a request">
@@ -167,7 +160,7 @@ export default function WebhooksPage() {
           Verify against the <em>raw</em> body, before any JSON parsing.
           Re-serialising changes the bytes and the signature will not match.
         </p>
-        <Code>{VERIFY_SNIPPET}</Code>
+        <CodeBlock code={VERIFY_SNIPPET} lang="js" />
       </Section>
 
       <Section id="rotation" title="Rotating a secret">

@@ -25,7 +25,7 @@ function TabButton({
   return (
     <button
       className={cn(
-        "px-2 py-1.5 text-xs transition-colors",
+        "cursor-pointer px-2 py-1.5 text-xs transition-colors",
         active
           ? "text-foreground"
           : "text-muted-foreground hover:text-foreground"
@@ -70,7 +70,7 @@ export function CodeTabsClient({ items }: { items: readonly RenderedTab[] }) {
           />
         ))}
         <button
-          className="ml-auto px-2 py-1.5 text-muted-foreground text-xs hover:text-foreground"
+          className="ml-auto cursor-pointer px-2 py-1.5 text-muted-foreground text-xs hover:text-foreground"
           onClick={handleCopy}
           type="button"
         >
@@ -78,7 +78,7 @@ export function CodeTabsClient({ items }: { items: readonly RenderedTab[] }) {
         </button>
       </div>
       <div
-        className="overflow-x-auto text-[0.8125rem] leading-6 [&_pre]:p-4"
+        className="overflow-x-auto text-sm leading-6 [&_pre]:p-4"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki output, from literals in this repo
         dangerouslySetInnerHTML={{ __html: current.html }}
       />

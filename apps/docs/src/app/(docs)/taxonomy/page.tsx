@@ -28,10 +28,10 @@ function Row({ entry }: { entry: Entry }) {
   return (
     <li className="border-border border-b last:border-0">
       <Link
-        className="group flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:gap-4"
+        className="group flex flex-col gap-1 py-3 lg:flex-row lg:items-baseline lg:gap-4"
         href={`/taxonomy/${definition.slug}`}
       >
-        <code className="font-mono text-sm group-hover:underline">
+        <code className="shrink-0 font-mono text-sm group-hover:underline lg:w-80">
           {definition.code}
         </code>
         <span className="flex-1 text-muted-foreground text-sm leading-6">
