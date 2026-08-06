@@ -12,10 +12,12 @@ const withMDX = createMDX({
 
 const nextConfig: NextConfig = {
   // A static export, deployed as assets on Cloudflare Workers. Every page here
-  // prerenders: there are no route handlers, no server actions, and the public
-  // checker is a client component that calls the API from the browser. That
-  // makes an adapter such as @opennextjs/cloudflare unnecessary — it exists for
-  // apps that need a server at the edge, and this one does not.
+  // prerenders, and so does the one route handler: `/search-index.json` is
+  // `force-static`, so it runs at build and lands in `out/` as a file rather
+  // than as anything that serves a request. There are no server actions, and
+  // the public checker is a client component that calls the API from the
+  // browser. That makes an adapter such as @opennextjs/cloudflare unnecessary —
+  // it exists for apps that need a server at the edge, and this one does not.
   //
   // The tripwire: `export` rules out ISR and request-time rendering. The day a
   // dashboard needs server-side auth, this becomes an OpenNext deployment, and

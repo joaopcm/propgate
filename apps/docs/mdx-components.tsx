@@ -1,6 +1,36 @@
 import type { MDXComponents } from "mdx/types";
-import type { ComponentPropsWithoutRef } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  isValidElement,
+  type ReactNode,
+} from "react";
 import { MdxPre } from "@/components/docs/mdx-pre";
+import { slugify } from "@/lib/slug";
+
+/**
+ * The text of a heading, whatever it is made of.
+ *
+ * `## The \`SWEEP_TICK_SECONDS\` loop` reaches here as three children — a
+ * string, a `<code>` element, another string — so the id cannot come from
+ * `children` directly. The search index slugifies the same words off the raw
+ * markdown, and a mismatch is silent: the link resolves, the page loads, and
+ * the reader lands at the top.
+ */
+function textOf(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(textOf).join("");
+  }
+
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    return textOf(node.props.children);
+  }
+
+  return "";
+}
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
@@ -31,6 +61,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     h2: ({ children, ...props }: ComponentPropsWithoutRef<"h2">) => (
       <h2
         className="mt-10 mb-3 font-semibold text-foreground text-xl tracking-tight"
+        id={slugify(textOf(children))}
         {...props}
       >
         {children}
@@ -39,6 +70,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     h3: ({ children, ...props }: ComponentPropsWithoutRef<"h3">) => (
       <h3
         className="mt-8 mb-2 font-semibold text-foreground text-lg tracking-tight"
+        id={slugify(textOf(children))}
         {...props}
       >
         {children}
