@@ -63,6 +63,16 @@
   }
 
   /**
+   * `*` rather than `html`/`body` alone: the sidebar and every scrollable
+   * code block are their own scroll containers, and a default scrollbar on
+   * any of them would read as a different app bolted onto this one.
+   */
+  * {
+    scrollbar-color: gray transparent;
+    scrollbar-width: thin;
+  }
+
+  /**
    * Keyboard focus has to be visible on a docs site: the sidebar is a long
    * list of links, and tabbing through it with no ring is navigation by
    * memory. `:focus-visible` rather than `:focus` so a mouse click does not

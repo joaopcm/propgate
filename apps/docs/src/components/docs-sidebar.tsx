@@ -34,7 +34,7 @@ function ItemList({
             <Link
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex items-center justify-between gap-2 px-2 py-1.5 text-muted-foreground text-xs transition-colors hover:bg-muted hover:text-foreground",
+                "flex items-center justify-between gap-2 px-2 py-1.5 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground",
                 isActive && "bg-muted font-medium text-foreground"
               )}
               href={item.href}
@@ -71,7 +71,7 @@ export function DocsSidebar({ onNavigate }: { onNavigate?: () => void }) {
             <div className="flex flex-col gap-3">
               {section.groups.map((group) => (
                 <div className="flex flex-col gap-1" key={group.title}>
-                  <h3 className="px-2 font-medium text-[11px] text-foreground/80">
+                  <h3 className="px-2 font-medium text-foreground/80 text-xs">
                     {group.title}
                   </h3>
                   <ItemList
