@@ -65,6 +65,24 @@ export function tokenize(query: string): string[] {
   return query.toLowerCase().split(WHITESPACE).filter(Boolean);
 }
 
+/**
+ * Move the highlighted row, and never off either end of the list.
+ *
+ * The floor at zero is the part that matters. The result list is empty until
+ * the index has been fetched, and an unguarded `min(current + 1, count - 1)`
+ * stores -1 for an ArrowDown pressed during that fetch. The menu then arrives
+ * with nothing highlighted, `aria-activedescendant` naming an element that does
+ * not exist, and Enter doing nothing — a dead menu that looks like a working
+ * one, until the reader happens to press a key that heals it.
+ */
+export function moveActive(
+  current: number,
+  delta: number,
+  count: number
+): number {
+  return Math.max(0, Math.min(current + delta, count - 1));
+}
+
 function scoreToken(record: SearchRecord, token: string): number {
   const title = record.title.toLowerCase();
   let score = 0;

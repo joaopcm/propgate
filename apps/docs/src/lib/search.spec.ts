@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type SearchRecord, search } from "./search";
+import { moveActive, type SearchRecord, search } from "./search";
 import { buildSearchIndex } from "./search-index";
 
 /**
@@ -150,5 +150,34 @@ describe("search mechanics", () => {
 
     expect(snippets[0]).toContain("needle");
     expect(snippets[0]).toMatch(LEADING_ELLIPSIS);
+  });
+});
+
+describe("moveActive", () => {
+  it("steps down through the list", () => {
+    expect(moveActive(0, 1, 5)).toBe(1);
+  });
+
+  it("steps up through the list", () => {
+    expect(moveActive(3, -1, 5)).toBe(2);
+  });
+
+  it("stops at the last row rather than running off the end", () => {
+    expect(moveActive(4, 1, 5)).toBe(4);
+  });
+
+  it("stops at the first row rather than going negative", () => {
+    expect(moveActive(0, -1, 5)).toBe(0);
+  });
+
+  /**
+   * The regression. ArrowDown pressed while the index was still being fetched
+   * stored -1, and the menu then arrived with nothing highlighted,
+   * `aria-activedescendant` naming an element that does not exist, and Enter
+   * doing nothing until the reader happened to press a key that healed it.
+   */
+  it("stays at zero when there is nothing to move through yet", () => {
+    expect(moveActive(0, 1, 0)).toBe(0);
+    expect(moveActive(0, -1, 0)).toBe(0);
   });
 });

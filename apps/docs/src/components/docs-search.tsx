@@ -13,6 +13,7 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 import { cn } from "@/lib/cn";
 import {
+  moveActive,
   type SearchRecord,
   type SearchResult,
   search,
@@ -223,13 +224,13 @@ export function DocsSearch() {
       if (event.key === "ArrowDown") {
         event.preventDefault();
         setOpen(true);
-        setActive((current) => Math.min(current + 1, results.length - 1));
+        setActive((current) => moveActive(current, 1, results.length));
         return;
       }
 
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        setActive((current) => Math.max(current - 1, 0));
+        setActive((current) => moveActive(current, -1, results.length));
         return;
       }
 
