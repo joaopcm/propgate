@@ -64,7 +64,7 @@ export function DocsSidebar({ onNavigate }: { onNavigate?: () => void }) {
     >
       {navigation.filter(sectionHasItems).map((section) => (
         <div className="flex flex-col gap-3" key={section.title}>
-          <h2 className="px-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+          <h2 className="px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
             {section.title}
           </h2>
           {isGroupedSection(section) ? (
