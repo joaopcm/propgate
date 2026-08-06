@@ -8,8 +8,8 @@ import { VERIFY_CURL, VERIFY_RATE_LIMITED, VERIFY_RESPONSE } from "./_snippets";
 <EndpointHeader method="POST" path="/v1/domains/:id/checks" />
 
 Runs every check the domain's profile names, updates its state, and returns a
-result per requirement. This is the only way a domain moves out of `pending`
-— **continuous re-checking is the sweeper's job and does not come through
+result per requirement. This is the only way a domain moves out of `pending`:
+**continuous re-checking is the sweeper's job and does not come through
 here.** A customer clicking "verify" during onboarding is what this endpoint
 is for; reconciling ten thousand domains on a schedule is not, and is not
 rate-limited the same way either.
@@ -17,10 +17,12 @@ rate-limited the same way either.
 No CLI command yet — triggering a check is API-only.
 
 <Callout>
-  Both the request and the response below are quoted verbatim from
-  QUICKSTART.md, a real run against the live API. QUICKSTART.md trims the
-  `requirements` array to two of the five entries the registered profile
-  actually has, which is why `requirementsTotal: 5` but only two are shown.
+  The response is quoted verbatim from QUICKSTART.md, a real run against the
+  live API. QUICKSTART.md trims the `requirements` array to two of the five
+  entries the registered profile actually has, which is why
+  `requirementsTotal: 5` but only two are shown. The request is adapted: it
+  uses the domain id directly rather than QUICKSTART.md's shell one-liner for
+  looking one up.
 </Callout>
 
 <CodeBlock code={VERIFY_CURL} lang="bash" />
@@ -28,29 +30,25 @@ No CLI command yet — triggering a check is API-only.
 
 Every finding carries a [diagnosis code](/taxonomy) and, where the evaluator
 has them, the DNS `name` it concerns, what was `observed`, and what was
-`expected`. Findings can appear on a satisfied requirement too — read
-`satisfied`, not the presence of findings, the way `mx` above would still show
+`expected`. Findings can appear on a satisfied requirement too, so read
+`satisfied` rather than the presence of findings: `mx` above would still show
 `MX_NULL` at `pass` for a domain that correctly declares it sends no mail.
 
-If the check causes a state transition — `pending` to `verified`, `verified`
-to `failed`, and so on — the same webhook fires as when the sweeper causes
-one. See [Webhooks](/webhooks) for the event names and payload shape.
+If the check causes a state transition, whether `pending` to `verified`,
+`verified` to `failed`, or any other, the same webhook fires as when the
+sweeper causes one. See [Webhooks](/webhooks) for the event names and payload
+shape.
 
 ## Rate limit
 
 **100 checks a minute per account**, separate from the general request limit
 of 250 requests a second. A check costs up to about 20 upstream DNS queries,
-aimed at whichever authoritative servers the *caller* names — not servers we
-operate — which is why this is the limit sized as a tripwire rather than a
-quota: it protects other people's infrastructure, not ours.
-
-<Callout>
-  The 429 below is quoted from the error the route itself constructs
-  (`apps/api/src/routes/domains.ts`), not a captured response.
-</Callout>
+aimed at whichever authoritative servers the *caller* names rather than at
+servers we operate. That is why this limit is sized as a tripwire rather than
+a quota: it protects other people's infrastructure, not ours.
 
 <CodeBlock code={VERIFY_RATE_LIMITED} lang="http" />
 
 A `Retry-After` header names how long to wait. If a real integration reaches
-this limit, tell us — it is a number we would rather re-measure than have you
+this limit, tell us. It is a number we would rather re-measure than have you
 build around.

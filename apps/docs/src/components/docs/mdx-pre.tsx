@@ -18,7 +18,7 @@ export function MdxPre({
   ...props
 }: ComponentPropsWithoutRef<"pre">) {
   return (
-    <div className="my-4 overflow-x-auto border border-white/5 text-[0.8125rem] leading-6">
+    <div className="my-4 overflow-x-auto border border-border bg-muted text-[0.8125rem] leading-6">
       <pre className={cn("p-4", className)} {...props}>
         {children}
       </pre>

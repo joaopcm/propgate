@@ -105,7 +105,7 @@ export default function ConformancePage() {
           <ul className="mt-5">
             {rfc.requirements.map((entry) => (
               <li
-                className="flex gap-4 border-white/5 border-b py-3 last:border-0"
+                className="flex gap-4 border-border border-b py-3 last:border-0"
                 key={`${entry.section}-${entry.requirement}`}
               >
                 <span className="w-12 shrink-0 font-mono text-muted-foreground text-xs">

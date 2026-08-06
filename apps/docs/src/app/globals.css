@@ -8,6 +8,7 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-rule: var(--rule);
   --color-warning: var(--warning);
   --color-destructive: var(--destructive);
   --color-success: var(--success);
@@ -21,7 +22,18 @@
   --foreground: #fafafa;
   --muted: #27272a;
   --muted-foreground: #a1a1aa;
+  /**
+   * Two border weights, and deliberately only two.
+   *
+   * `--border` is the hairline every structural edge uses: table rules, code
+   * block edges, the header and sidebar. This file previously spread four
+   * near-identical values across those edges (0.05, 0.064, 0.08, 0.2), which
+   * is close enough to read as inconsistency rather than as hierarchy.
+   * `--rule` is the one deliberate step up, for an edge that is meant to be
+   * seen as a mark rather than as a seam — the `Callout` accent bar.
+   */
   --border: rgba(255, 255, 255, 0.08);
+  --rule: rgba(255, 255, 255, 0.2);
   /* Same register as --muted-foreground's zinc-400: the 400 shade, chosen for
      contrast against #0b0b0d rather than the more common 500, which is tuned
      for a light background. */
@@ -36,5 +48,43 @@
   }
   html {
     @apply font-sans;
+  }
+
+  /**
+   * The sticky header is `h-14`, and it overlaps anything an in-page anchor
+   * scrolls to. Without this, following `/webhooks#rotation` lands with the
+   * heading hidden underneath the header and the reader looking at the middle
+   * of the section they asked for. 5rem is the header's 3.5rem plus enough
+   * space that the heading reads as the top of the section rather than as
+   * something jammed against the chrome.
+   */
+  html {
+    scroll-padding-top: 5rem;
+  }
+
+  /**
+   * Keyboard focus has to be visible on a docs site: the sidebar is a long
+   * list of links, and tabbing through it with no ring is navigation by
+   * memory. `:focus-visible` rather than `:focus` so a mouse click does not
+   * leave a ring behind.
+   */
+  :focus-visible {
+    outline: 2px solid var(--muted-foreground);
+    outline-offset: 2px;
+  }
+
+  /**
+   * Shiki paints its own theme's canvas colour as an inline style on every
+   * `<pre>` it emits — for `github-dark-dimmed` that's `#22272e`, a blue-tinted
+   * grey that doesn't belong to this site's palette and reads as an odd blue
+   * box against the rest of the UI. An inline `style` attribute beats any
+   * stylesheet rule except one marked `!important`, which is the only reason
+   * one appears here. The visible background instead comes from `bg-muted` on
+   * each component that wraps a highlighted block (`CodeBlock`, `MdxPre`,
+   * `CodeTabsClient`), so every block matches the app's own grey rather than
+   * carrying whatever colour the theme happens to ship.
+   */
+  .shiki {
+    background-color: transparent !important;
   }
 }

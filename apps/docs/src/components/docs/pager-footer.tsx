@@ -12,7 +12,7 @@ export function PagerFooter() {
   }
 
   return (
-    <nav className="mt-12 flex justify-between gap-4 border-border/80 border-t pt-6 text-sm">
+    <nav className="mt-12 flex justify-between gap-4 border-border border-t pt-6 text-sm">
       {previous ? (
         <Link
           className="text-muted-foreground hover:text-foreground"

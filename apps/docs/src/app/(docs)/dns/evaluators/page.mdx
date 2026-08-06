@@ -15,27 +15,27 @@ export const EVALUATOR_ENTRIES = {
   caa: {
     code: CAA_SAMPLE,
     nonObvious:
-      "the climb goes to the top-level domain, never to the organizational domain — the Public Suffix List plays no part — and stops at the first CAA RRset it finds. A parent's policy is replaced by a nearer one, never merged with it.",
+      "the climb goes to the top-level domain, never to the organizational domain (the Public Suffix List plays no part), and stops at the first CAA RRset it finds. A parent's policy is replaced by a nearer one, never merged with it.",
   },
   delegation: {
     code: DELEGATION_SAMPLE,
     nonObvious:
-      "every nameserver in the delegation is queried individually, because a lame delegation is a fact about one server, not about the zone — resolvers that happen to pick it get SERVFAIL while everyone else is fine.",
+      "every nameserver in the delegation is queried individually, because a lame delegation is a fact about one server rather than about the zone: resolvers that happen to pick it get SERVFAIL while everyone else is fine.",
   },
   dkim: {
     code: DKIM_SAMPLE,
     nonObvious:
-      "the key is parsed rather than pattern-matched, and DNS names fold case while base64 does not — a published key differing only in letter case from the one you issued is a different key, not a formatting quirk.",
+      "the key is parsed rather than pattern-matched, and DNS names fold case while base64 does not. A published key differing only in letter case from the one you issued is a different key, not a formatting quirk.",
   },
   dmarc: {
     code: DMARC_SAMPLE,
     nonObvious:
-      "a record is valid at the exact name or, failing that, at the organizational domain — and an external rua= destination has to publish its own authorisation record back, or the reports it is sent are silently discarded.",
+      "a record is valid at the exact name or, failing that, at the organizational domain. An external rua= destination has to publish its own authorisation record back, or the reports it is sent are silently discarded.",
   },
   mx: {
     code: MX_SAMPLE,
     nonObvious:
-      "expectsMail is tri-state — true, false, or omitted — because a null MX is correct on a sending-only domain and a total failure on one that receives mail, and no amount of looking at DNS tells you which.",
+      "expectsMail is tri-state (true, false, or omitted) because a null MX is correct on a sending-only domain and a total failure on one that receives mail, and no amount of looking at DNS tells you which.",
   },
   spf: {
     code: SPF_SAMPLE,
@@ -46,7 +46,7 @@ export const EVALUATOR_ENTRIES = {
 
 # The evaluators
 
-Six evaluators exist — delegation, SPF, DKIM, DMARC, MX, CAA — and
+Six evaluators exist (delegation, SPF, DKIM, DMARC, MX, CAA) and
 `runChecks` is what a caller actually reaches for. It takes a `DomainProfile`
 (what a domain is *for*, stated as data) and runs whichever checks that
 profile asks for against one `EvaluationContext`.
@@ -60,7 +60,7 @@ own:
   nothing and none is ordered relative to another, so the wall clock is the
   slowest check rather than the sum of all six.
 - **A skipped check is not a passing check.** A profile that never asks about
-  DKIM produces no DKIM outcome at all — not a green one. `sendingOnly`,
+  DKIM produces no DKIM outcome at all, rather than a green one. `sendingOnly`,
   `fullMail`, and `webOnly` are the three profile constructors that ship with
   the package; a `DomainProfile` is otherwise plain data you can construct
   and store yourself.
@@ -72,7 +72,7 @@ uncertainty about the rest.
 
 ## The six checks
 
-Rendered from `REQUIREMENT_TYPES`, the same record the API reference reads —
+Rendered from `REQUIREMENT_TYPES`, the same record the API reference reads, so
 this list cannot say something the resolver cannot actually check.
 
 <div>
@@ -81,7 +81,7 @@ this list cannot say something the resolver cannot actually check.
     const entry = EVALUATOR_ENTRIES[kind];
 
     return (
-      <section className="my-8 border-white/5 border-t pt-6" key={kind}>
+      <section className="my-8 border-border border-t pt-6" key={kind}>
         <h3 className="mb-2 font-mono text-base text-foreground">{kind}</h3>
         <p className="mb-3 text-muted-foreground text-sm leading-6">
           {type.summary}

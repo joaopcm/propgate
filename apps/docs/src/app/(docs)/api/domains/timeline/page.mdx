@@ -22,9 +22,7 @@ No CLI command yet — the timeline is API-only.
 
 <Callout>
   The request and the one entry inside `data` below are quoted verbatim from
-  QUICKSTART.md. The envelope around it is a shape read off the route handler
-  in `apps/api/src/routes/domains.ts`, which QUICKSTART.md does not print in
-  full.
+  QUICKSTART.md.
 </Callout>
 
 <CodeBlock code={TIMELINE_CURL} lang="bash" />
@@ -36,8 +34,7 @@ the same thing writes nothing at all. Check the same domain twice in a row
 and this list does not grow.
 
 That's deliberate, not an optimisation applied later: logging every check
-result would be 360k rows a day at 10k domains, which is the difference
-between a $20 infrastructure bill and a $400 one. It cannot be retrofitted
+result would be 360k rows a day at 10k domains. It cannot be retrofitted
 without losing history, which is why it's a property of what gets written,
 not of what gets queried.
 

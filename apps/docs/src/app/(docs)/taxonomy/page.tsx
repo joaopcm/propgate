@@ -26,7 +26,7 @@ function Row({ entry }: { entry: Entry }) {
   const { definition } = entry;
 
   return (
-    <li className="border-white/5 border-b last:border-0">
+    <li className="border-border border-b last:border-0">
       <Link
         className="group flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:gap-4"
         href={`/taxonomy/${definition.slug}`}

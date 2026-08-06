@@ -18,11 +18,23 @@ export const SIGNUP_CLI = `npx @propgate/cli signup  --email you@example.com
 npx @propgate/cli confirm --email you@example.com --code 123456`;
 
 export const AUTH_HEADER_CURL = `curl https://api.propgate.dev/v1/domains \\
-  -H "Authorization: Bearer pg_live_..."`;
+  -H "Authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
-export const AUTH_HEADER_CLI = `export PROPGATE_API_KEY=pg_live_...
-npx @propgate/cli domains list`;
+export const AUTH_HEADER_CLI =
+  "PROPGATE_API_KEY=pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx npx @propgate/cli domains list";
 
-export const REVOKED_401 = `{ "data": null, "error": { "message": "this API key has been revoked" }, "meta": null }`;
+export const REVOKED_401 = `{
+  "data": null,
+  "error": {
+    "message": "this API key has been revoked"
+  },
+  "meta": null
+}`;
 
-export const UNKNOWN_401 = `{ "data": null, "error": { "message": "invalid API key" }, "meta": null }`;
+export const UNKNOWN_401 = `{
+  "data": null,
+  "error": {
+    "message": "invalid API key"
+  },
+  "meta": null
+}`;

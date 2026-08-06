@@ -15,16 +15,16 @@ to do.
 The common case: build a profile, run it, and branch on the result. `pass`
 and `warn` both satisfy the profile; `fail` and `indeterminate` both leave it
 unsatisfied, and the difference between those two is "broken" versus "could
-not tell" — worth a different message to whoever reads the log.
+not tell", which is worth a different message to whoever reads the log.
 
 <CodeBlock code={RECIPE_CHECK_AND_SWITCH} lang="ts" />
 
 ## Query a specific resolver, on a non-standard port
 
 Nothing in `runChecks` or `query` assumes port 53. `resolver.target` is
-always `{ address, port, transport }`, so pointing every lookup at a
-resolver container — or any nameserver that happens to run somewhere other
-than 53 — is the same call as pointing at a public resolver:
+always `{ address, port, transport }`, so pointing every lookup at a resolver
+container, or any nameserver that happens to run somewhere other than 53, is
+the same call as pointing at a public resolver:
 
 <CodeBlock code={RECIPE_CUSTOM_RESOLVER_PORT} lang="ts" />
 
@@ -38,12 +38,12 @@ hardcoded either the address or the port could not run against both.
 
 A verdict and a code are enough for a `switch` statement. They are not
 enough for a support reply. Every `CheckOutcome` carries its own
-**derivation** — every lookup made, the name, why it was made, and what came
-back — so explaining a result to a customer does not mean re-running the
-check by hand to reconstruct what happened:
+**derivation**: every lookup made, the name, why it was made, and what came
+back. Explaining a result to a customer does not mean re-running the check by
+hand to reconstruct what happened.
 
 <CodeBlock code={RECIPE_EXPLAIN_VERDICT} lang="ts" />
 
-`outcomeFor` returns `undefined` when the profile never asked about that
-check kind — a skipped check, not a passing one — which is why the sample
-checks for it before reading `.verdict`.
+`outcomeFor` returns `undefined` when the profile never asked about that check
+kind, which is a skipped check rather than a passing one. That is why the
+sample checks for it before reading `.verdict`.

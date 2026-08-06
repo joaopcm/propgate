@@ -3,7 +3,7 @@ import { MobileSidebar } from "@/components/mobile-sidebar";
 
 export function DocsHeader() {
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-border/80 border-b bg-background/95 px-4 backdrop-blur md:px-6">
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-border border-b bg-background/95 px-4 backdrop-blur md:px-6">
       <MobileSidebar />
       <Link className="font-semibold text-sm tracking-tight" href="/">
         propgate <span className="text-muted-foreground">docs</span>

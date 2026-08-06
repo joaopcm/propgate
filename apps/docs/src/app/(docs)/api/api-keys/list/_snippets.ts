@@ -5,7 +5,7 @@
  */
 
 export const LIST_CURL = `curl -s https://api.propgate.dev/v1/api-keys \\
-  -H "authorization: Bearer $KEY"`;
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
 export const LIST_CLI = "propgate keys list";
 

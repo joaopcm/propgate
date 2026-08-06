@@ -1,0 +1,20 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { DELETE_CURL, DELETE_RESPONSE } from "./_snippets";
+
+# Delete a webhook endpoint
+
+<EndpointHeader method="DELETE" path="/v1/webhooks/:id" />
+
+Removes the endpoint. Nothing is sent to it again, and its secret stops being
+valid. To pause an endpoint you intend to bring back, use
+[`disabled`](/api/webhooks/update) instead — there is no undo here.
+
+No CLI command yet — webhooks are managed over the API only.
+
+<CodeBlock code={DELETE_CURL} lang="bash" />
+<CodeBlock code={DELETE_RESPONSE} lang="json" />
+
+Deleting an endpoint does not delete its past deliveries. "Why did this
+webhook never arrive" is a question that outlives the endpoint it was asked
+about, so the [delivery records](/api/webhooks/deliveries) stay.

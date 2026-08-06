@@ -10,7 +10,7 @@ import {
 # The resolver
 
 `query` sends one DNS message and returns what happened. It is built on
-`node:dgram` and `node:net` directly, not `node:dns` — see
+`node:dgram` and `node:net` directly rather than `node:dns`; see
 [the overview](/dns) for why that trade was made.
 
 <CodeBlock code={RESOLVER_QUERY_BASIC} lang="ts" />
@@ -21,7 +21,7 @@ A timeout, a refusal, and a mangled response are *observations about a
 domain's DNS*, not exceptional conditions in your program. `query` returns a
 discriminated union on `status` rather than throwing, because a single
 `catch` around a DNS call cannot tell "the server was slow" from "the record
-does not exist" — and collapsing those two is exactly how a resolver ends up
+does not exist". Collapsing those two is exactly how a resolver ends up
 reporting "not found" for a domain that was merely unlucky this millisecond.
 
 <div className="my-4 overflow-x-auto">
@@ -107,7 +107,7 @@ knowable at the moment of the retry: a bare TCP timeout means the server
 might be dead, but a TCP timeout that follows the *same server already
 answering over UDP* means the server is alive and something between you and
 it is eating TCP specifically. Without carrying that distinction forward,
-both cases look identical to a caller — which is the whole reason
+both cases look identical to a caller, which is the whole reason
 `TCP_SILENTLY_BLOCKED` sat unemitted before this field existed.
 
 ## Everything is port-aware
@@ -118,7 +118,7 @@ be 53:
 <CodeBlock code={RESOLVER_PORT_AWARE} lang="ts" />
 
 That is not a convenience for tests. Root hints are injectable through
-`ResolverOptions`, and a glue record carries an address but no port — a
+`ResolverOptions`, and a glue record carries an address but no port. A
 resolver that hardcodes 53 anywhere in the delegation-following path breaks
 the moment it is pointed at a fixture tier serving real port 53 on
 non-default loopback addresses, and hardcoding a high port instead breaks
@@ -126,30 +126,30 @@ production.
 
 ## Truncation and the TCP fallback
 
-By default, a truncated UDP answer is retried over TCP automatically —
+By default, a truncated UDP answer is retried over TCP automatically, which is
 required behaviour for a resolver to see a 4096-bit DKIM key at all. Pass
 `retryOverTcp: false` to observe the TC bit instead of resolving past it:
 
 <CodeBlock code={RESOLVER_TRUNCATION} lang="ts" />
 
 Omitting `ednsBufferSize` entirely (rather than passing even a small value)
-is what sends no OPT record and caps the response at 512 bytes by RFC
-1035 — the only lever that drives truncation from the client side rather
-than by tuning what the server sends.
+is what sends no OPT record and caps the response at 512 bytes by RFC 1035.
+It is the only lever that drives truncation from the client side rather than
+by tuning what the server sends.
 
-A swallowed TCP retry — the server answers over UDP, asks for TCP, and the
-TCP connection then produces nothing — is not a dead server. It is a
+A swallowed TCP retry, where the server answers over UDP, asks for TCP, and
+the TCP connection then produces nothing, is not a dead server. It is a
 middlebox blocking TCP/53, and it is exactly what `retriedOverTcp` exists to
 distinguish from an ordinary timeout:
 
 <CodeBlock code={RESOLVER_TCP_SILENTLY_BLOCKED} lang="ts" />
 
-Read to everyone else, this looks like an intermittent outage: the record is
-fine, the server is fine, and a large DKIM key simply never arrives. See
+To everyone else this looks like an intermittent outage: the record is fine,
+the server is fine, and a large DKIM key simply never arrives. See
 [the evaluators](/dns/evaluators) for where this reasoning is built in rather
 than left to the caller.
 
 ## Next
 
 [The evaluators](/dns/evaluators) build the six semantic checks on top of
-this — `runChecks`, a `DomainProfile`, and one subsection per check kind.
+this: `runChecks`, a `DomainProfile`, and one subsection per check kind.

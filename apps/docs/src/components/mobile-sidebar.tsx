@@ -20,7 +20,7 @@ export function MobileSidebar() {
         Menu
       </button>
       {open ? (
-        <div className="absolute inset-x-0 top-14 max-h-[70vh] overflow-y-auto border-border/80 border-b bg-background">
+        <div className="absolute inset-x-0 top-14 max-h-[70vh] overflow-y-auto border-border border-b bg-background">
           <DocsSidebar onNavigate={close} />
         </div>
       ) : null}

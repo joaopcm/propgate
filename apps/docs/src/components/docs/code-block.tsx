@@ -18,7 +18,7 @@ export async function CodeBlock({
 
   return (
     <div
-      className="my-4 overflow-x-auto border border-white/5 text-[0.8125rem] leading-6 [&_pre]:p-4"
+      className="my-4 overflow-x-auto border border-border bg-muted text-[0.8125rem] leading-6 [&_pre]:p-4"
       // biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki output, from literals in this repo
       dangerouslySetInnerHTML={{ __html: html }}
     />

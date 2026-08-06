@@ -1,7 +1,7 @@
 # @propgate/dns
 
 The resolver, the six evaluators, and the diagnosis taxonomy are one MIT
-package with **zero runtime dependencies** — Node built-ins only. It is not a
+package with **zero runtime dependencies**, Node built-ins only. It is not a
 simplified extract of what runs behind the API: it is the exact same code,
 `workspace:*`-linked into `apps/api` and this docs site. Nothing about the
 hosted product knows more than the package does.
@@ -15,9 +15,8 @@ pnpm add @propgate/dns
 - **No API key, no network call to us.** `query` and the evaluators talk
   straight to whatever resolver you point them at.
 - **The taxonomy is the point.** 73 diagnosis codes, each either produced by a
-  fixture in the test harness or carrying a written reason it cannot be —
-  useful on its own if you are building diagnostics rather than a full
-  checker.
+  fixture in the test harness or carrying a written reason it cannot be. Useful
+  on its own if you are building diagnostics rather than a full checker.
 - **MIT, forever.** `packages/db`, `packages/jobs`, and everything else in this
   repo that talks to a database is private. This package is not, and never
   becomes, gated behind an account.
@@ -26,7 +25,7 @@ pnpm add @propgate/dns
 
 Node's built-in resolver wraps c-ares, which cannot express several things
 this package exists to report on. Each row below is load-bearing for at least
-one diagnosis code — lose the signal and the code becomes unreachable:
+one diagnosis code: lose the signal and the code becomes unreachable.
 
 <div className="my-4 overflow-x-auto">
   <table className="w-full border-collapse text-sm">
@@ -46,7 +45,7 @@ one diagnosis code — lose the signal and the code becomes unreachable:
     <tbody className="divide-y divide-border">
       <tr>
         <td className="px-3 py-2 text-muted-foreground">
-          The TC bit — was the answer truncated?
+          The TC bit: was the answer truncated?
         </td>
         <td className="px-3 py-2 text-muted-foreground">
           Not exposed. An oversized DKIM key is indistinguishable from a
@@ -113,17 +112,17 @@ one diagnosis code — lose the signal and the code becomes unreachable:
   </table>
 </div>
 
-The trade is a hand-rolled wire codec over `node:dgram` and `node:net` —
-roughly 2 kLOC, checked against a fixture tier of deliberately broken
-servers — in exchange for being able to see everything on the wire. See
+The trade is a hand-rolled wire codec over `node:dgram` and `node:net`,
+roughly 2 kLOC checked against a fixture tier of deliberately broken servers,
+in exchange for being able to see everything on the wire. See
 [the resolver](/dns/resolver) for how that surfaces.
 
 ## What's in the package
 
-- [The resolver](/dns/resolver) — `query`, `QueryOutcome`, port awareness,
+- [The resolver](/dns/resolver): `query`, `QueryOutcome`, port awareness,
   truncation and the TCP fallback.
-- [The evaluators](/dns/evaluators) — `runChecks`, a `DomainProfile`, and the
+- [The evaluators](/dns/evaluators): `runChecks`, a `DomainProfile`, and the
   six checks: delegation, SPF, DKIM, DMARC, MX, CAA.
-- [Recipes](/dns/recipes) — three complete files: check a domain and switch on
+- [Recipes](/dns/recipes): three complete files: check a domain and switch on
   the verdict, query a specific resolver on a non-standard port, and read the
   lookups behind a finding.

@@ -119,7 +119,15 @@ export const navigation: readonly NavSection[] = [
         title: "Domains",
       },
       {
-        items: [{ href: "/api/webhooks/endpoints", title: "Endpoints" }],
+        items: [
+          { href: "/api/webhooks/create", title: "Create endpoint" },
+          { href: "/api/webhooks/list", title: "List endpoints" },
+          { href: "/api/webhooks/get", title: "Get endpoint" },
+          { href: "/api/webhooks/update", title: "Update endpoint" },
+          { href: "/api/webhooks/delete", title: "Delete endpoint" },
+          { href: "/api/webhooks/rotate-secret", title: "Rotate secret" },
+          { href: "/api/webhooks/deliveries", title: "Deliveries" },
+        ],
         title: "Webhooks",
       },
     ],

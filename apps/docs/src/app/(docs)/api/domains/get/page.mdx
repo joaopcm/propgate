@@ -7,24 +7,22 @@ import { GET_CURL, GET_RESPONSE } from "./_snippets";
 
 <EndpointHeader method="GET" path="/v1/domains/:id" />
 
-Returns the **stored** result — whatever the last check left behind. This
-call never re-checks; it is a read against Postgres, not a DNS run. To get a
-fresh result, call [verify](/api/domains/verify) first.
+Returns the **stored** result, whatever the last check left behind. This call
+never re-checks; it is a read against Postgres, not a DNS run. To get a fresh
+result, call [verify](/api/domains/verify) first.
 
 No CLI command yet — the CLI's `domains list` covers the common case; reading
 one domain back is API-only.
 
 <Callout>
-  The request below is quoted verbatim from QUICKSTART.md — a real command
-  against the live API. QUICKSTART.md pipes it straight to a formatter and
-  never prints the body, so the response is a shape read off `serialise` in
-  `apps/api/src/routes/domains.ts`, called here with `includeLookups: true`.
+  The request below is quoted verbatim from QUICKSTART.md, a real command
+  against the live API, called here with `includeLookups: true`.
 </Callout>
 
 <CodeBlock code={GET_CURL} lang="bash" />
 <CodeBlock code={GET_RESPONSE} lang="json" />
 
-`requirements` mirrors [verify](/api/domains/verify)'s response — the same
+`requirements` mirrors [verify](/api/domains/verify)'s response: the same
 per-requirement `satisfied`, `verdict` and `findings`, just read from storage
 instead of freshly computed.
 
@@ -33,16 +31,16 @@ instead of freshly computed.
 Every check carries the queries that produced it: the DNS `name` asked,
 `type` (the numeric RR type, e.g. `16` for TXT), which `server` answered
 (`address:port`), and `status`. A verdict you cannot audit is a verdict you
-have to take on faith — "why did you say that" is the question a disputed
+have to take on faith, and "why did you say that" is the question a disputed
 result produces.
 
 `status` is coarser than it looks: it is `answered | timeout | unreachable |
 malformed | truncated`, the transport-level outcome, not the DNS response
-code. An `answered` lookup for a name that does not exist — the
-`DKIM_RECORD_MISSING` case above — still reports `status: "answered"`,
-because the server answered; it just said NXDOMAIN. Read the finding's `code`
-for that distinction, not `status`.
+code. An `answered` lookup for a name that does not exist, like the
+`DKIM_RECORD_MISSING` case above, still reports `status: "answered"`, because
+the server answered; it just said NXDOMAIN. Read the finding's `code` for that
+distinction, not `status`.
 
 This is the field the [list endpoint](/api/domains/list) omits, at roughly
-4.4× the per-domain size — fetch a domain individually when you need to show
+4.4× the per-domain size. Fetch a domain individually when you need to show
 someone why a check came back the way it did.

@@ -1,0 +1,37 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import { UPDATE_CURL, UPDATE_RESPONSE } from "./_snippets";
+
+# Update a webhook endpoint
+
+<EndpointHeader method="PATCH" path="/v1/webhooks/:id" />
+
+Pauses an endpoint or changes which events it receives. The URL is not
+editable — a different URL is a different endpoint, so
+[create](/api/webhooks/create) one and [delete](/api/webhooks/delete) the old.
+
+No CLI command yet — webhooks are managed over the API only.
+
+<ParamsTable
+  rows={[
+    {
+      description: "Pauses delivery without deleting the endpoint or its history.",
+      name: "disabled",
+      type: "boolean",
+    },
+    {
+      description: "Replaces the event list wholesale. Send every event you still want, not only the new one.",
+      name: "events",
+      type: "array",
+    },
+  ]}
+/>
+
+<CodeBlock code={UPDATE_CURL} lang="bash" />
+<CodeBlock code={UPDATE_RESPONSE} lang="json" />
+
+Disabling is the reversible option: the endpoint stops receiving events but
+keeps its id, its secret, and its
+[delivery history](/api/webhooks/deliveries). Send `disabled: false` to
+resume.

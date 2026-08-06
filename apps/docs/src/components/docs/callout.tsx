@@ -14,7 +14,7 @@ export function Callout({
         "my-4 border-l-2 px-4 py-2 text-sm leading-7",
         kind === "warning"
           ? "border-[var(--color-warning)] text-foreground"
-          : "border-white/20 text-muted-foreground"
+          : "border-rule text-muted-foreground"
       )}
     >
       {children}
