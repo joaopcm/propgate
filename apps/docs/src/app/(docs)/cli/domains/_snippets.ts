@@ -88,3 +88,14 @@ export const DELETE_CLI =
 export const REDIRECT = `$ propgate check 019fcf4f-2b3c-7d4e-9f5a-6b7c8d9e0f1a
 propgate: that looks like a domain id, not a domain name.
 Did you mean \`propgate domains check 019fcf4f-2b3c-7d4e-9f5a-6b7c8d9e0f1a\`?`;
+
+export const UPDATE_CLI = `# rotate the key this domain is judged against
+propgate domains update 019fcf4f-... --expect dkim.expectedPublicKey=MIGf...
+
+# move it to a different profile
+propgate domains update 019fcf4f-... --profile full-mail`;
+
+export const UPDATE_CURL = `curl -s -X PATCH https://api.propgate.dev/v1/domains/019fcf4f-... \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
+  -H 'content-type: application/json' \\
+  -d '{"expectations":{"dkim":{"expectedPublicKey":"MIGf..."}}}'`;

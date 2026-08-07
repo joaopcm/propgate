@@ -447,7 +447,7 @@ export const domainsCommands: readonly Command[] = [
   {
     authenticated: true,
     examples: [
-      "propgate domains update dom_123 --expect dkim.expectedPublicKey=MIGf...NEW",
+      "propgate domains update dom_123 --expect dkim.expectedPublicKey=MIGf...",
       "propgate domains update dom_123 --profile full-mail",
     ],
     fields: [{ ...profileField, required: false }, expectField],

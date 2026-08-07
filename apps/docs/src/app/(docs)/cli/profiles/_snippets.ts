@@ -55,12 +55,25 @@ export const GUIDED = `$ propgate profiles create
 │  Which DKIM selector?
 │  google
 │
-│  The public key you issued (enter to skip)
+│  Is the public key different for every domain?
+│  ● Yes / ○ No
 │
 │  Add another requirement?
 │  ● No / ○ Yes`;
 
 export const REJECTED = `$ propgate profiles create --key sending --require 'k1:dkim'
-propgate: k1: dkim needs a selector, as k1:dkim:selector=<name>`;
+propgate: k1: dkim needs a selector, as k1:dkim:selector=<name>, or requiredPerDomain=selector`;
+
+export const PER_DOMAIN_CLI = `propgate profiles create --key sending \\
+  --require 'spf:spf:include=_spf.google.com' \\
+  --require 'dkim:dkim:selector=google,requiredPerDomain=expectedPublicKey'
+
+# more than one field, by repeating it
+--require 'dkim:dkim:requiredPerDomain=selector,requiredPerDomain=expectedPublicKey'`;
+
+export const PER_DOMAIN_OUTPUT = `sending  version 2
+
+  spf   spf   include=_spf.google.com
+  dkim  dkim  selector=google, per domain: expectedPublicKey`;
 
 export const GET_CLI = "propgate profiles get sending";

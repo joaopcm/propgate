@@ -7,6 +7,8 @@ import {
   FILE_CLI,
   GET_CLI,
   GUIDED,
+  PER_DOMAIN_CLI,
+  PER_DOMAIN_OUTPUT,
   REJECTED,
 } from "./_snippets";
 
@@ -43,14 +45,37 @@ alias here would mean the error and the input never quite match.
 | `mx` | `expectsMail` |
 | `caa` | `caaIssuer` (required) |
 
+Plus `requiredPerDomain` on any of them — see below.
+
 Values keep everything after the first `=`, so a base64 key retains its
 padding — a DKIM key that quietly lost its `==` is one that never matches for
 a reason nobody can see.
 
+## Deferring a value to each domain
+
+A DKIM key is usually issued per domain, so pinning one in the profile would
+mean a profile per customer. `requiredPerDomain` names the fields the *domain*
+supplies instead, and each domain then passes them with
+[`domains add --expect`](/cli/domains).
+
+<CodeBlock code={PER_DOMAIN_CLI} lang="bash" />
+<CodeBlock code={PER_DOMAIN_OUTPUT} lang="text" />
+
+It is the one field where **repeating an assignment accumulates** rather than
+overwrites, because it is the one field that holds a list. Everything else in
+the micro-syntax is a single value.
+
+`profiles get` prints deferred fields as `per domain: …` rather than omitting
+them. The difference between a profile that stands on its own and one every
+domain must supply a value for is the whole reason a later registration fails,
+and that `422` names the field without naming the profile that asked for it.
+
 ### What is checked here, and what is not
 
 Two rules are enforced before anything is sent: **`dkim` needs a selector**
-and **`caa` needs an issuer**.
+and **`caa` needs an issuer** — from one side or the other. Naming the field in
+`requiredPerDomain` satisfies the rule, because the value arrives with the
+domain instead.
 
 <CodeBlock code={REJECTED} lang="text" />
 
@@ -73,7 +98,8 @@ Takes the `POST /v1/profiles` body exactly — `{ "key": …, "requirements": [�
 
 <CodeBlock code={GUIDED} lang="text" />
 
-One requirement at a time, asking only the fields that check actually has.
+One requirement at a time, asking only the fields that check actually has —
+including whether a value is the same for every domain or issued per domain.
 `mx` offers three answers rather than a yes/no, because `expectsMail` is
 tri-state: unstated makes no claim, and `false` asserts the domain receives no
 mail — which makes a null MX correct rather than a fault.

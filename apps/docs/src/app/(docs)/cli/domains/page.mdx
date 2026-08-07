@@ -20,11 +20,13 @@ import {
   TIMELINE_CLI,
   TIMELINE_EMPTY,
   TIMELINE_OUTPUT,
+  UPDATE_CLI,
+  UPDATE_CURL,
 } from "./_snippets";
 
 # domains
 
-Six commands over the six `/v1/domains` endpoints. Each is a thin client —
+Seven commands over the seven `/v1/domains` endpoints. Each is a thin client —
 the cURL beside a command issues the identical request, so the two references
 agree on the shape.
 
@@ -69,6 +71,25 @@ how a domain ends up verified against the wrong one.
 See [Profiles and versions](/concepts/profiles) for why a key belongs on the domain
 rather than in the profile. Rotating one afterwards is
 [`PATCH /v1/domains/:id`](/api/domains/update), which has no CLI equivalent yet.
+
+## `domains update`
+
+<CodeTabs
+  items={[
+    { code: UPDATE_CURL, label: "cURL", lang: "bash" },
+    { code: UPDATE_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+Rotate the values a domain is judged against, re-point its profile, or both.
+**It resets the domain to `pending`.** That is the honest outcome rather than a
+convenience: the last result was reached against the old key or the old profile,
+and keeping a `verified` that nothing has re-checked would be asserting
+something nobody has looked at.
+
+Rotating a DKIM key is the case this exists for. Publishing the new key and
+telling us about it are two separate moments, and between them the domain is
+legitimately unverified.
 
 ## `domains list --state`
 

@@ -199,7 +199,7 @@ npx @propgate/cli profiles get sending
 
 npx @propgate/cli domains add example.com --profile sending \
   --expect dkim.expectedPublicKey=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...
-npx @propgate/cli domains update <id> --expect dkim.expectedPublicKey=MIGf...NEW
+npx @propgate/cli domains update <id> --expect dkim.expectedPublicKey=MIGf...
 npx @propgate/cli domains list --state failed --all
 npx @propgate/cli domains get <id>
 npx @propgate/cli domains check <id>
