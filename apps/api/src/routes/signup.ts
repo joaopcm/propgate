@@ -6,7 +6,7 @@ import {
   findOrCreateAccountForEmail,
   issueCode,
 } from "@propgate/db";
-import type { Mailer } from "@propgate/emails";
+import type { ContactList, Mailer } from "@propgate/emails";
 import { otpMessage } from "@propgate/emails";
 import { captureException } from "@sentry/node";
 import { Hono } from "hono";
@@ -125,6 +125,11 @@ function clientKey(forwarded: string | undefined): string {
 }
 
 export function createSignupRoute(options: {
+  /**
+   * The marketing list. Absent means nothing is added to one, which is what a
+   * self-hosted box without `RESEND_SEGMENT_ID` gets.
+   */
+  contacts?: ContactList;
   db: Database;
   limiter: RateLimiter;
   mailer: Mailer;
@@ -250,6 +255,44 @@ export function createSignupRoute(options: {
     }
 
     const account = await findOrCreateAccountForEmail(options.db, { email });
+
+    /**
+     * Onto the marketing list, once, on the confirmation that opened the
+     * account.
+     *
+     * `account.created` is the gate, and it is the whole design. Re-running this
+     * flow is the recovery path for somebody who lost their key, so without the
+     * gate every recovery would re-add the address with `unsubscribed: false` —
+     * which silently resurrects an unsubscribe and turns a lost-key incident
+     * into a compliance one. The first confirmation is the only moment consent
+     * was actually given.
+     *
+     * Awaited inline rather than queued. A queued job would be the shape the
+     * webhook deliveries use, but that shape exists because a delivery is an
+     * obligation `webhook_deliveries` records: Redis is the conveyor belt and
+     * Postgres is the truth. There is no row here that owes anything, so a queue
+     * would buy a table, a payload type and a processor to save one HTTP call on
+     * a request that happens once per account in its lifetime.
+     *
+     * Inline is only safe because the call is bounded — `CONTACT_ADD_TIMEOUT_MS`
+     * in `packages/emails/src/contacts.ts`, and read the note there before
+     * removing it. The code above has already been spent by this point, so an
+     * unbounded stall here would hold the request open past the moment the code
+     * died and cost somebody the key that is readable exactly once.
+     */
+    if (options.contacts !== undefined && account.created) {
+      const added = await options.contacts.add({ email });
+
+      if (added.kind === "failed") {
+        // Loudly, and the key still goes out below. A mailing list that is down
+        // is ours to fix; refusing to open the account over it would be an
+        // outage in the funnel caused by something that is not part of it.
+        captureException(new Error("signup contact add failed"), {
+          extra: { reason: added.error },
+        });
+      }
+    }
+
     const key = await createApiKey(options.db, {
       // The one place attribution is unambiguous: this member just proved control
       // of the mailbox, in this request.

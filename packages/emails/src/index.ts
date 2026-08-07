@@ -7,5 +7,13 @@ export type {
   SendOutcome,
 } from "./client";
 export { createMailer, createRecordingMailer } from "./client";
+export type {
+  AddContactOutcome,
+  Contact,
+  ContactList,
+  ContactListOptions,
+  RecordingContactList,
+} from "./contacts";
+export { createContactList, createRecordingContactList } from "./contacts";
 export type { OtpMessageInput } from "./otp";
 export { otpMessage } from "./otp";

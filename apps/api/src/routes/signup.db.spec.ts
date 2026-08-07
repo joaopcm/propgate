@@ -1,7 +1,10 @@
 import type { Database } from "@propgate/db";
 import { createDb, tenantMembers, tenants, truncateAll } from "@propgate/db";
-import type { RecordingMailer } from "@propgate/emails";
-import { createRecordingMailer } from "@propgate/emails";
+import type { RecordingContactList, RecordingMailer } from "@propgate/emails";
+import {
+  createRecordingContactList,
+  createRecordingMailer,
+} from "@propgate/emails";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app";
 
@@ -25,8 +28,9 @@ const EMAIL = "someone@example.com";
 const SIX_DIGITS = /\b(\d{6})\b/;
 const AN_API_KEY = /^pg_/;
 
-function appWith(recorder: RecordingMailer) {
+function appWith(recorder: RecordingMailer, list?: RecordingContactList) {
   return createApp({
+    ...(list === undefined ? {} : { contacts: list }),
     db,
     mailer: recorder,
     resolver: { address: "127.0.0.1", port: 53 },
@@ -34,20 +38,22 @@ function appWith(recorder: RecordingMailer) {
 }
 
 let mailer: RecordingMailer;
+let contacts: RecordingContactList;
 let app: ReturnType<typeof appWith>;
 
 beforeEach(async () => {
   await truncateAll(db);
   mailer = createRecordingMailer();
-  app = appWith(mailer);
+  contacts = createRecordingContactList();
+  app = appWith(mailer, contacts);
 });
 
 afterAll(async () => {
   await db.$client.end();
 });
 
-function post(path: string, body: unknown, ip = "203.0.113.1") {
-  return app.request(path, {
+function post(path: string, body: unknown, ip = "203.0.113.1", target = app) {
+  return target.request(path, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
@@ -310,6 +316,85 @@ describe("POST /v1/signup/confirm", () => {
     expect(secondBody.data.created).toBe(false);
     expect(await db.select().from(tenants)).toHaveLength(1);
     expect(await db.select().from(tenantMembers)).toHaveLength(1);
+  });
+});
+
+describe("the marketing list", () => {
+  it("adds the address that just confirmed, subscribed", async () => {
+    const code = await signUp();
+
+    // Nothing before the mailbox is proved: an address that only asked for a
+    // code has not consented to anything, and it may not even be theirs.
+    expect(contacts.added).toHaveLength(0);
+
+    await post("/v1/signup/confirm", { code, email: EMAIL });
+
+    expect(contacts.added).toEqual([{ email: EMAIL }]);
+  });
+
+  it("adds the normalised address, not what was typed", async () => {
+    const code = await signUp("Someone@Example.COM");
+    await post("/v1/signup/confirm", { code, email: EMAIL });
+
+    // One mailbox is one account, and it has to be one contact too — otherwise
+    // the list accumulates a row per casing somebody happened to use.
+    expect(contacts.added).toEqual([{ email: EMAIL }]);
+  });
+
+  it("adds nothing when a wrong code is used", async () => {
+    await signUp();
+    await post("/v1/signup/confirm", { code: "000000", email: EMAIL });
+
+    expect(contacts.added).toHaveLength(0);
+  });
+
+  it("does not add again when the flow re-runs", async () => {
+    const first = await signUp();
+    await post("/v1/signup/confirm", { code: first, email: EMAIL });
+
+    await db.$client`update otp_codes set sent_at = now() - interval '2 minutes'`;
+
+    const second = await signUp();
+    await post("/v1/signup/confirm", { code: second, email: EMAIL });
+
+    // Re-running is the recovery path for a lost key, and a second add would
+    // send `unsubscribed: false` for somebody who may have unsubscribed since.
+    // Resurrecting an unsubscribe is the one failure here that reaches a
+    // stranger's inbox rather than our logs.
+    expect(contacts.added).toHaveLength(1);
+  });
+
+  it("still hands over the key when the list is down", async () => {
+    const failing = createRecordingContactList({ failWith: "list down" });
+    const scoped = appWith(mailer, failing);
+
+    await post("/v1/signup", { email: EMAIL }, "203.0.113.9", scoped);
+    const response = await post(
+      "/v1/signup/confirm",
+      { code: codeFrom(mailer.sent), email: EMAIL },
+      "203.0.113.9",
+      scoped
+    );
+
+    // The account is the product; the list is not. Failing this would be an
+    // outage in the funnel caused by something that is not part of it.
+    expect(response.status).toBe(200);
+  });
+
+  it("opens accounts with no list configured at all", async () => {
+    const withoutList = appWith(mailer);
+
+    await post("/v1/signup", { email: EMAIL }, "203.0.113.10", withoutList);
+    const response = await post(
+      "/v1/signup/confirm",
+      { code: codeFrom(mailer.sent), email: EMAIL },
+      "203.0.113.10",
+      withoutList
+    );
+
+    // What a self-hosted box without RESEND_SEGMENT_ID gets. Unlike the mailer,
+    // an absent list does not unmount signup.
+    expect(response.status).toBe(200);
   });
 });
 
