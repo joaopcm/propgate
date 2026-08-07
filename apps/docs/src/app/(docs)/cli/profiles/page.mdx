@@ -13,10 +13,10 @@ import {
 # profiles
 
 A profile is an array of up to twenty objects with six possible fields each,
-which is more structure than a flag naturally carries. There are three ways
-to give it, and they exist for three different callers.
+which is more structure than a flag naturally carries. `profiles create` takes
+it three ways, and they exist for three different callers.
 
-## `--require`, for a one-liner
+## `profiles create --require`, for a one-liner
 
 <CodeTabs
   items={[
@@ -78,7 +78,7 @@ and which field names `requiredPerDomain` may hold. A second implementation of a
 rule is a second thing that can disagree, and the API's `422` is already the
 better message.
 
-## `--file`, for something generated
+## `profiles create --file`, for something generated
 
 <CodeBlock code={FILE_CLI} lang="bash" />
 
