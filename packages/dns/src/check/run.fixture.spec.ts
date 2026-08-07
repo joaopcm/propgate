@@ -322,3 +322,59 @@ describe("a zone that answers every name", () => {
     ).toHaveLength(0);
   });
 });
+
+describe("checks that answer per record rather than per domain", () => {
+  it("keys each alias by the label the profile named", async () => {
+    // The merged verdict is the customer's answer; the per-record array is the
+    // platform's. A platform issuing two aliases tracks two requirements and
+    // cannot recover which one is missing from a merged fail.
+    const result = await run("cname.test", {
+      checks: ["cname"],
+      cnames: [
+        { label: "track.ok", target: "track.propgate-fixture.test" },
+        { label: "track.stale", target: "track.propgate-fixture.test" },
+      ],
+      id: "aliases",
+    });
+
+    const outcome = outcomeFor(result, "cname");
+
+    expect(outcome?.verdict).toBe("fail");
+    expect(
+      outcome?.records?.map((record) => [record.label, record.verdict])
+    ).toEqual([
+      ["track.ok", "pass"],
+      ["track.stale", "fail"],
+    ]);
+  });
+
+  it("reports an apex token under the empty label", async () => {
+    // The spelling `ownershipLabel` produces and `attributeResults` matches on.
+    // If these two ever disagree, an apex token is filed against nothing.
+    const result = await run("ownership.test", {
+      checks: ["ownership"],
+      id: "apex",
+      ownership: [
+        { token: "propgate-verify=6c1f9a24b7e5d03812af49b6c5d0e7f3" },
+      ],
+    });
+
+    // No label, so this asks about ownership.test itself, which publishes no
+    // token — the point being the key, not the verdict.
+    expect(outcomeFor(result, "ownership")?.records?.[0]?.label).toBe("");
+  });
+
+  it("skips a kind the profile asked for but gave nothing to check", async () => {
+    // Same rule as DKIM with no selectors: no outcome at all, rather than a
+    // green one. A dashboard showing a tick for a question nobody asked is
+    // lying.
+    const result = await run("customer.test", {
+      checks: ["ownership", "cname"],
+      id: "empty",
+    });
+
+    expect(outcomeFor(result, "ownership")).toBeUndefined();
+    expect(outcomeFor(result, "cname")).toBeUndefined();
+    expect(result.lookups).toHaveLength(0);
+  });
+});

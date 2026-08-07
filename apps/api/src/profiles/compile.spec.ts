@@ -216,6 +216,94 @@ describe("rejectDefinition", () => {
       })
     ).toContain("takes no per-domain fields");
   });
+
+  it("refuses an ownership requirement with no token", () => {
+    // Nothing to compare against, so the requirement would read indeterminate
+    // for the life of the profile. Worse than the DKIM case: an empty token
+    // matches an empty TXT record, which is a false pass rather than a false
+    // fail.
+    expect(
+      rejectDefinition({ requirements: [{ check: "ownership", key: "own" }] })
+    ).toContain("must name a token");
+  });
+
+  it("accepts an ownership requirement whose token comes from the domain", () => {
+    // The case the whole per-domain mechanism exists for. A token is minted for
+    // one domain and means nothing on another, so a profile carrying one as a
+    // literal is a profile with exactly one domain in it.
+    expect(
+      rejectDefinition({
+        requirements: [
+          {
+            check: "ownership",
+            key: "own",
+            label: "_pg-challenge",
+            requiredPerDomain: ["token"],
+          },
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("refuses a cname requirement missing either half", () => {
+    expect(
+      rejectDefinition({
+        requirements: [{ check: "cname", key: "track", label: "track" }],
+      })
+    ).toContain("must name a target");
+
+    expect(
+      rejectDefinition({
+        requirements: [
+          { check: "cname", key: "track", target: "track.example.net" },
+        ],
+      })
+    ).toContain("must name a label");
+  });
+
+  it("allows several ownership and cname requirements", () => {
+    expect(
+      rejectDefinition({
+        requirements: [
+          { check: "cname", key: "track", label: "track", target: "t.example" },
+          {
+            check: "cname",
+            key: "bounce",
+            label: "bounce",
+            target: "b.example",
+          },
+          { check: "ownership", key: "apex", token: "one" },
+          { check: "ownership", key: "labelled", label: "_pg", token: "two" },
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("refuses two cname requirements at one label", () => {
+    expect(
+      rejectDefinition({
+        requirements: [
+          { check: "cname", key: "a", label: "track", target: "a.example" },
+          { check: "cname", key: "b", label: "track", target: "b.example" },
+        ],
+      })
+    ).toContain('duplicate cname label "track"');
+  });
+
+  it("refuses two ownership requirements at the apex", () => {
+    // An absent label is the apex, which is a name like any other. Allowing both
+    // would query one name twice and attribute one outcome to two requirements —
+    // a correct answer to the wrong question, which is the failure this file's
+    // header is about.
+    expect(
+      rejectDefinition({
+        requirements: [
+          { check: "ownership", key: "a", token: "one" },
+          { check: "ownership", key: "b", token: "two" },
+        ],
+      })
+    ).toContain("may sit at the apex");
+  });
 });
 
 describe("compileProfile", () => {
@@ -544,6 +632,141 @@ describe("attributeResults", () => {
       satisfied: false,
       verdict: "fail",
     });
+  });
+
+  it("files each alias against the requirement that named its label", () => {
+    const definition: ProfileDefinition = {
+      requirements: [
+        { check: "cname", key: "track", label: "track", target: "t.example" },
+        { check: "cname", key: "bounce", label: "bounce", target: "b.example" },
+      ],
+    };
+
+    const attributed = attributeResults(
+      definition,
+      result([
+        {
+          findings: [],
+          kind: "cname",
+          lookups: [],
+          records: [
+            { findings: [], label: "track", lookups: [], verdict: "pass" },
+            { findings: [], label: "bounce", lookups: [], verdict: "fail" },
+          ],
+          verdict: "fail",
+        },
+      ]),
+      null
+    );
+
+    expect(attributed.find((r) => r.key === "track")).toMatchObject({
+      satisfied: true,
+      verdict: "pass",
+    });
+    expect(attributed.find((r) => r.key === "bounce")).toMatchObject({
+      satisfied: false,
+      verdict: "fail",
+    });
+  });
+
+  it("matches an apex token against the empty label the resolver reports", () => {
+    /**
+     * The two spellings of "no label" have to agree. `ownershipLabel` in
+     * `@propgate/dns` reports an apex token as `""`; reading `requirement.label`
+     * here would compare `undefined` against it, match nothing, and file a
+     * passing check as indeterminate — leaving the domain unverifiable forever,
+     * which is the exact failure the DKIM selector case documents.
+     */
+    const attributed = attributeResults(
+      { requirements: [{ check: "ownership", key: "own", token: "abc" }] },
+      result([
+        {
+          findings: [],
+          kind: "ownership",
+          lookups: [],
+          records: [{ findings: [], label: "", lookups: [], verdict: "pass" }],
+          verdict: "pass",
+        },
+      ]),
+      null
+    );
+
+    expect(attributed[0]).toMatchObject({ satisfied: true, verdict: "pass" });
+  });
+
+  it("matches a token whose label the domain supplied", () => {
+    const definition: ProfileDefinition = {
+      requirements: [
+        {
+          check: "ownership",
+          key: "own",
+          requiredPerDomain: ["label", "token"],
+        },
+      ],
+    };
+
+    const attributed = attributeResults(
+      definition,
+      result([
+        {
+          findings: [],
+          kind: "ownership",
+          lookups: [],
+          records: [
+            { findings: [], label: "_acme-42", lookups: [], verdict: "pass" },
+          ],
+          verdict: "pass",
+        },
+      ]),
+      { own: { label: "_acme-42", token: "abc" } }
+    );
+
+    expect(attributed[0]).toMatchObject({ satisfied: true, verdict: "pass" });
+  });
+
+  it("refuses to guess when two requirements resolve to one label", () => {
+    /**
+     * The regression. Two requirements deferring their label, a domain supplying
+     * the same label for both, and different tokens behind them. `find` took the
+     * first record for both, so the second requirement was reported against a
+     * token it never asked about — `satisfied: true` for a value nobody
+     * published, which is the worst thing attribution can produce.
+     *
+     * `rejectExpectations` refuses this domain at registration. This is the
+     * backstop for a profile stored before that rule existed: unattributable,
+     * so `indeterminate`, which leaves the domain's state alone rather than
+     * transitioning it on a guess.
+     */
+    const definition: ProfileDefinition = {
+      requirements: [
+        { check: "ownership", key: "a", requiredPerDomain: ["label", "token"] },
+        { check: "ownership", key: "b", requiredPerDomain: ["label", "token"] },
+      ],
+    };
+
+    const attributed = attributeResults(
+      definition,
+      result([
+        {
+          findings: [],
+          kind: "ownership",
+          lookups: [],
+          records: [
+            { findings: [], label: "_pg", lookups: [], verdict: "pass" },
+            { findings: [], label: "_pg", lookups: [], verdict: "fail" },
+          ],
+          verdict: "fail",
+        },
+      ]),
+      { a: { label: "_pg", token: "T1" }, b: { label: "_pg", token: "T2" } }
+    );
+
+    for (const entry of attributed) {
+      expect(entry).toMatchObject({
+        satisfied: false,
+        verdict: "indeterminate",
+      });
+    }
   });
 
   it("counts a warning as met, because it describes something that works", () => {

@@ -3,7 +3,7 @@ import { CHECK_KINDS, type CheckKind } from "@propgate/dns";
 /**
  * `--require '<key>:<check>[:field=value,field=value]'`
  *
- * A profile is an array of up to twenty objects with six possible fields each,
+ * A profile is an array of up to twenty objects with nine possible fields each,
  * which no flag shape expresses well. This one at least expresses it *honestly*:
  * the field names are the API's own body field names, verbatim and unaliased, so
  * a 422 from the server names the same word the caller typed. Renaming `include`
@@ -14,6 +14,8 @@ import { CHECK_KINDS, type CheckKind } from "@propgate/dns";
  *   k1:dkim:selector=resend
  *   ca:caa:caaIssuer=letsencrypt.org
  *   inbox:mx:expectsMail=true
+ *   own:ownership:label=_pg-challenge,requiredPerDomain=token
+ *   track:cname:label=track,target=track.propgate.com
  */
 
 export interface Requirement {
@@ -35,8 +37,11 @@ export interface Requirement {
    * `@propgate/db`, and this package deliberately depends on nothing but
    * `@propgate/dns`.
    */
+  readonly label?: string;
   readonly requiredPerDomain?: readonly string[];
   readonly selector?: string;
+  readonly target?: string;
+  readonly token?: string;
 }
 
 /** Exactly the optional fields of `requirementSchema` in the API. */
@@ -44,7 +49,10 @@ const STRING_FIELDS = [
   "caaIssuer",
   "expectedPublicKey",
   "include",
+  "label",
   "selector",
+  "target",
+  "token",
 ] as const;
 
 const BOOLEAN_FIELDS = ["expectsMail"] as const;

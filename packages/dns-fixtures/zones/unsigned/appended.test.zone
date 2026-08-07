@@ -19,6 +19,16 @@ $TTL 300
 selector1._domainkey.appended.test  IN TXT ( "v=DKIM1; k=rsa; "
                                              "p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTURE1" )
 
+; The same fault applied to an ownership token, which is where it costs the
+; most: the token is opaque, so nothing about the value hints that the name is
+; wrong, and the correct name is NXDOMAIN with no other clue.
+; Lands at _pg-challenge.appended.test.appended.test.
+_pg-challenge.appended.test  IN TXT  "propgate-verify=6c1f9a24b7e5d03812af49b6c5d0e7f3"
+
+; And to a CNAME owner name.
+; Lands at track.appended.test.appended.test.
+track.appended.test  IN CNAME  track.propgate-fixture.test.
+
 ; The same provider bug applied to a CNAME *target* rather than an owner name.
 link    IN CNAME  track.propgate-fixture.test.propgate-fixture.test.
 

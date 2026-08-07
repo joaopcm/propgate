@@ -1,0 +1,58 @@
+; OWNERSHIP_TOKEN_MISSING and OWNERSHIP_TOKEN_MISMATCH.
+;
+; An ownership token is the one check with nothing to parse: the platform mints
+; an opaque string and publishing it *is* the proof. So every interesting case
+; here is a token the customer genuinely had and something spent on the way to
+; the zone — quoting, a chunk boundary, a truncated paste, a case fold. A
+; checker that reports all four as "wrong token" sends someone to re-copy a
+; value they already copied correctly.
+;
+; The token below is the same in every subdomain on purpose. What differs is
+; only what happened to it, which is the whole point: the fixture isolates the
+; mangling rather than the value.
+$ORIGIN ownership.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+; Published exactly as issued. The pass case, without which every finding below
+; only proves that something failed.
+_pg-challenge.ok        IN TXT  "propgate-verify=6c1f9a24b7e5d03812af49b6c5d0e7f3"
+
+; The token at the apex, which is where a good half of the industry puts it.
+; Apex TXT is a shared space — SPF and two other vendors' tokens live here — so
+; this is the case that fails a checker asking "does this name have a record"
+; instead of "is our value among them".
+apex                    IN TXT  "v=spf1 -all"
+apex                    IN TXT  "google-site-verification=Qk1sTGF1Z2h0ZXJJc1RoZUJlc3Q"
+apex                    IN TXT  "propgate-verify=6c1f9a24b7e5d03812af49b6c5d0e7f3"
+
+; A real token, for somebody else. The only case here that genuinely means what
+; a bare mismatch says.
+_pg-challenge.stale     IN TXT  "propgate-verify=0000000000000000000000000000dead"
+
+; Differs from the token only in letter case. Names fold case and opaque values
+; do not, which is the assumption that produces this.
+_pg-challenge.cased     IN TXT  "propgate-verify=6C1F9A24B7E5D03812AF49B6C5D0E7F3"
+
+; The provider stored the zone-file quoting as part of the value. Renders
+; correctly in every UI that strips quotes, which is why it survives so long.
+_pg-challenge.quoted    IN TXT  "\"propgate-verify=6c1f9a24b7e5d03812af49b6c5d0e7f3\""
+
+; Pasted into a field with a length limit, or copied from a UI that elided the
+; middle. The prefix is right, which is what makes it plausible on inspection.
+_pg-challenge.truncated IN TXT  "propgate-verify=6c1f9a24b7e5d0"
+
+; Split across two character-strings and rejoined with a space. RFC 6763 §6.1
+; concatenates with no separator, so this value is not the token — but it is the
+; token once whitespace is removed, and that is a fact about the provider's
+; record editor rather than about the token.
+_pg-challenge.spaced    IN TXT  ( "propgate-verify=6c1f9a24b7e5d03"
+                                  " 812af49b6c5d0e7f3" )
+
+; Nothing at the challenge name at all. The subdomain exists and answers, so
+; this is a live host missing one record rather than a domain that was never
+; set up — which is what a customer who thinks they are finished looks like.
+missing                 IN A    198.51.100.40

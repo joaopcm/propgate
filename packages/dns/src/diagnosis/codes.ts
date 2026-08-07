@@ -39,6 +39,14 @@ export const DiagnosisCode = {
   CAA_UNRESTRICTED: "CAA_UNRESTRICTED",
   /** issuewild forbids the wildcard certificate being requested. */
   CAA_WILDCARD_DENIED: "CAA_WILDCARD_DENIED",
+
+  // --- CNAME ---
+  /** Nothing at all at the name the alias was meant to go at. */
+  CNAME_RECORD_MISSING: "CNAME_RECORD_MISSING",
+  /** Something is published here and it does not point at the issued target. */
+  CNAME_TARGET_MISMATCH: "CNAME_TARGET_MISMATCH",
+  /** Some addresses here are the target's and some are somebody else's. */
+  CNAME_TARGET_PARTIAL: "CNAME_TARGET_PARTIAL",
   /** A valid key, but not the one the profile expects. */
   DKIM_KEY_MISMATCH: "DKIM_KEY_MISMATCH",
   /** p= is empty, which RFC 6376 defines as revocation. */
@@ -113,6 +121,12 @@ export const DiagnosisCode = {
   NS_SINGLE_NAMESERVER: "NS_SINGLE_NAMESERVER",
   /** A delegated nameserver did not answer. */
   NS_UNREACHABLE: "NS_UNREACHABLE",
+
+  // --- Ownership ---
+  /** Text records at the name, none of them the token we issued. */
+  OWNERSHIP_TOKEN_MISMATCH: "OWNERSHIP_TOKEN_MISMATCH",
+  /** No text record at the name at all. */
+  OWNERSHIP_TOKEN_MISSING: "OWNERSHIP_TOKEN_MISSING",
   /** Record exists at `<name>.<zone>.<zone>` — the provider appended the zone. */
   PROVIDER_APPENDED_ZONE_NAME: "PROVIDER_APPENDED_ZONE_NAME",
   /** A CNAME was expected but an A/AAAA was observed at the same address. */
@@ -241,6 +255,27 @@ export const DIAGNOSIS_REGISTRY: Readonly<
     slug: "caa-wildcard-denied",
     summary:
       "This domain's CAA policy forbids wildcard certificates, even though ordinary certificates are allowed.",
+  },
+  CNAME_RECORD_MISSING: {
+    code: DiagnosisCode.CNAME_RECORD_MISSING,
+    severity: "error",
+    slug: "cname-record-missing",
+    summary:
+      "Nothing is published at this name, so requests for it never reach the target it was meant to point at.",
+  },
+  CNAME_TARGET_MISMATCH: {
+    code: DiagnosisCode.CNAME_TARGET_MISMATCH,
+    severity: "error",
+    slug: "cname-target-mismatch",
+    summary:
+      "This name points somewhere other than the target that was issued for it, so traffic for it does not arrive.",
+  },
+  CNAME_TARGET_PARTIAL: {
+    code: DiagnosisCode.CNAME_TARGET_PARTIAL,
+    severity: "error",
+    slug: "cname-target-partial",
+    summary:
+      "Some of the addresses at this name are the right ones and some belong to somewhere else, so only some requests for it arrive.",
   },
   DKIM_KEY_MISMATCH: {
     code: DiagnosisCode.DKIM_KEY_MISMATCH,
@@ -486,6 +521,20 @@ export const DIAGNOSIS_REGISTRY: Readonly<
     summary:
       "One of this domain's nameservers did not answer; the domain still resolves through the others, which is what makes it easy to miss.",
   },
+  OWNERSHIP_TOKEN_MISMATCH: {
+    code: DiagnosisCode.OWNERSHIP_TOKEN_MISMATCH,
+    severity: "error",
+    slug: "ownership-token-mismatch",
+    summary:
+      "This name publishes text records, but none of them is the verification token that was issued for this domain.",
+  },
+  OWNERSHIP_TOKEN_MISSING: {
+    code: DiagnosisCode.OWNERSHIP_TOKEN_MISSING,
+    severity: "error",
+    slug: "ownership-token-missing",
+    summary:
+      "The verification token issued for this domain is not published anywhere at this name, so ownership is unproven.",
+  },
   PROVIDER_APPENDED_ZONE_NAME: {
     code: DiagnosisCode.PROVIDER_APPENDED_ZONE_NAME,
     severity: "error",
@@ -729,10 +778,14 @@ export const NOT_LOCALLY_REPRODUCIBLE: Readonly<
  * This is deliberately separate from `NOT_LOCALLY_REPRODUCIBLE`, which is about
  * whether a *fixture* can produce a code. A code can be perfectly reproducible
  * and still unreachable because nothing looks for it — which is exactly how
- * these nine came to be published.
+ * nine of these came to be published.
+ *
+ * Empty, and worth keeping rather than deleting: the last entry was
+ * `PROVIDER_FLATTENED_CNAME`, which sat here because telling a flattened alias
+ * from a wrong one needs the addresses of the target to compare against and
+ * nothing had one. The `cname` evaluator does — the target is the whole point of
+ * the check — so it emits it now. The next code published ahead of its evaluator
+ * belongs here rather than in a commit message.
  */
 export const NOT_YET_EMITTED: Readonly<Partial<Record<DiagnosisCode, string>>> =
-  {
-    PROVIDER_FLATTENED_CNAME:
-      "Needs the addresses of our own infrastructure to compare against, so a flattened CNAME can be told from a genuinely wrong target. That is a deployment fact rather than a DNS one, and there is no deployment yet.",
-  };
+  {};

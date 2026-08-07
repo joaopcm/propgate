@@ -114,14 +114,23 @@ caa-child.test.		300	IN NS	ns1.test.
 					JHPh/lIJIaDv2/8Flx0TeE1iZ6UP57z4+B1O
 					wmfvro94EX5YzOeXiXhUK5FZi/Q= )
 canary.test.		300	IN NS	ns1.test.
+			300	NSEC	cname.test. NS RRSIG NSEC
+			300	RRSIG	NSEC 8 2 300 (
+					20400101000000 20260101000000 5689 test.
+					hVWfIv2ZA7Xkh6pqlJ4KheAsienHQubtMASG
+					y8k0pevtG17YQ6t/lmQvE7o3xo+x27u4aaU6
+					U7/+Hxj0teb3+qIk3Vs+XZEplWUPE9E74IXT
+					nazRvthN3611dvjXexGinhP05yk+oD7fXrM+
+					Ajtic26JUWgmmhFAfQrH816DMGo= )
+cname.test.		300	IN NS	ns1.test.
 			300	NSEC	customer.test. NS RRSIG NSEC
 			300	RRSIG	NSEC 8 2 300 (
 					20400101000000 20260101000000 5689 test.
-					NAeiskPTm7lOMV+EuCjCFxBPJw9FOX6VHcrO
-					nJcwjmNznpnHXNFc0qYpysYhF7QlYUaALtRV
-					RMJvrXFDPwLBSaEcfaBf2+7G73wRBo84Hvs0
-					Su61n0UoyhJdV51jYWp76yGlkENf8Y6L+Rxk
-					X06e0Jtvv5mtpI4Zul6zpoASHWo= )
+					mP6gjXJKB9ist3AwWzIxp25qB3rfdw6t4uuy
+					etTB6OsWcTHyJsPryTBM2JVmeKPDV+4XjikJ
+					yA+fI0X4gOr84vOF7kKQtleY9T3CiI2EakPQ
+					AyqOSlwPpJSyUSeMpZt7Gv7/FLMMsF2wG2AA
+					sjybnu0c+gR/Bb+hZ8WnQbuRVI4= )
 customer.test.		300	IN NS	ns1.test.
 			300	IN NS	ns-divergent.test.
 			300	NSEC	decoy.test. NS RRSIG NSEC
@@ -323,14 +332,23 @@ ns1.test.		300	IN A	127.0.0.3
 					dv/BTs1/r1bWxwn9mrTWG+RMT6RTOKnTrd4L
 					8PS3RKQ6XKWwmnASEjME8raSB+HVIE1UTKWB
 					6QGXxCIRXvALOubr1BEw2UReaWU= )
-			300	NSEC	propgate-fixture.test. A RRSIG NSEC
+			300	NSEC	ownership.test. A RRSIG NSEC
 			300	RRSIG	NSEC 8 2 300 (
 					20400101000000 20260101000000 5689 test.
-					aMlct6wbkNMBmrYFsx50Qlh6W7FdiHT4dkRS
-					w1J5vACwxnuFwHcvXGrPuJDOrUeTU+NSm5E0
-					iT2FgCcOgPyDVVvQ5nI8x8FPUhVbteiNGJl/
-					0Ke9v0B0lQcMyetQ4KSInj7S8+PjzT4RuHyW
-					5goZ1JeWkhpJyiqdmBQufMmpz8M= )
+					EHdUUHCxTHHiSYPC8LI5ybl0xwAcgg8maL/d
+					zcWTrcHiFxaocAC3FB2qPxFVvrMZEWr9zDEi
+					F4jp4JagSKn51Y4bU1MBri0xLTKHCxZMscVt
+					+eqEHv3W3vFMtlG0XJqxu/aT8k0svT5PmJZv
+					ws+yJhHaZqvbDxXgIc3/mYVSo7s= )
+ownership.test.		300	IN NS	ns1.test.
+			300	NSEC	propgate-fixture.test. NS RRSIG NSEC
+			300	RRSIG	NSEC 8 2 300 (
+					20400101000000 20260101000000 5689 test.
+					uVqSpK2a8ron4gvcJF9Pt9vb6+Fy5X3Xz5dw
+					KEt+C0ZXwlvoDA3HlVOaeLNU1aSpXJDT4S3R
+					emvPo7n9oonL9t5GoqcCxb53vSPvs1Yl1f3u
+					8dMU0UBmtf5yjJl1Tmf6rtfWv3lr9w2QJAKu
+					C4lUHGZl7Nd9xBMrpMcbAe5DJts= )
 propgate-fixture.test.	300	IN NS	ns1.test.
 			300	NSEC	reports.test. NS RRSIG NSEC
 			300	RRSIG	NSEC 8 2 300 (

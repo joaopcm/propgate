@@ -9,9 +9,11 @@ import { PER_DOMAIN_FIELDS_BY_CHECK } from "@propgate/db";
 import type {
   CheckKind,
   CheckResult,
+  CnameTarget,
   DkimSelector,
   DomainProfile,
   Finding,
+  OwnershipToken,
   Verdict,
 } from "@propgate/dns";
 import { outcomeFor, worstVerdict } from "@propgate/dns";
@@ -52,17 +54,60 @@ export interface RequirementResult {
 }
 
 /**
- * Past what any real record set needs. Six check kinds exist and only DKIM
- * repeats, so twenty requirements is already more selectors than a platform
- * rotates through. A profile that hits this is a loop, not a configuration.
+ * Past what any real record set needs. Eight check kinds exist and three of them
+ * repeat, so twenty requirements is already more selectors than a platform
+ * rotates through and more aliases than one issues. A profile that hits this is
+ * a loop, not a configuration.
  */
 const MAX_REQUIREMENTS = 20;
 
+/**
+ * Fields a check kind cannot run without, from either side.
+ *
+ * Distinct from `PER_DOMAIN_FIELDS_BY_CHECK`, which says what *may* be deferred.
+ * This says what must be present once deferral is resolved, and a requirement
+ * naming neither a literal nor a per-domain field for one of these could never
+ * be reported on: the evaluator would be handed nothing to compare against, and
+ * the requirement would read `indeterminate` for the life of the profile.
+ *
+ * `spf` is deliberately empty even though it can defer `include`. An SPF
+ * requirement with no include is a legitimate weaker question — "is this record
+ * valid" rather than "does it authorise us". No other kind has one.
+ */
+const REQUIRED_FIELDS_BY_CHECK: Readonly<
+  Record<CheckKind, readonly PerDomainField[]>
+> = {
+  caa: ["caaIssuer"],
+  cname: ["label", "target"],
+  delegation: [],
+  dkim: ["selector"],
+  dmarc: [],
+  mx: [],
+  ownership: ["token"],
+  spf: [],
+};
+
+/**
+ * How a repeated requirement is told apart from its siblings.
+ *
+ * DKIM repeats per selector, ownership and cname per label. Two requirements of
+ * the same kind sharing a discriminator would evaluate the same name twice and
+ * be attributed the same outcome, so the write is refused instead.
+ */
+const DISCRIMINATOR_BY_CHECK: Readonly<
+  Partial<Record<CheckKind, PerDomainField>>
+> = {
+  cname: "label",
+  dkim: "selector",
+  ownership: "label",
+};
+
 /** What has already been claimed, as the requirements are walked. */
 interface Claimed {
+  /** Discriminators taken, as `<check>:<value>`. */
+  readonly discriminators: Set<string>;
   readonly keys: Set<string>;
   readonly kinds: Set<CheckKind>;
-  readonly selectors: Set<string>;
 }
 
 /** Whether this requirement takes `field` from the domain rather than from here. */
@@ -107,33 +152,66 @@ function rejectPerDomain(requirement: ProfileRequirement): string | null {
   return null;
 }
 
-function rejectDkimRequirement(
-  requirement: ProfileRequirement,
-  claimed: Claimed
-): string | null {
-  const deferred = defers(requirement, "selector");
+/** How the message names a field, where "issuer" reads better than "caaIssuer". */
+const FIELD_NOUNS: Readonly<Partial<Record<PerDomainField, string>>> = {
+  caaIssuer: "an issuer",
+  label: "a label",
+  selector: "a selector",
+  target: "a target",
+  token: "a token",
+};
 
-  if (requirement.selector === undefined && !deferred) {
-    return `requirement "${requirement.key}" checks dkim and must name a selector or require one per domain`;
+/**
+ * A field the check cannot run without and that nobody supplies, or null.
+ *
+ * The evaluator would be handed nothing to compare against, so the requirement
+ * would have no outcome to report on for the life of the profile. Deferring the
+ * field is a promise the domain keeps instead, which registration enforces.
+ */
+function rejectMissingField(requirement: ProfileRequirement): string | null {
+  for (const field of REQUIRED_FIELDS_BY_CHECK[requirement.check]) {
+    if (
+      literalFor(requirement, field) === undefined &&
+      !defers(requirement, field)
+    ) {
+      return `requirement "${requirement.key}" checks ${requirement.check} and must name ${FIELD_NOUNS[field] ?? field} or require one per domain`;
+    }
   }
 
-  /**
-   * A deferred selector cannot be claimed here.
-   *
-   * Its value is not known until a domain supplies one, so uniqueness is not
-   * decidable at write time. The consequence is bounded and not a correctness
-   * problem: two requirements that happen to resolve to the same selector
-   * evaluate it twice and are attributed the same outcome.
-   */
-  if (deferred || requirement.selector === undefined) {
+  return null;
+}
+
+/**
+ * Whether a repeatable requirement collides with one already seen, or null.
+ *
+ * A deferred discriminator cannot be claimed: its value is not known until a
+ * domain supplies one, so uniqueness is not decidable at write time. The
+ * consequence is bounded and not a correctness problem — two requirements that
+ * happen to resolve to the same selector or label evaluate it twice and are
+ * attributed the same outcome.
+ */
+function rejectDuplicate(
+  requirement: ProfileRequirement,
+  field: PerDomainField,
+  claimed: Claimed
+): string | null {
+  if (defers(requirement, field)) {
     return null;
   }
 
-  if (claimed.selectors.has(requirement.selector)) {
-    return `duplicate dkim selector "${requirement.selector}"`;
+  const value = literalFor(requirement, field);
+  // An absent label is the apex, which is a name like any other and collides
+  // like one. `REQUIRED_FIELDS_BY_CHECK` has already refused the kinds where an
+  // absent discriminator would mean something was forgotten instead.
+  const taken = `${requirement.check}:${value ?? ""}`;
+
+  if (claimed.discriminators.has(taken)) {
+    return value === undefined
+      ? `only one ${requirement.check} requirement may sit at the apex`
+      : `duplicate ${requirement.check} ${field} "${value}"`;
   }
 
-  claimed.selectors.add(requirement.selector);
+  claimed.discriminators.add(taken);
 
   return null;
 }
@@ -158,22 +236,20 @@ function rejectRequirement(
     return perDomain;
   }
 
-  // DKIM is the one check that answers a question per selector rather than per
-  // domain, which is why several requirements may name it and no other check
-  // may repeat.
-  if (requirement.check === "dkim") {
-    return rejectDkimRequirement(requirement, claimed);
+  const missing = rejectMissingField(requirement);
+
+  if (missing !== null) {
+    return missing;
   }
 
-  if (
-    requirement.check === "caa" &&
-    requirement.caaIssuer === undefined &&
-    !defers(requirement, "caaIssuer")
-  ) {
-    // The evaluator skips CAA without an issuer, so the requirement would have
-    // no outcome to report against for the life of the profile. Deferring it is
-    // a promise the domain keeps instead, which registration enforces.
-    return `requirement "${requirement.key}" checks caa and must name an issuer or require one per domain`;
+  // Three checks answer a question per record rather than per domain, which is
+  // why several requirements may name them and no other check may repeat. An
+  // ownership requirement with no label repeats on the apex, which is a
+  // collision like any other and is caught the same way.
+  const discriminator = DISCRIMINATOR_BY_CHECK[requirement.check];
+
+  if (discriminator !== undefined) {
+    return rejectDuplicate(requirement, discriminator, claimed);
   }
 
   if (claimed.kinds.has(requirement.check)) {
@@ -204,9 +280,9 @@ export function rejectDefinition(definition: ProfileDefinition): string | null {
   }
 
   const claimed: Claimed = {
+    discriminators: new Set(),
     keys: new Set(),
     kinds: new Set(),
-    selectors: new Set(),
   };
 
   for (const requirement of requirements) {
@@ -228,7 +304,10 @@ interface MergedRequirement {
   readonly expectsMail?: boolean;
   readonly include?: string;
   readonly key: string;
+  readonly label?: string;
   readonly selector?: string;
+  readonly target?: string;
+  readonly token?: string;
 }
 
 /** A deferred field with nothing behind it. Named so the caller can say which. */
@@ -265,6 +344,30 @@ function valueFor(
     : literalFor(requirement, field);
 
   return raw === undefined || raw.trim().length === 0 ? undefined : raw;
+}
+
+/**
+ * What tells one repeated requirement from its siblings, once the domain's
+ * values are known. `undefined` for a kind that cannot repeat.
+ *
+ * `rejectDefinition` claims these at profile-write time, but only the ones
+ * written as literals: a deferred discriminator has no value yet, so uniqueness
+ * is not decidable there. This is the same question asked at the point it *is*
+ * decidable, which is when a domain supplies its expectations.
+ *
+ * The empty string is the apex, matching `ownershipLabel` in `@propgate/dns`.
+ */
+export function discriminatorFor(
+  requirement: ProfileRequirement,
+  expectations: DomainExpectations | null
+): string | undefined {
+  const field = DISCRIMINATOR_BY_CHECK[requirement.check];
+
+  if (field === undefined) {
+    return;
+  }
+
+  return valueFor(requirement, field, expectations) ?? "";
 }
 
 /**
@@ -308,22 +411,22 @@ function merge(
     }
 
     /**
-     * A DKIM requirement carrying no selector and deferring none either.
+     * A requirement carrying neither a literal nor a deferral for a field its
+     * check cannot run without.
      *
      * `rejectDefinition` makes this unreachable for a stored profile — a deferred
-     * selector is already filed by the loop above, so this only covers a
-     * definition that names neither. Handled anyway because the alternative is
-     * worse than an impossible branch: the old code substituted an empty string,
-     * which queries `._domainkey.example.com`, gets NXDOMAIN, and reports a
-     * failure the customer cannot act on. A false fail feeds hysteresis and pages
-     * somebody.
+     * field is already filed by the loop above, so this only covers a definition
+     * that names neither. Handled anyway because the alternative is worse than an
+     * impossible branch: the old code substituted an empty string for a missing
+     * selector, which queries `._domainkey.example.com`, gets NXDOMAIN, and
+     * reports a failure the customer cannot act on. A false fail feeds hysteresis
+     * and pages somebody. A token is worse still — an empty one matches an empty
+     * TXT record, which is a false *pass*.
      */
-    if (
-      requirement.check === "dkim" &&
-      resolved.selector === undefined &&
-      !defers(requirement, "selector")
-    ) {
-      missing.push({ field: "selector", requirementKey: requirement.key });
+    for (const field of REQUIRED_FIELDS_BY_CHECK[requirement.check]) {
+      if (resolved[field] === undefined && !defers(requirement, field)) {
+        missing.push({ field, requirementKey: requirement.key });
+      }
     }
 
     return {
@@ -376,6 +479,29 @@ function dkimSelectorFor(requirement: MergedRequirement): DkimSelector {
     : { expectedPublicKey: requirement.expectedPublicKey, selector };
 }
 
+/** Same contract as `dkimSelectorFor`: only reached once `merge` found no gaps. */
+function ownershipTokenFor(requirement: MergedRequirement): OwnershipToken {
+  return {
+    token: requirement.token as string,
+    ...(requirement.label === undefined ? {} : { label: requirement.label }),
+  };
+}
+
+function cnameTargetFor(requirement: MergedRequirement): CnameTarget {
+  return {
+    label: requirement.label as string,
+    target: requirement.target as string,
+  };
+}
+
+/** Every merged requirement of one kind, in the order the profile listed them. */
+function ofKind(
+  merged: readonly MergedRequirement[],
+  check: CheckKind
+): readonly MergedRequirement[] {
+  return merged.filter((requirement) => requirement.check === check);
+}
+
 /**
  * A stored definition and a domain's values, as something the resolver can run.
  *
@@ -407,9 +533,9 @@ export function compileProfile(
   const find = (check: CheckKind) =>
     merged.find((requirement) => requirement.check === check);
 
-  const dkimSelectors = merged
-    .filter((requirement) => requirement.check === "dkim")
-    .map(dkimSelectorFor);
+  const dkimSelectors = ofKind(merged, "dkim").map(dkimSelectorFor);
+  const ownership = ofKind(merged, "ownership").map(ownershipTokenFor);
+  const cnames = ofKind(merged, "cname").map(cnameTargetFor);
 
   const spf = find("spf");
   const caa = find("caa");
@@ -421,7 +547,9 @@ export function compileProfile(
     profile: {
       checks: [...new Set(merged.map((requirement) => requirement.check))],
       id,
+      ...(cnames.length === 0 ? {} : { cnames }),
       ...(dkimSelectors.length === 0 ? {} : { dkimSelectors }),
+      ...(ownership.length === 0 ? {} : { ownership }),
       ...(spf?.include === undefined ? {} : { spfInclude: spf.include }),
       ...(caa?.caaIssuer === undefined ? {} : { caaIssuer: caa.caaIssuer }),
       // Tri-state all the way down: a tenant who did not say has not asserted the
@@ -455,14 +583,58 @@ function toRequirementFinding(finding: Finding): RequirementFinding {
  * met and not failed; it is the reason the caller above must leave the domain's
  * state alone rather than transitioning it.
  *
- * Takes `expectations` for one reason: a DKIM outcome is keyed by selector, and a
- * requirement that defers its selector carries none. Reading `requirement.selector`
- * here would compare a resolved `"acme-1"` against `undefined`, match nothing, and
- * file a passing check as `indeterminate` — leaving the domain unverifiable
- * forever. `valueFor` is the same resolution `compileProfile` used to build the
- * profile the resolver ran, which is what keeps the two from drifting; the header
- * of this file is about exactly that failure.
+ * Takes `expectations` for one reason: a repeated outcome is keyed by the value
+ * that made it repeat, and a requirement that defers that value carries none.
+ * Reading `requirement.selector` here would compare a resolved `"acme-1"` against
+ * `undefined`, match nothing, and file a passing check as `indeterminate` —
+ * leaving the domain unverifiable forever. `valueFor` is the same resolution
+ * `compileProfile` used to build the profile the resolver ran, which is what
+ * keeps the two from drifting; the header of this file is about exactly that
+ * failure.
  */
+/**
+ * The one match, or nothing at all when there is more than one.
+ *
+ * `find` would take the first, which is how two requirements resolving to one
+ * name both get the first one's verdict — so the second reads whatever the first
+ * observed, including `satisfied` for a value that was never checked. A false
+ * pass on a verification check is the worst thing this file can produce.
+ *
+ * `rejectExpectations` refuses that domain at registration, so this is a
+ * backstop rather than the fix. It is here because the two run at different
+ * times: a profile stored before the rule existed still has to be attributed,
+ * and "we cannot tell which of these is yours" is honestly `indeterminate` —
+ * which leaves the domain's state alone rather than transitioning it either way.
+ */
+function only<T>(matches: readonly T[] | undefined): T | undefined {
+  return matches?.length === 1 ? matches[0] : undefined;
+}
+
+function sourceFor(
+  requirement: ProfileRequirement,
+  outcome: ReturnType<typeof outcomeFor>,
+  expectations: DomainExpectations | null
+) {
+  if (requirement.check === "dkim") {
+    const selector = valueFor(requirement, "selector", expectations);
+
+    return only(
+      outcome?.selectors?.filter((entry) => entry.selector === selector)
+    );
+  }
+
+  if (requirement.check === "ownership" || requirement.check === "cname") {
+    // `?? ""` is the apex, matching `ownershipLabel` in `@propgate/dns`. The two
+    // spellings of "no label" have to agree or an apex token is filed against
+    // nothing and reads `indeterminate` forever.
+    const label = valueFor(requirement, "label", expectations) ?? "";
+
+    return only(outcome?.records?.filter((entry) => entry.label === label));
+  }
+
+  return outcome;
+}
+
 export function attributeResults(
   definition: ProfileDefinition,
   result: CheckResult,
@@ -470,11 +642,7 @@ export function attributeResults(
 ): readonly RequirementResult[] {
   return definition.requirements.map((requirement) => {
     const outcome = outcomeFor(result, requirement.check);
-    const selector = valueFor(requirement, "selector", expectations);
-    const source =
-      requirement.check === "dkim"
-        ? outcome?.selectors?.find((entry) => entry.selector === selector)
-        : outcome;
+    const source = sourceFor(requirement, outcome, expectations);
 
     // No outcome means the check never ran. `rejectDefinition` rules out every
     // way that can happen at write time, so reaching it means the resolver

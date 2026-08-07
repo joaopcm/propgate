@@ -1,10 +1,12 @@
 import { evaluateCaa } from "../evaluate/caa";
+import { evaluateCname } from "../evaluate/cname";
 import type { EvaluationContextOptions } from "../evaluate/context";
 import { createEvaluationContext } from "../evaluate/context";
 import { evaluateDelegation } from "../evaluate/delegation";
 import { evaluateDkim } from "../evaluate/dkim";
 import { evaluateDmarc } from "../evaluate/dmarc";
 import { evaluateMx } from "../evaluate/mx";
+import { evaluateOwnership } from "../evaluate/ownership";
 import { evaluateSpf } from "../evaluate/spf";
 import type {
   EvaluationResult,
@@ -15,12 +17,12 @@ import type {
 import { worstVerdict } from "../evaluate/types";
 import { probeWildcard } from "../evaluate/wildcard";
 import type { CheckKind, DomainProfile } from "./profile";
-import { dkimSelectorName } from "./profile";
+import { dkimSelectorName, ownershipLabel } from "./profile";
 
 /**
  * One domain, one answer.
  *
- * Six evaluators exist; a customer has one question. This composes them, and
+ * Eight evaluators exist; a customer has one question. This composes them, and
  * the composition is where two decisions live that no single evaluator could
  * make:
  *
@@ -33,7 +35,7 @@ import { dkimSelectorName } from "./profile";
  *  2. **A skipped check is not a passing check.** A profile that does not ask
  *     about DKIM produces no DKIM outcome at all, rather than a green one. The
  *     difference is the whole reason `checks` is explicit: a dashboard showing
- *     six ticks for a domain that was only asked about two is lying.
+ *     eight ticks for a domain that was only asked about two is lying.
  *
  * The verdict is the worst of the parts, which puts `indeterminate` above
  * `warn` and below `fail`: one check that could not run makes the whole answer
@@ -49,10 +51,38 @@ export interface DkimSelectorOutcome {
   readonly verdict: Verdict;
 }
 
+/**
+ * One name's own answer, inside a merged `ownership` or `cname` outcome.
+ *
+ * Keyed by the label the profile named — the empty string for an apex ownership
+ * token — rather than by the full DNS name, because the label is what the caller
+ * wrote down and what a requirement is matched back against.
+ *
+ * Deliberately not folded together with `DkimSelectorOutcome` above, and the
+ * reason is not compatibility: a DKIM selector is *not* a label. The label is
+ * `${selector}._domainkey`, so one field carrying both would store `pg1` for one
+ * kind and `track` for another under a name that means something different in
+ * each. Two keys with two meanings, named for what they are.
+ */
+export interface RecordOutcome {
+  readonly findings: readonly Finding[];
+  readonly label: string;
+  readonly lookups: readonly Lookup[];
+  readonly verdict: Verdict;
+}
+
 export interface CheckOutcome {
   readonly findings: readonly Finding[];
   readonly kind: CheckKind;
   readonly lookups: readonly Lookup[];
+  /**
+   * Per-name detail. Present on the `ownership` and `cname` outcomes.
+   *
+   * There for the same reason `selectors` is: a platform that issues a tracking
+   * host and a bounce host has two requirements, and a merged verdict cannot
+   * tell it which of the two aliases is missing.
+   */
+  readonly records?: readonly RecordOutcome[];
   /**
    * Per-selector detail. Present on the `dkim` outcome and nowhere else.
    *
@@ -93,6 +123,41 @@ export interface RunOptions {
 
 interface DkimRun extends EvaluationResult {
   readonly selectors: readonly DkimSelectorOutcome[];
+}
+
+interface RecordRun extends EvaluationResult {
+  readonly records: readonly RecordOutcome[];
+}
+
+/**
+ * Several names, one outcome — the shape `ownership` and `cname` share.
+ *
+ * Each entry gets its own context, so nothing about how many aliases a platform
+ * issues affects any one of their budgets, and the wall clock stays the slowest
+ * rather than their sum.
+ */
+async function runPerRecord<T>(
+  entries: readonly T[],
+  labelOf: (entry: T) => string,
+  resolver: EvaluationContextOptions,
+  evaluate: (
+    context: ReturnType<typeof createEvaluationContext>,
+    entry: T
+  ) => Promise<EvaluationResult>
+): Promise<RecordRun> {
+  const records = await Promise.all(
+    entries.map(async (entry) => ({
+      ...(await evaluate(createEvaluationContext(resolver), entry)),
+      label: labelOf(entry),
+    }))
+  );
+
+  return {
+    findings: records.flatMap((record) => record.findings),
+    lookups: records.flatMap((record) => record.lookups),
+    records,
+    verdict: worstVerdict(records.map((record) => record.verdict)),
+  };
 }
 
 /**
@@ -140,10 +205,11 @@ function runOne(
   kind: CheckKind,
   options: RunOptions,
   wildcardSynthesised: boolean
-): Promise<DkimRun | EvaluationResult> | undefined {
+): Promise<DkimRun | RecordRun | EvaluationResult> | undefined {
   const { domain, profile, resolver } = options;
   const context = () => createEvaluationContext(resolver);
 
+  // biome-ignore lint/style/useDefaultSwitchClause: the omission is the point. Exhaustive over `CheckKind`, so a ninth kind fails `tsc` here — where somebody has to decide what running it means — rather than falling into a default that returns undefined, which reads downstream as a skipped check and looks exactly like a profile that never asked.
   switch (kind) {
     case "delegation":
       return evaluateDelegation(context(), { domain });
@@ -175,10 +241,42 @@ function runOne(
           : { expectsMail: profile.expectsMail }),
       });
 
-    default:
+    case "caa":
       return profile.caaIssuer === undefined
         ? undefined
         : evaluateCaa(context(), { domain, issuer: profile.caaIssuer });
+
+    case "ownership":
+      // Same rule as DKIM's selectors: no token means none was minted, which is
+      // nothing to check rather than something absent.
+      return (profile.ownership ?? []).length === 0
+        ? undefined
+        : runPerRecord(
+            profile.ownership ?? [],
+            ownershipLabel,
+            resolver,
+            (evaluation, token) =>
+              evaluateOwnership(evaluation, {
+                domain,
+                token: token.token,
+                ...(token.label === undefined ? {} : { label: token.label }),
+              })
+          );
+
+    case "cname":
+      return (profile.cnames ?? []).length === 0
+        ? undefined
+        : runPerRecord(
+            profile.cnames ?? [],
+            (alias) => alias.label,
+            resolver,
+            (evaluation, alias) =>
+              evaluateCname(evaluation, {
+                domain,
+                label: alias.label,
+                target: alias.target,
+              })
+          );
   }
 }
 
@@ -201,7 +299,7 @@ export async function runChecks(options: RunOptions): Promise<CheckResult> {
         entry
       ): entry is {
         kind: CheckKind;
-        running: Promise<DkimRun | EvaluationResult>;
+        running: Promise<DkimRun | RecordRun | EvaluationResult>;
       } => entry.running !== undefined
     );
 
@@ -214,6 +312,9 @@ export async function runChecks(options: RunOptions): Promise<CheckResult> {
       findings: result?.findings ?? [],
       kind: entry.kind,
       lookups: result?.lookups ?? [],
+      ...(result !== undefined && "records" in result
+        ? { records: result.records }
+        : {}),
       ...(result !== undefined && "selectors" in result
         ? { selectors: result.selectors }
         : {}),
