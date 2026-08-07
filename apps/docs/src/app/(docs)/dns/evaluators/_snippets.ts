@@ -116,3 +116,41 @@ const result = await evaluateCaa(context, {
 });
 
 console.log(result.verdict);`;
+
+export const OWNERSHIP_SAMPLE = `import { createEvaluationContext, evaluateOwnership } from "@propgate/dns";
+
+const context = createEvaluationContext({
+  target: { address: "8.8.8.8", port: 53 },
+});
+
+// The token is compared byte for byte, which is what makes this check immune
+// to a wildcard: a zone answering every name still has to answer with your
+// value. Omit the label to look at the apex, where the token shares its name
+// with SPF and every other vendor's token — one value among many still has to
+// match exactly.
+const result = await evaluateOwnership(context, {
+  domain: "customer.example",
+  label: "_pg-challenge",
+  token: "propgate-verify=6c1f9a24b7e5d03812af49b6c5d0e7f3",
+});
+
+console.log(result.verdict);`;
+
+export const CNAME_SAMPLE = `import { createEvaluationContext, evaluateCname } from "@propgate/dns";
+
+const context = createEvaluationContext({
+  target: { address: "8.8.8.8", port: 53 },
+});
+
+// The target is resolved, not just compared as a string. Providers that
+// flatten aliases resolve them at edit time and serve address records
+// instead, so a correctly configured domain returns no CNAME at all —
+// comparing addresses is the only way to tell that apart from an A record
+// pointed somewhere else.
+const result = await evaluateCname(context, {
+  domain: "customer.example",
+  label: "track",
+  target: "acme.track.propgate.com",
+});
+
+console.log(result.verdict);`;

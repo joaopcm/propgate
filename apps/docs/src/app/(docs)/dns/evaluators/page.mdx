@@ -3,10 +3,12 @@ import { REQUIREMENT_TYPES } from "@/lib/api";
 import { CHECK_KINDS } from "@propgate/dns";
 import {
   CAA_SAMPLE,
+  CNAME_SAMPLE,
   DELEGATION_SAMPLE,
   DKIM_SAMPLE,
   DMARC_SAMPLE,
   MX_SAMPLE,
+  OWNERSHIP_SAMPLE,
   RUN_CHECKS_BASIC,
   SPF_SAMPLE,
 } from "./_snippets";
@@ -37,6 +39,16 @@ export const EVALUATOR_ENTRIES = {
     nonObvious:
       "expectsMail is tri-state (true, false, or omitted) because a null MX is correct on a sending-only domain and a total failure on one that receives mail, and no amount of looking at DNS tells you which.",
   },
+  ownership: {
+    code: OWNERSHIP_SAMPLE,
+    nonObvious:
+      "the token is compared byte for byte, which is what makes this check immune to a wildcard — a zone answering every name still has to answer with your value. A near miss (stored quotes, chunks rejoined with whitespace, a truncated paste, a case fold) is reported as a mangled token rather than a wrong one.",
+  },
+  cname: {
+    code: CNAME_SAMPLE,
+    nonObvious:
+      "the target is resolved rather than string-compared. A provider that flattens aliases serves address records in place of the CNAME, so a correctly configured domain returns no CNAME at all — comparing addresses is the only way to tell that from an A record pointed elsewhere.",
+  },
   spf: {
     code: SPF_SAMPLE,
     nonObvious:
@@ -46,10 +58,10 @@ export const EVALUATOR_ENTRIES = {
 
 # The evaluators
 
-Six evaluators exist (delegation, SPF, DKIM, DMARC, MX, CAA) and
-`runChecks` is what a caller actually reaches for. It takes a `DomainProfile`
-(what a domain is *for*, stated as data) and runs whichever checks that
-profile asks for against one `EvaluationContext`.
+Eight evaluators exist (delegation, SPF, DKIM, DMARC, MX, CAA, ownership,
+cname) and `runChecks` is what a caller actually reaches for. It takes a
+`DomainProfile` (what a domain is *for*, stated as data) and runs whichever
+checks that profile asks for against one `EvaluationContext`.
 
 <CodeBlock code={RUN_CHECKS_BASIC} lang="ts" />
 
@@ -58,7 +70,7 @@ own:
 
 - **Checks run concurrently**, each against its own context. They share
   nothing and none is ordered relative to another, so the wall clock is the
-  slowest check rather than the sum of all six.
+  slowest check rather than the sum of them all.
 - **A skipped check is not a passing check.** A profile that never asks about
   DKIM produces no DKIM outcome at all, rather than a green one. `sendingOnly`,
   `fullMail`, and `webOnly` are the three profile constructors that ship with
@@ -70,7 +82,7 @@ ranks above `warn`: one check that could not run makes the whole answer
 uncertain, but a definite failure you did observe is more actionable than
 uncertainty about the rest.
 
-## The six checks
+## The checks
 
 Rendered from `REQUIREMENT_TYPES`, the same record the API reference reads, so
 this list cannot say something the resolver cannot actually check.
