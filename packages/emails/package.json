@@ -10,7 +10,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "resend": "^4"
+    "resend": "^6"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

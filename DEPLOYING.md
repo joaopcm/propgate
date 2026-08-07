@@ -183,6 +183,12 @@ the API refuses to start. Re-running the flow on an address that already has an
 account mints an **additional** key against the same tenant rather than a second
 account, which is also the recovery path for somebody who lost theirs.
 
+Set `RESEND_SEGMENT_ID` and the confirmation also adds the address to that Resend
+segment as a subscribed contact — once, on the confirmation that opened the
+account, so the recovery path above cannot resurrect an unsubscribe. It is
+optional and unset by default: the ID names a resource in one particular Resend
+account, and signup works identically without it.
+
 There is still no admin API. Minting on the box remains the operator path, and
 it is the only way to set a tenant's name to something other than the address:
 

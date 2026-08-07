@@ -1,6 +1,6 @@
 import type { Database } from "@propgate/db";
 import type { ServerAddress } from "@propgate/dns";
-import type { Mailer } from "@propgate/emails";
+import type { ContactList, Mailer } from "@propgate/emails";
 import type { DeliverWebhookPayload } from "@propgate/jobs";
 import { captureException } from "@sentry/node";
 import type { Queue } from "bullmq";
@@ -49,6 +49,16 @@ import { RateLimiter } from "./utils/rate-limit";
  * query.
  */
 export function createApp(options: {
+  /**
+   * The marketing list a confirmed signup is added to.
+   *
+   * Optional, and unlike `mailer` its absence mounts signup anyway: a list is
+   * not part of opening an account, so a deployment without one should still
+   * hand out keys. Unset is what a self-hosted box gets — the segment names a
+   * resource in one specific Resend account, so defaulting it would point every
+   * other installation at ours.
+   */
+  contacts?: ContactList;
   db?: Database;
   /**
    * Absent means signup is not mounted at all.
@@ -139,6 +149,9 @@ export function createApp(options: {
       app.route(
         "/v1/signup",
         createSignupRoute({
+          ...(options.contacts === undefined
+            ? {}
+            : { contacts: options.contacts }),
           db,
           limiter: new RateLimiter({
             limit: SIGNUPS_PER_IP_PER_HOUR,

@@ -156,6 +156,9 @@ services:
       # signup, discovered by a stranger trying to create an account.
       RESEND_API_KEY: ${RESEND_API_KEY:?}
       EMAIL_FROM: ${EMAIL_FROM:-}
+      # The marketing list. Optional and only read here — the worker never
+      # confirms a signup, so it has no use for it.
+      RESEND_SEGMENT_ID: ${RESEND_SEGMENT_ID:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
     depends_on:
       migrate:

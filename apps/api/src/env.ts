@@ -77,6 +77,21 @@ export const env = createEnv({
      */
     RESEND_API_KEY: z.string().min(1),
     /**
+     * The Resend segment a confirmed signup is added to, as a subscribed contact.
+     *
+     * Optional, unlike the key above, and unset means confirmed signups go on no
+     * list — signup itself is unaffected either way, which is the difference: a
+     * mailing list is not part of opening an account, so making this required
+     * would gate the funnel on something outside it.
+     *
+     * No default, deliberately, and this is the one place that reasoning is not
+     * the same as `EMAIL_FROM`'s. A segment ID names a row inside one specific
+     * Resend account. Defaulting it would mean every self-hosted box, running
+     * with its own key, posting a contact into an ID it does not own on every
+     * signup — a failed call and a confusing log line per account, forever.
+     */
+    RESEND_SEGMENT_ID: z.string().min(1).optional(),
+    /**
      * The recursive resolver every check queries.
      *
      * Port is explicit and never assumed to be 53: the fixture tier serves real

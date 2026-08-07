@@ -1,7 +1,7 @@
 import "./instrument";
 import { serve } from "@hono/node-server";
 import { createDb } from "@propgate/db";
-import { createMailer } from "@propgate/emails";
+import { createContactList, createMailer } from "@propgate/emails";
 import { createQueues } from "@propgate/jobs";
 import { createApp } from "./app";
 import { env } from "./env";
@@ -18,6 +18,16 @@ const resolver = { address: env.RESOLVER_ADDRESS, port: env.RESOLVER_PORT };
 const queues = createQueues({ url: env.REDIS_URL });
 
 const app = createApp({
+  // Unset means confirmed signups go on no list at all, and signup still works.
+  // See the option's note in `app.ts` for why this is not defaulted.
+  ...(env.RESEND_SEGMENT_ID === undefined
+    ? {}
+    : {
+        contacts: createContactList({
+          apiKey: env.RESEND_API_KEY,
+          segmentId: env.RESEND_SEGMENT_ID,
+        }),
+      }),
   db: createDb(env.DATABASE_URL),
   mailer: createMailer({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM }),
   resolver,
