@@ -31,6 +31,7 @@ const README = readFileSync(
 const CODE_COUNT_CLAIM = /(\d+)-code diagnosis taxonomy/;
 const EVALUATOR_COUNT_CLAIM = /shipped\. Resolver, (\w+) evaluators/;
 const EVALUATOR_LIST_CLAIM = /evaluators \(([^)]+)\)/;
+const BLOCKQUOTE_MARKER = /^\s*>?\s*/;
 
 describe("the published README", () => {
   it("claims the number of diagnosis codes the registry actually has", () => {
@@ -63,12 +64,33 @@ describe("the published README", () => {
   });
 
   it("names every check kind in the evaluator list", () => {
-    // The parenthetical after the count. A kind missing from it is a reader
-    // concluding the package cannot do something it can.
+    /**
+     * The parenthetical after the count. A kind missing from it is a reader
+     * concluding the package cannot do something it can.
+     *
+     * Split on commas rather than searched as substrings. No kind is a substring
+     * of another today, so this is not currently a live fault — but the same
+     * shortcut in the flag check next door meant `--token-at` satisfied the
+     * assertion for `--token`, and one `dnssec` alongside a `dns` would do it
+     * here. Comparing tokens costs nothing and cannot rot into a false pass.
+     */
     const list = EVALUATOR_LIST_CLAIM.exec(README)?.[1] ?? "";
-    const named = list.toLowerCase();
+    const named = new Set(
+      list
+        // The status line is a blockquote, so a wrapped list carries a `>` into
+        // the middle of it. Tokenising found this immediately: the entry was
+        // `"> mx"`, and the substring check had been passing on the `mx` inside
+        // it rather than on a name anybody wrote.
+        .split("\n")
+        .map((line) => line.replace(BLOCKQUOTE_MARKER, ""))
+        .join(" ")
+        .split(",")
+        .map((item) => item.trim().toLowerCase())
+    );
 
-    const missing = CHECK_KINDS.filter((kind) => !named.includes(kind));
+    expect(named.size, "no 'evaluators (…)' list found").toBeGreaterThan(0);
+
+    const missing = CHECK_KINDS.filter((kind) => !named.has(kind));
 
     expect(missing).toEqual([]);
   });

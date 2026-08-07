@@ -26,31 +26,74 @@ const README = readFileSync(
 );
 
 const ONLY_LIST = /--only <values>\s+One of: ([^.]+)\./s;
-const WHITESPACE = /\s+/g;
+const USAGE_BLOCK = /## Usage\s*```([\s\S]*?)```/;
+const FLAG = /--[a-z][a-z0-9-]*/g;
+
+/**
+ * Flags every command gets from `optionsFor`, plus `--version`.
+ *
+ * Not fields on any command, so the reverse check below would call them
+ * undocumented inventions without this.
+ */
+const UNIVERSAL_FLAGS = new Set(["--api-url", "--help", "--json", "--version"]);
+
+/**
+ * The flags the usage block actually names, as whole tokens.
+ *
+ * Tokenised rather than substring-searched, and that distinction is the entire
+ * value of this spec. `README.includes("--token")` is satisfied by `--token-at`,
+ * so deleting the standalone `--token` row left the guard green while the
+ * published README omitted the flag — a guard against undocumented flags that
+ * could not see an undocumented flag.
+ */
+function documentedFlags(): ReadonlySet<string> {
+  const block = USAGE_BLOCK.exec(README)?.[1] ?? "";
+
+  return new Set(block.match(FLAG) ?? []);
+}
+
+/** A comma-separated list as trimmed, lowercased tokens. */
+function itemsIn(list: string): ReadonlySet<string> {
+  return new Set(list.split(",").map((item) => item.trim().toLowerCase()));
+}
 
 describe("the published README's check usage", () => {
-  it("lists every flag the command actually takes", () => {
-    const check = COMMANDS.find(
-      (command) => command.path.join(" ") === "check"
-    );
+  const check = COMMANDS.find((command) => command.path.join(" ") === "check");
 
+  it("has a usage block to check at all", () => {
+    // Every assertion below reads an empty string when this regex stops
+    // matching, and an empty string trivially documents nothing — so a
+    // reformatted README would turn these guards off rather than fail them.
     expect(check, "no `check` command in the registry").toBeDefined();
+    expect(documentedFlags().size).toBeGreaterThan(0);
+  });
 
-    // The command's own fields, which is what `--help` renders from. `--json`,
-    // `--help` and `--api-url` are added by `optionsFor` for every command and
-    // are documented where they are explained rather than in this list.
+  it("lists every flag the command actually takes", () => {
+    const documented = documentedFlags();
+
     const missing = (check?.fields ?? [])
       .map((field) => `--${field.flag}`)
-      .filter((flag) => !README.includes(flag));
+      .filter((flag) => !documented.has(flag));
 
     expect(missing).toEqual([]);
   });
 
-  it("names every check kind in the --only list", () => {
-    const list = ONLY_LIST.exec(README)?.[1] ?? "";
-    const named = list.replaceAll(WHITESPACE, " ").toLowerCase();
+  it("lists no flag the command does not take", () => {
+    // The other direction, and just as wrong: a reader who tries a flag that was
+    // renamed or removed gets a usage error from the tool that documented it.
+    const real = new Set((check?.fields ?? []).map((f) => `--${f.flag}`));
 
-    const missing = CHECK_KINDS.filter((kind) => !named.includes(kind));
+    const invented = [...documentedFlags()].filter(
+      (flag) => !(real.has(flag) || UNIVERSAL_FLAGS.has(flag))
+    );
+
+    expect(invented).toEqual([]);
+  });
+
+  it("names every check kind in the --only list", () => {
+    const named = itemsIn(ONLY_LIST.exec(README)?.[1] ?? "");
+
+    const missing = CHECK_KINDS.filter((kind) => !named.has(kind));
 
     expect(missing, "run `propgate check --help` and copy the list").toEqual(
       []
