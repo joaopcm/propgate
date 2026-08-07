@@ -45,14 +45,49 @@ TC bit, set DO, control the EDNS buffer size, or return RRSIGs. Do not reach for
 | `*.db.spec.ts` | `db-postgres`, `api-postgres` | yes | **no** |
 | `*.queue.spec.ts` | `jobs-redis` | yes | yes |
 | `*.integration.spec.ts` | `api-integration` | yes, all three tiers | **no** |
+| `*.e2e.spec.ts` | `api-e2e` | yes, all three tiers | **no** |
 
 `*.fixture.spec.ts` and `*.serial.spec.ts` are collected only when
 `PROPGATE_FIXTURES=1`; `*.db.spec.ts` only when `PROPGATE_DATABASE=1`;
 `*.queue.spec.ts` only when `PROPGATE_REDIS=1`;
-`*.integration.spec.ts` needs **all three** — the sweep loop is claim, enqueue,
-check and reschedule together, which is DNS plus Postgres plus Redis — and gets a
-project of its own rather than a flag on one of the others so that running with a
-single tier up cannot silently skip it. CI sets both after `docker compose up --wait`, so every PR runs them.
+`*.integration.spec.ts` and `*.e2e.spec.ts` need **all three** — the sweep loop is
+claim, enqueue, check and reschedule together, which is DNS plus Postgres plus
+Redis — and get projects of their own rather than a flag on one of the others so
+that running with a single tier up cannot silently skip them. CI sets both after
+`docker compose up --wait`, so every PR runs them.
+
+## `*.e2e.spec.ts` — the CLI against the real API
+
+The one thing `*.integration.spec.ts` structurally cannot catch. Those specs call
+`app.request`, so the API's response shapes are never compared against what the
+CLI believes they are — and `packages/cli/src/commands.spec.ts`, which does run a
+real HTTP server, fills that server with bodies the CLI's own author wrote.
+Rename `meta.nextCursor` on the server and every spec in the repo stays green
+while `propgate domains list --all` walks one page and stops.
+
+So `api-e2e` drives `main()` from `@propgate/cli` against `createApp()` over a
+socket, with a BullMQ worker delivering to an HTTP receiver that verifies the
+signature. Two rules keep it worth its runtime, which is the highest in the repo:
+
+- **Only assert joins.** Anything a cheaper spec already pins belongs there. This
+  file covers what happens *between* layers, not within one.
+- **Nothing in it is a stand-in** except `createRecordingMailer`, which exists
+  because the OTP is hashed before storage and no spec can read it otherwise.
+
+The one production affordance it needs is `createApp({ webhookUrlPolicy })`:
+webhook URLs are https-only and refuse private addresses, and a receiver a test
+can observe is on loopback. It is a parameter and deliberately **not** an env
+var — a flag that relaxes SSRF protection would exist in the production binary,
+one `docker run -e` away from being switched on during an incident.
+
+Driving `verified → degraded → failed → recovered` needs the same domain to pass
+and then fail, which is why `split.test` publishes a DKIM selector to `dns-auth`
+and not to `dns-divergent`: the spec moves between two API instances with
+different vantage pools instead of editing a zone while a test is running. The
+SPF divergence sitting next to it in that zone cannot do this job — expanding
+`include:one.spf.test` needs zones `dns-divergent` does not serve, so from there
+it is `SPF_TEMPORARY_FAILURE`, which is `indeterminate` and by design moves
+nothing.
 
 Gating on an env var rather than on reachability is deliberate: a suite that
 silently skips when the servers are down is worse than one that fails, because

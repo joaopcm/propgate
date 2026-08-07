@@ -35,10 +35,23 @@ const projects = [
   {
     extends: true,
     test: {
+      /**
+       * Every gated pattern, and forgetting one is not a quiet mistake.
+       *
+       * `include` is `*.spec.ts`, which matches all of them — so a pattern
+       * missing here is collected by the project that runs with no containers.
+       * It fails at *module load*, where the failure is a raw ECONNREFUSED on
+       * whichever default port the client picked and names nothing that would
+       * tell you a gate is wrong. `*.e2e.spec.ts` was added to this list one CI
+       * run late, and only because the CI machine had no Postgres on 5432 to
+       * hide it: a developer with one running sees the ungated project connect
+       * and pass.
+       */
       exclude: [
         "src/**/*.fixture.spec.ts",
         "src/**/*.db.spec.ts",
         "src/**/*.integration.spec.ts",
+        "src/**/*.e2e.spec.ts",
       ],
       include: ["src/**/*.spec.ts"],
       name: "api",
@@ -92,6 +105,34 @@ if (
       ],
       include: ["src/**/*.integration.spec.ts"],
       name: "api-integration",
+    },
+  } as (typeof projects)[number]);
+
+  /**
+   * `api-e2e` — the CLI against this API, over a socket.
+   *
+   * Its own project rather than another `*.integration.spec.ts` because what it
+   * covers is different in kind: the integration specs call `app.request`, so
+   * they can never catch a response shape the CLI reads differently than the API
+   * writes it. This one drives `main()` from `@propgate/cli`, which is the only
+   * place those two beliefs are compared.
+   *
+   * `fileParallelism` off for the same reason as `api-postgres` — it truncates —
+   * and `testTimeout` raised because one test performs five real DNS check runs
+   * across two vantage points and waits for four queued deliveries.
+   */
+  projects.push({
+    extends: true,
+    test: {
+      env: { DATABASE_URL },
+      fileParallelism: false,
+      globalSetup: [
+        "../../packages/dns/src/test/global-setup.ts",
+        "../../packages/db/src/test/global-setup.ts",
+      ],
+      include: ["src/**/*.e2e.spec.ts"],
+      name: "api-e2e",
+      testTimeout: 60_000,
     },
   } as (typeof projects)[number]);
 }

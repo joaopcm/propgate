@@ -23,3 +23,10 @@ $TTL 300
 
 ; The platform is absent from this side's SPF. Same name, different answer.
 @                   IN TXT  "v=spf1 include:two.spf.test -all"
+
+; No pg1._domainkey here, deliberately, and it is the *absence* that is the
+; fixture — see the counterpart in zones/unsigned/split.test.zone. This server is
+; authoritative for split.test, so the answer is NODATA on its own authority:
+; DKIM_RECORD_MISSING and a `fail`, rather than the REFUSED that would read as
+; uncertainty. Adding the record here silently turns the end-to-end hysteresis
+; arc into a test of nothing.

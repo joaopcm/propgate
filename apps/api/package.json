@@ -25,6 +25,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@propgate/cli": "workspace:*",
     "@propgate/dns-fixtures": "workspace:*",
     "@types/node": "^24.13.3",
     "tsup": "^8.5.1",
