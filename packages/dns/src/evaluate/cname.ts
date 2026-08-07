@@ -87,58 +87,62 @@ function aliasIn(outcome: QueryOutcome, name: string): string | undefined {
 }
 
 interface Addresses {
-  readonly found: readonly string[];
   /**
-   * Whether we got an answer at all.
+   * Whether **both** families answered.
    *
    * Distinct from an empty list. A name with no addresses is a fact about the
-   * zone; a name we could not ask about is a fact about the network, and only
-   * the first is evidence of anything.
+   * zone; a name we could not finish asking about is a fact about the network,
+   * and only the first is evidence of anything. Anything less than both families
+   * is a partial view, and a partial view is exactly what lets a stranger hide.
    */
-  readonly resolved: boolean;
+  readonly complete: boolean;
+  readonly found: readonly string[];
 }
 
 /**
- * Every address at a name, of either family.
+ * Every address at a name, across both families.
  *
- * AAAA is asked for only when A returns nothing, which keeps the common path at
- * one lookup. An IPv6-only target is unusual and legitimate, and reading a
- * missing A record as a missing address would fail it.
+ * Both are always asked for, and the reason is the subset test above. Stopping
+ * at A because A answered would compare a partial view against a partial view:
+ * a name flattened to our A record and carrying a stale AAAA from a previous
+ * provider would show nothing but our own address, pass, and route every IPv6
+ * client to somebody else. The families cannot be treated as alternatives when
+ * the question is "is there anything here that is not ours".
+ *
+ * Concurrently, so the extra query costs a query and not a round trip. The cost
+ * lands only on names with no CNAME — a correctly published alias is still one
+ * lookup and never reaches here.
  */
 async function addressesOf(
   context: EvaluationContext,
   name: string,
   purpose: string
 ): Promise<Addresses> {
-  const fourth = await context.lookup({ name, purpose, type: RecordType.A });
+  const [fourth, sixth] = await Promise.all([
+    context.lookup({ name, purpose, type: RecordType.A }),
+    context.lookup({
+      name,
+      purpose: `${purpose}, over IPv6`,
+      type: RecordType.AAAA,
+    }),
+  ]);
 
-  if (fourth.status !== "answered") {
-    return { found: [], resolved: false };
-  }
-
-  const a = recordsOfType(fourth.message.answers, "A").map(
-    (record) => record.rdata.address
-  );
-
-  if (a.length > 0) {
-    return { found: a, resolved: true };
-  }
-
-  const sixth = await context.lookup({
-    name,
-    purpose: `${purpose}, over IPv6, since there is no A record`,
-    type: RecordType.AAAA,
-  });
-
-  if (sixth.status !== "answered") {
-    return { found: [], resolved: false };
-  }
+  const found = [
+    ...(fourth.status === "answered"
+      ? recordsOfType(fourth.message.answers, "A").map(
+          (record) => record.rdata.address
+        )
+      : []),
+    ...(sixth.status === "answered"
+      ? recordsOfType(sixth.message.answers, "AAAA").map(
+          (record) => record.rdata.address
+        )
+      : []),
+  ];
 
   return {
-    found: recordsOfType(sixth.message.answers, "AAAA").map(
-      (record) => record.rdata.address
-    ),
-    resolved: true,
+    complete: fourth.status === "answered" && sixth.status === "answered",
+    found,
   };
 }
 
@@ -187,7 +191,7 @@ async function judgeAddresses(
   context: EvaluationContext,
   check: CnameCheck,
   name: string,
-  observed: readonly string[]
+  published: Addresses
 ): Promise<EvaluationResult["verdict"]> {
   const target = normalise(check.target);
   const expected = await addressesOf(
@@ -197,15 +201,31 @@ async function judgeAddresses(
   );
 
   // Our own target not resolving is our fault, not the customer's, and it is the
-  // one state where we genuinely cannot judge what is published here.
-  if (!expected.resolved || expected.found.length === 0) {
+  // one state where we genuinely cannot judge what is published here. A partial
+  // view of it is just as disqualifying in the other direction: the family we
+  // could not read would turn its own addresses into strangers and fail a domain
+  // that is fine.
+  if (!expected.complete || expected.found.length === 0) {
     return "indeterminate";
   }
 
+  const observed = published.found;
   const shared = observed.filter((address) => expected.found.includes(address));
   const strangers = observed.filter(
     (address) => !expected.found.includes(address)
   );
+
+  /**
+   * Everything we saw is ours, and we did not see everything.
+   *
+   * The one case where the honest answer is neither. A stranger in the family
+   * that did not answer would change this to a failure, so passing would be a
+   * guess in the direction that hurts — the whole point of the subset test is
+   * that an unseen address is not an absent one.
+   */
+  if (strangers.length === 0 && !published.complete) {
+    return "indeterminate";
+  }
 
   if (shared.length > 0 && strangers.length === 0) {
     context.report(DiagnosisCode.PROVIDER_FLATTENED_CNAME, {
@@ -314,7 +334,14 @@ export async function evaluateCname(
   );
 
   if (observed.found.length > 0) {
-    return finish(await judgeAddresses(context, check, name, observed.found));
+    return finish(await judgeAddresses(context, check, name, observed));
+  }
+
+  // Nothing found, and we did not finish looking. "Missing" would be a claim
+  // about a family we never read, and the appended-name probe below would be
+  // guessing from the same gap.
+  if (!observed.complete) {
+    return finish("indeterminate");
   }
 
   if (await probeAppended(context, check)) {

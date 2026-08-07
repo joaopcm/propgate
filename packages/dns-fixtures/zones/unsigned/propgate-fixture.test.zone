@@ -8,7 +8,12 @@ $TTL 300
                 1 7200 3600 1209600 300 )
 @       IN NS   ns1.test.
 
+; Dual-stack on purpose. The alias evaluator compares every address a name
+; publishes against every address the target publishes, so a single-family
+; target could never catch a stranger hiding in the other family — the fixture
+; has to be able to tell "our IPv6 address" from "somebody else's".
 track   IN A    198.51.100.20
+track   IN AAAA 2001:db8::20
 bounce  IN A    198.51.100.21
 bounce  IN MX   10 mx.propgate-fixture.test.
 mx      IN A    198.51.100.22

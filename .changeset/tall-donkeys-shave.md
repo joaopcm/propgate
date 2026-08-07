@@ -30,6 +30,13 @@ theirs. Resolvers hand out the whole set, so requests split between us and a
 host we have never heard of — which reads as "it works sometimes" and is
 reported as `CNAME_TARGET_PARTIAL`.
 
+For the same reason both address families are always queried, on both sides of
+that comparison, rather than falling back to AAAA only when A is empty. A name
+carrying our A record and a stale AAAA has a stranger that an A-first lookup
+never sees, and it routes every IPv6 client to it. The two queries run
+concurrently, so the cost is a query rather than a round trip, and it lands only
+on names with no CNAME — a correctly published alias is still one lookup.
+
 New diagnosis codes: `OWNERSHIP_TOKEN_MISSING`, `OWNERSHIP_TOKEN_MISMATCH`,
 `CNAME_RECORD_MISSING`, `CNAME_TARGET_MISMATCH`, `CNAME_TARGET_PARTIAL`. All
 five are fixture-backed.

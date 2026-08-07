@@ -105,6 +105,54 @@ describe("a provider that flattened the alias", () => {
     ).toMatchObject({ observed: "203.0.113.5" });
   });
 
+  it("fails when the stranger is in the other address family", async () => {
+    /**
+     * The regression. `track.v6` publishes our A record and somebody else's
+     * AAAA. A lookup that stops once A answers sees one address, all of it ours,
+     * and passes — while every IPv6 client is routed to a host we have never
+     * heard of. Both families have to be read before "is there anything here
+     * that is not ours" can be answered at all.
+     */
+    const result = await evaluate({
+      domain: "v6.cname.test",
+      label: "track",
+      target: TARGET,
+    });
+
+    expect(result.verdict).toBe("fail");
+    expect(codes(result)).toEqual([DiagnosisCode.CNAME_TARGET_PARTIAL]);
+    expect(
+      evidenceOf(result, DiagnosisCode.CNAME_TARGET_PARTIAL)
+    ).toMatchObject({ observed: "2001:db8::bad" });
+  });
+
+  it("passes a dual-stack flattening where both families are ours", async () => {
+    // The other side of the same coin, and the reason the rule is a subset test
+    // rather than "an AAAA here is suspicious". Our target is dual-stack; a
+    // provider that flattened both records produced exactly its addresses.
+    const result = await evaluate({
+      domain: "dual.cname.test",
+      label: "track",
+      target: TARGET,
+    });
+
+    expect(result.verdict).toBe("pass");
+    expect(codes(result)).toEqual([DiagnosisCode.PROVIDER_FLATTENED_CNAME]);
+  });
+
+  it("passes one family of a dual-stack target, since a subset is still ours", async () => {
+    // `flat` carries only the A record while the target now publishes both. A
+    // provider that resolved the alias once and cached what it got has exactly
+    // this shape, and nothing about it is wrong.
+    const result = await evaluate({
+      domain: "flat.cname.test",
+      label: "track",
+      target: TARGET,
+    });
+
+    expect(result.verdict).toBe("pass");
+  });
+
   it("fails an address record that is not the target's", async () => {
     // Identical in shape to the case above and the opposite verdict. Only the
     // target's own addresses separate them.

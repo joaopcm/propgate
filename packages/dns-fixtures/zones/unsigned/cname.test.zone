@@ -38,6 +38,18 @@ track.wrong     IN A      203.0.113.5
 track.partial   IN A      198.51.100.20
 track.partial   IN A      203.0.113.5
 
+; The same fault with the stranger in the other family. Our A record is here and
+; correct, so a check that stops asking once A answers sees nothing wrong and
+; passes — while every IPv6 client goes to a host we have never heard of. The
+; reason both families are always queried.
+track.v6        IN A      198.51.100.20
+track.v6        IN AAAA   2001:db8::bad
+
+; Flattened across both families, both ours. The pass case that a naive "any
+; AAAA is a stranger" rule would break.
+track.dual      IN A      198.51.100.20
+track.dual      IN AAAA   2001:db8::20
+
 ; An alias, pointed at somebody else. Left over from the provider the customer
 ; migrated off, which is the usual way this happens.
 track.stale     IN CNAME  track.competitor.invalid.
