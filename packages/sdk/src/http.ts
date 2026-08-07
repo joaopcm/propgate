@@ -157,10 +157,18 @@ function budgetFor(
 ): number | PropgateError {
   const raw = spec.timeoutMs ?? transport.timeoutMs;
 
-  if (!(Number.isFinite(raw) && raw >= 0)) {
+  /**
+   * Zero is refused along with the nonsense values, and deliberately.
+   *
+   * `AbortSignal.timeout(0)` aborts before the request leaves, so a caller who
+   * wrote `timeoutMs: 0` meaning "no limit" — which is what it means nearly
+   * everywhere else — would get a client where every single call times out.
+   * Refusing it says so; honouring it would take an afternoon to diagnose.
+   */
+  if (!(Number.isFinite(raw) && raw > 0)) {
     return new PropgateError({
       code: "invalid_option",
-      message: `timeoutMs must be a non-negative number of milliseconds, got ${raw}`,
+      message: `timeoutMs must be a positive number of milliseconds, got ${raw}`,
     });
   }
 

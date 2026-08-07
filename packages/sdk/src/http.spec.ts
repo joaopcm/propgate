@@ -326,8 +326,8 @@ describe("giving up", () => {
      */
     const transport = stub([envelope([])]);
 
-    for (const timeoutMs of [Number.NaN, -1, Number.POSITIVE_INFINITY]) {
-      // biome-ignore lint/performance/noAwaitInLoops: three values, one assertion each
+    for (const timeoutMs of [Number.NaN, -1, 0, Number.POSITIVE_INFINITY]) {
+      // biome-ignore lint/performance/noAwaitInLoops: four values, one assertion each
       const { error } = await client(transport).members.list({ timeoutMs });
 
       expect(error?.code).toBe("invalid_option");
