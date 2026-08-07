@@ -273,6 +273,12 @@ export function createSignupRoute(options: {
      * Postgres is the truth. There is no row here that owes anything, so a queue
      * would buy a table, a payload type and a processor to save one HTTP call on
      * a request that happens once per account in its lifetime.
+     *
+     * Inline is only safe because the call is bounded — `CONTACT_ADD_TIMEOUT_MS`
+     * in `packages/emails/src/contacts.ts`, and read the note there before
+     * removing it. The code above has already been spent by this point, so an
+     * unbounded stall here would hold the request open past the moment the code
+     * died and cost somebody the key that is readable exactly once.
      */
     if (options.contacts !== undefined && account.created) {
       const added = await options.contacts.add({ email });
