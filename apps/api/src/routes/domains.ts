@@ -433,7 +433,7 @@ export function createDomainsRoute(options: {
 
     // The sweeper calls this same function. Anything added here that is not in
     // it is a way for the two to disagree about one domain.
-    const checked = await checkAndPersist(db, {
+    const checkedOrStale = await checkAndPersist(db, {
       // `DomainRow` omits `tenantId` because every query that returns one is
       // already tenant-scoped. The sweeper has no request to scope it by, so the
       // shared function takes it explicitly.
@@ -446,6 +446,29 @@ export function createDomainsRoute(options: {
           : { thresholds: options.thresholds }),
       },
     });
+
+    /**
+     * The configuration changed while this check ran, so its answer was discarded.
+     *
+     * Re-read and return the row as it now stands — `pending`, against the values
+     * the caller just wrote. Reporting the computed verdict instead would be this
+     * endpoint claiming a state for a configuration nothing has checked, which is
+     * the thing the compare-and-set in `saveCheck` refused to store. `meta` says
+     * so rather than leaving it to be inferred from a state that looks stale.
+     */
+    if (checkedOrStale === null) {
+      const current = await domainById(db, tenantId, domain.id);
+
+      return success(
+        c,
+        current === undefined
+          ? serialiseDetail(domain, true)
+          : serialiseDetail(current, true),
+        { superseded: true }
+      );
+    }
+
+    const checked = checkedOrStale;
 
     // The same notification path the sweeper uses. A domain that flips because a
     // customer clicked verify is exactly as newsworthy as one that flips on its

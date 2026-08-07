@@ -342,9 +342,7 @@ async function update(input: Input, context: Context): Promise<number> {
   if (!supplied && profile === undefined) {
     // Sent as-is this is a 422, and saying so here saves the round trip. It is
     // also not a harmless no-op: the call resets the domain and re-verifies it.
-    return usage(
-      "nothing to change. Pass --expect, --profile, or both."
-    );
+    return usage("nothing to change. Pass --expect, --profile, or both.");
   }
 
   const result = await apiRequest<DomainRow>({

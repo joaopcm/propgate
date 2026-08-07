@@ -224,6 +224,14 @@ function assessIncomplete(
   };
 }
 
+/**
+ * Runs a check and stores it, or returns null because the answer went stale.
+ *
+ * Null means the domain's configuration changed while the DNS was in flight — a
+ * key rotated or a profile re-pointed — so this result describes values the row no
+ * longer holds and nothing was written. The domain is already `pending` and due,
+ * so the next check answers the current question.
+ */
 export async function checkAndPersist(
   db: Database,
   input: {
@@ -235,7 +243,7 @@ export async function checkAndPersist(
     readonly settings: CheckSettings;
   },
   now = new Date()
-): Promise<CheckedDomain> {
+): Promise<CheckedDomain | null> {
   const compiled = compileProfile(
     input.profile.definition,
     input.profile.id,
@@ -264,7 +272,11 @@ export async function checkAndPersist(
       fingerprint: compiled.fingerprint,
       lookups: storedLookups(checked),
       ...(minTtlSeconds === undefined ? {} : { minTtlSeconds }),
-      requirements: attributeResults(input.profile.definition, checked),
+      requirements: attributeResults(
+        input.profile.definition,
+        checked,
+        input.domain.expectations
+      ),
       vantages: checked.vantages.map((vantage) => ({
         server: `${vantage.vantagePoint.address}:${vantage.vantagePoint.port}`,
         verdict: vantage.result.verdict,
@@ -309,9 +321,10 @@ export async function checkAndPersist(
     stateSince: input.domain.configChangedAt ?? input.domain.createdAt,
   });
 
-  await saveCheck(
+  const saved = await saveCheck(
     db,
     {
+      configChangedAt: input.domain.configChangedAt,
       consecutiveFailures: hysteresis.consecutiveFailures,
       domainId: input.domain.id,
       nextCheckAt: scheduled,
@@ -321,6 +334,23 @@ export async function checkAndPersist(
     },
     now
   );
+
+  /**
+   * The configuration moved while this check was in flight, so it is discarded.
+   *
+   * `saveCheck` is a compare-and-set on `config_changed_at`, and it wrote nothing.
+   * Everything below writes *about* a row that no longer holds the values this
+   * verdict was computed against — a timeline entry, a transition, and the webhook
+   * the transition owes. Storing any of them would announce a state for a
+   * configuration nothing has checked, which is the failure the compare-and-set
+   * exists to prevent, moved one statement later.
+   *
+   * Nothing needs rescheduling: `updateDomainConfig` left the domain `pending`
+   * and due, so the next tick picks it up against the new values.
+   */
+  if (!saved) {
+    return null;
+  }
 
   /**
    * The timeline records what the *customer's* zone did, so two checks are

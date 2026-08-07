@@ -32,6 +32,7 @@ import {
 import type { Queue } from "bullmq";
 import { Worker } from "bullmq";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { checkAndPersist } from "../domains/check";
 import { checkClaimedDomain } from "./check-domain";
 import { runReconcile, runTick } from "./tick";
 
@@ -500,6 +501,101 @@ describe("the sweeper and per-domain expectations", () => {
     // Still one entry: the first observation. Nothing appended for the check whose
     // only change was the value we asked it to compare.
     expect(await domainTimeline(db, domainId, 10)).toHaveLength(1);
+  });
+
+  it("discards a check whose configuration moved while it was running", async () => {
+    /**
+     * A check holding a row that has been rotated under it.
+     *
+     * The production sequence is read → up to ten seconds of DNS → write, with a
+     * `PATCH` landing in the middle. Driven here by capturing the row, rotating,
+     * and *then* running the check against that snapshot: identical state from
+     * `checkAndPersist`'s point of view, and with no dependence on whether a 20 ms
+     * fixture lookup finishes before the rotation commits. Starting the check
+     * first and racing it decides the outcome on machine speed, which is the kind
+     * of test that goes red in CI for reasons nobody can reproduce.
+     *
+     * Everything after the row write has to be skipped too, not just the row: a
+     * transition would owe a webhook announcing a state that was never stored.
+     */
+    const key = await publishedKey();
+    const { domainId, tenantId } = await dueDomain(PAST, {
+      definition: DEFERS_KEY,
+      expectations: { dkim: { expectedPublicKey: key } },
+    });
+    const snapshot = await domainById(db, tenantId, domainId);
+
+    if (snapshot === undefined) {
+      throw new Error("the domain went missing");
+    }
+
+    await updateDomainConfig(db, tenantId, domainId, {
+      expectations: {
+        dkim: { expectedPublicKey: "MIIBIjANBgkqhkiG9w0ROTATED" },
+      },
+    });
+
+    const checked = await checkAndPersist(db, {
+      domain: { ...snapshot, tenantId },
+      profile: { definition: DEFERS_KEY, id: snapshot.profileVersionId },
+      settings: { resolvers: [RESOLVER] },
+    });
+
+    expect(checked).toBeNull();
+
+    const after = await domainById(db, tenantId, domainId);
+
+    // The reset stands, untouched by a verdict about the key it replaced.
+    expect(after?.state).toBe("pending");
+    expect(after?.lastResult).toBeNull();
+    expect(after?.lastCheckedAt).toBeNull();
+    expect(await domainTransitions(db, domainId)).toEqual([]);
+    expect(await domainTimeline(db, domainId, 10)).toEqual([]);
+  });
+
+  it("honours a rotation that lands between the claim and the check", async () => {
+    /**
+     * The other half, and why a discarded check is rare rather than routine.
+     *
+     * A rotation after the claim is *not* superseded: the worker re-reads the row
+     * rather than trusting the payload, so it compares the new key and stores a
+     * normal verdict. Only a rotation landing inside the DNS window loses its
+     * check — which costs one re-check on the pending cadence, and never a write.
+     *
+     * The domain starts with a key the zone does not publish, so a `pass` here can
+     * only come from the re-read having picked up the rotation.
+     */
+    const key = await publishedKey();
+    const { domainId, tenantId } = await dueDomain(PAST, {
+      definition: DEFERS_KEY,
+      expectations: {
+        dkim: { expectedPublicKey: "MIIBIjANBgkqhkiG9w0STALE" },
+      },
+    });
+    const queue = queueWith(testPrefix("sweep-reread"));
+
+    await runTick({ batchSize: 10, db, leaseSeconds: 300, queue });
+
+    const [job] = await queue.getJobs(["waiting"]);
+    const payload = job?.data;
+
+    if (payload === undefined) {
+      throw new Error("the tick enqueued nothing");
+    }
+
+    await updateDomainConfig(db, tenantId, domainId, {
+      expectations: { dkim: { expectedPublicKey: key } },
+    });
+
+    const outcome = await checkClaimedDomain(
+      { db, settings: { resolvers: [RESOLVER] } },
+      payload
+    );
+
+    expect(outcome.kind).toBe("checked");
+    expect(
+      (await domainById(db, tenantId, domainId))?.lastResult?.verdict
+    ).toBe("pass");
   });
 
   it("moves the fingerprint when the profile is re-pointed", async () => {

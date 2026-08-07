@@ -29,7 +29,17 @@ export type CheckDomainOutcome =
       readonly kind: "checked";
     }
   | { readonly kind: "gone" }
-  | { readonly kind: "profile-missing"; readonly profileVersionId: string };
+  | { readonly kind: "profile-missing"; readonly profileVersionId: string }
+  /**
+   * The domain's configuration changed while this check was running, so the
+   * result was thrown away.
+   *
+   * Not an error and not a retry. The customer rotated a key or re-pointed a
+   * profile mid-flight; the row is already `pending` and due, and the next tick
+   * asks the current question. Failing the job would dead-letter something that
+   * worked exactly as intended.
+   */
+  | { readonly kind: "superseded" };
 
 export async function checkClaimedDomain(
   deps: CheckDomainDeps,
@@ -80,6 +90,10 @@ export async function checkClaimedDomain(
     profile: { definition: profile.definition, id: profile.id },
     settings: deps.settings,
   });
+
+  if (checked === null) {
+    return { kind: "superseded" };
+  }
 
   return {
     checked,

@@ -184,22 +184,136 @@ describe("expectations in storage", () => {
   });
 });
 
+/** A registered domain and the `configChangedAt` a check would have read. */
+async function registered(): Promise<{
+  configChangedAt: Date | null;
+  id: string;
+  other: string;
+  tenantId: string;
+}> {
+  const { other, sending, tenantId } = await tenantAndProfiles();
+  const created = await registerDomain(db, {
+    expectations: { dkim: { expectedPublicKey: "original" } },
+    name: "example.com",
+    profileVersionId: sending,
+    tenantId,
+  });
+
+  if (created.kind !== "created") {
+    throw new Error(`expected a fresh domain, got ${created.kind}`);
+  }
+
+  return {
+    configChangedAt: created.domain.configChangedAt,
+    id: created.domain.id,
+    other,
+    tenantId,
+  };
+}
+
+describe("saveCheck", () => {
+  it("writes when the configuration has not moved", async () => {
+    const { configChangedAt, id, tenantId } = await registered();
+
+    const saved = await saveCheck(db, {
+      configChangedAt,
+      consecutiveFailures: 0,
+      domainId: id,
+      nextCheckAt: new Date(Date.now() + 86_400_000),
+      result: {
+        checkedAt: new Date().toISOString(),
+        requirements: [],
+        verdict: "pass",
+      },
+      state: "verified",
+      tenantId,
+    });
+
+    expect(saved).toBe(true);
+    expect((await domainById(db, tenantId, id))?.state).toBe("verified");
+  });
+
+  it("refuses to write a result computed before a configuration change", async () => {
+    /**
+     * The race a rotation opens. A check reads the domain, spends up to ten
+     * seconds on DNS, and a `PATCH` lands in the middle.
+     *
+     * Without the compare-and-set this write wins: the row goes `verified` for a
+     * key nothing has ever checked, the pending reset the customer asked for is
+     * gone, and `expectationsFingerprint` records a value the row no longer holds.
+     * The check is simply answering a question nobody is asking any more.
+     */
+    const { configChangedAt, id, tenantId } = await registered();
+
+    await updateDomainConfig(db, tenantId, id, {
+      expectations: { dkim: { expectedPublicKey: "rotated" } },
+    });
+
+    const saved = await saveCheck(db, {
+      // As it was read, before the PATCH.
+      configChangedAt,
+      consecutiveFailures: 0,
+      domainId: id,
+      nextCheckAt: new Date(Date.now() + 86_400_000),
+      result: {
+        checkedAt: new Date().toISOString(),
+        requirements: [],
+        verdict: "pass",
+      },
+      state: "verified",
+      tenantId,
+    });
+
+    expect(saved).toBe(false);
+
+    const after = await domainById(db, tenantId, id);
+
+    // The reset stands, and the domain is still due, so the next tick asks again.
+    expect(after?.state).toBe("pending");
+    expect(after?.lastResult).toBeNull();
+    expect(after?.expectations).toEqual({
+      dkim: { expectedPublicKey: "rotated" },
+    });
+  });
+
+  it("writes against a row that predates the column", async () => {
+    // `null` is not a value SQL equality matches, so the guard needs the other
+    // spelling for every domain that existed before the column did.
+    const { sending, tenantId } = await tenantAndProfiles();
+    const [row] = await db
+      .insert(domains)
+      .values({ name: "old.example", profileVersionId: sending, tenantId })
+      .returning();
+    const id = String(row?.id);
+
+    const saved = await saveCheck(db, {
+      configChangedAt: null,
+      consecutiveFailures: 0,
+      domainId: id,
+      nextCheckAt: new Date(Date.now() + 86_400_000),
+      result: {
+        checkedAt: new Date().toISOString(),
+        requirements: [],
+        verdict: "pass",
+      },
+      state: "verified",
+      tenantId,
+    });
+
+    expect(saved).toBe(true);
+  });
+});
+
 describe("updateDomainConfig", () => {
   async function verified(): Promise<{
     id: string;
     other: string;
     tenantId: string;
   }> {
-    const { other, sending, tenantId } = await tenantAndProfiles();
-    const created = await registerDomain(db, {
-      expectations: { dkim: { expectedPublicKey: "original" } },
-      name: "example.com",
-      profileVersionId: sending,
-      tenantId,
-    });
-    const id = created.kind === "created" ? created.domain.id : "";
+    const { configChangedAt, id, other, tenantId } = await registered();
 
     await saveCheck(db, {
+      configChangedAt,
       consecutiveFailures: 2,
       domainId: id,
       nextCheckAt: new Date(Date.now() + 86_400_000),

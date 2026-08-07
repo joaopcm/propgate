@@ -50,7 +50,9 @@ async function evaluate(
     },
   });
 
-  return attributeResults(definition, result);
+  // The same values the compile got. Passing `null` here would make every
+  // deferred-selector assertion below pass for the wrong reason.
+  return attributeResults(definition, result, expectations);
 }
 
 /**
@@ -168,7 +170,7 @@ describe("a partner's profile against a correctly configured customer", () => {
       resolver: { target: { address: "127.0.0.1", port: 1 }, timeoutMs: 500 },
     });
 
-    expect(overallVerdict(attributeResults(definition, result))).toBe(
+    expect(overallVerdict(attributeResults(definition, result, null))).toBe(
       "indeterminate"
     );
   });
@@ -212,6 +214,30 @@ describe("a per-domain DKIM key against the zone that publishes it", () => {
     });
 
     expect(attributed[0]?.verdict).toBe("fail");
+  });
+
+  it("attributes a deferred selector's outcome to its requirement", async () => {
+    /**
+     * A DKIM outcome is keyed by selector, and this requirement carries none —
+     * the domain supplies it. Attribution has to resolve it the same way the
+     * compile did, or it looks for `undefined` among the selectors the resolver
+     * actually reported and finds nothing.
+     *
+     * The symptom is the worst shape available: a check that passed, filed as
+     * `indeterminate`, so the domain can never reach `verified` and nothing in the
+     * result says why.
+     */
+    const attributed = await evaluate(
+      "customer.test",
+      {
+        requirements: [
+          { check: "dkim", key: "dkim", requiredPerDomain: ["selector"] },
+        ],
+      },
+      { dkim: { selector: "pg1" } }
+    );
+
+    expect(attributed[0]).toMatchObject({ satisfied: true, verdict: "pass" });
   });
 
   it("does not pass when the required key was never supplied", () => {

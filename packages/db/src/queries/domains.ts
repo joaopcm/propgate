@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull } from "drizzle-orm";
 import type { Database } from "../client";
 import type {
   DomainExpectations,
@@ -272,6 +272,20 @@ export async function deleteDomain(
 export async function saveCheck(
   db: Database,
   input: {
+    /**
+     * `config_changed_at` as it was when the domain was read for this check.
+     *
+     * A compare-and-set, and the only thing standing between a rotation and a
+     * lie. A check takes up to ten seconds of DNS; a `PATCH` landing inside that
+     * window resets the domain to `pending` against a new key, and this write
+     * would then overwrite it with a verdict computed against the old one —
+     * storing `verified` for a value nothing has ever checked, next to an
+     * `expectationsFingerprint` that disagrees with the row it sits on.
+     *
+     * Mismatch means the result is an answer to a question nobody is asking any
+     * more, so nothing is written and the caller is told to discard it.
+     */
+    readonly configChangedAt: Date | null;
     /** The run of consecutive failures after this check. */
     readonly consecutiveFailures: number;
     readonly domainId: string;
@@ -288,8 +302,8 @@ export async function saveCheck(
     readonly tenantId: string;
   },
   now = new Date()
-): Promise<void> {
-  await db
+): Promise<boolean> {
+  const saved = await db
     .update(domains)
     .set({
       consecutiveFailures: input.consecutiveFailures,
@@ -299,8 +313,19 @@ export async function saveCheck(
       state: input.state,
     })
     .where(
-      and(eq(domains.tenantId, input.tenantId), eq(domains.id, input.domainId))
-    );
+      and(
+        eq(domains.tenantId, input.tenantId),
+        eq(domains.id, input.domainId),
+        // `null` is not a value SQL equality matches, so a row that predates the
+        // column needs the other spelling. Both are still a compare-and-set.
+        input.configChangedAt === null
+          ? isNull(domains.configChangedAt)
+          : eq(domains.configChangedAt, input.configChangedAt)
+      )
+    )
+    .returning({ id: domains.id });
+
+  return saved.length > 0;
 }
 
 /** A listed domain: everything a single-row read returns except `expectations`. */

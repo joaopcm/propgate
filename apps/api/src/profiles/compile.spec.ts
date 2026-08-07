@@ -532,7 +532,8 @@ describe("attributeResults", () => {
           ],
           verdict: "fail",
         },
-      ])
+      ]),
+      null
     );
 
     expect(attributed.find((r) => r.key === "dkim-one")).toMatchObject({
@@ -561,7 +562,8 @@ describe("attributeResults", () => {
           lookups: [],
           verdict: "warn",
         },
-      ])
+      ]),
+      null
     );
 
     expect(attributed[0]).toMatchObject({ satisfied: true, verdict: "warn" });
@@ -575,7 +577,8 @@ describe("attributeResults", () => {
       { requirements: [{ check: "spf", key: "spf" }] },
       result([
         { findings: [], kind: "spf", lookups: [], verdict: "indeterminate" },
-      ])
+      ]),
+      null
     );
 
     expect(attributed[0]).toMatchObject({
@@ -587,7 +590,8 @@ describe("attributeResults", () => {
   it("is indeterminate, never passing, when a check produced no outcome", () => {
     const attributed = attributeResults(
       { requirements: [{ check: "spf", key: "spf" }] },
-      result([])
+      result([]),
+      null
     );
 
     expect(attributed[0]?.verdict).toBe("indeterminate");
@@ -610,7 +614,8 @@ describe("attributeResults", () => {
           lookups: [],
           verdict: "fail",
         },
-      ])
+      ]),
+      null
     );
 
     expect(attributed[0]?.findings).toEqual([
@@ -648,7 +653,8 @@ describe("attributeResults", () => {
           ],
           verdict: "fail",
         },
-      ])
+      ]),
+      null
     );
 
     expect(attributed[0]?.findings[0]).toEqual({
@@ -657,8 +663,68 @@ describe("attributeResults", () => {
     });
   });
 
+  it("finds a deferred selector's outcome by the resolved name", () => {
+    /**
+     * The requirement carries no selector; the domain supplies `acme-1`, so that
+     * is the name the resolver reported an outcome under.
+     *
+     * Reading `requirement.selector` here compares `"acme-1" === undefined`,
+     * matches nothing, and files a *passing* check as `indeterminate` — a domain
+     * that can never reach `verified`, with nothing in the result explaining why.
+     * Compilation and attribution are inverses, and this is the drift the header
+     * of `compile.ts` warns about.
+     */
+    const attributed = attributeResults(
+      {
+        requirements: [
+          { check: "dkim", key: "dkim", requiredPerDomain: ["selector"] },
+        ],
+      },
+      result([
+        {
+          findings: [],
+          kind: "dkim",
+          lookups: [],
+          selectors: [
+            { findings: [], lookups: [], selector: "acme-1", verdict: "pass" },
+          ],
+          verdict: "pass",
+        },
+      ]),
+      { dkim: { selector: "acme-1" } }
+    );
+
+    expect(attributed[0]).toMatchObject({ satisfied: true, verdict: "pass" });
+  });
+
+  it("is indeterminate when a deferred selector resolves to something else", () => {
+    // The honest half of the rule above: matching by resolved name must still be
+    // a match, not a wildcard that files whatever outcome happens to be first.
+    const attributed = attributeResults(
+      {
+        requirements: [
+          { check: "dkim", key: "dkim", requiredPerDomain: ["selector"] },
+        ],
+      },
+      result([
+        {
+          findings: [],
+          kind: "dkim",
+          lookups: [],
+          selectors: [
+            { findings: [], lookups: [], selector: "other", verdict: "pass" },
+          ],
+          verdict: "pass",
+        },
+      ]),
+      { dkim: { selector: "acme-1" } }
+    );
+
+    expect(attributed[0]?.verdict).toBe("indeterminate");
+  });
+
   it("reports one result per requirement, in the order they were written", () => {
-    const attributed = attributeResults(SENDING, result([]));
+    const attributed = attributeResults(SENDING, result([]), null);
 
     expect(attributed.map((entry) => entry.key)).toEqual([
       "spf",

@@ -454,18 +454,26 @@ function toRequirementFinding(finding: Finding): RequirementFinding {
  * that is working — `p=none` is a real DMARC record. `indeterminate` is not
  * met and not failed; it is the reason the caller above must leave the domain's
  * state alone rather than transitioning it.
+ *
+ * Takes `expectations` for one reason: a DKIM outcome is keyed by selector, and a
+ * requirement that defers its selector carries none. Reading `requirement.selector`
+ * here would compare a resolved `"acme-1"` against `undefined`, match nothing, and
+ * file a passing check as `indeterminate` — leaving the domain unverifiable
+ * forever. `valueFor` is the same resolution `compileProfile` used to build the
+ * profile the resolver ran, which is what keeps the two from drifting; the header
+ * of this file is about exactly that failure.
  */
 export function attributeResults(
   definition: ProfileDefinition,
-  result: CheckResult
+  result: CheckResult,
+  expectations: DomainExpectations | null
 ): readonly RequirementResult[] {
   return definition.requirements.map((requirement) => {
     const outcome = outcomeFor(result, requirement.check);
+    const selector = valueFor(requirement, "selector", expectations);
     const source =
       requirement.check === "dkim"
-        ? outcome?.selectors?.find(
-            (entry) => entry.selector === requirement.selector
-          )
+        ? outcome?.selectors?.find((entry) => entry.selector === selector)
         : outcome;
 
     // No outcome means the check never ran. `rejectDefinition` rules out every

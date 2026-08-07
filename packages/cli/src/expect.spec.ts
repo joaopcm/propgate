@@ -18,9 +18,11 @@ describe("parseExpectations", () => {
     // The value this flag exists for ends in `=` or `==`. Splitting on every
     // equals sign would truncate exactly the key it was added to carry, and a key
     // that lost its padding is a key that silently fails to match.
-    expect(parseExpectations(["dkim.expectedPublicKey=MIGfMA0GCSq=="])).toEqual({
-      dkim: { expectedPublicKey: "MIGfMA0GCSq==" },
-    });
+    expect(parseExpectations(["dkim.expectedPublicKey=MIGfMA0GCSq=="])).toEqual(
+      {
+        dkim: { expectedPublicKey: "MIGfMA0GCSq==" },
+      }
+    );
   });
 
   it("takes the last dot, so a dotted requirement key survives", () => {
