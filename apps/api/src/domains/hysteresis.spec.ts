@@ -18,9 +18,12 @@ function step(
   return applyHysteresis({ consecutiveFailures, state, verdict });
 }
 
-/** Feed a sequence of verdicts through, starting from `verified`. */
-function sequence(verdicts: readonly StoredVerdict[]) {
-  let state: DomainState = "verified";
+/** Feed a sequence of verdicts through, starting from `verified` by default. */
+function sequence(
+  verdicts: readonly StoredVerdict[],
+  from: DomainState = "verified"
+) {
+  let state: DomainState = from;
   let consecutiveFailures = 0;
   const transitions: string[] = [];
 
@@ -47,6 +50,33 @@ describe("applyHysteresis", () => {
       from: "verified",
       to: "degraded",
     });
+  });
+
+  it("does not degrade a domain that was never verified", () => {
+    /**
+     * `degraded` is a regression, so it needs something to have regressed from.
+     *
+     * Two things reach this: a freshly registered domain whose customer has not
+     * added the records yet, and a domain reset to `pending` because its
+     * expectations were rotated. `domain.degraded` on either is a webhook saying
+     * "this used to work" about something that never did.
+     */
+    const outcome = step("pending", "fail");
+
+    expect(outcome.state).toBe("pending");
+    expect(outcome.transition).toBeNull();
+    // The failure is still counted. It just has nowhere worse to go yet.
+    expect(outcome.consecutiveFailures).toBe(1);
+  });
+
+  it("takes a never-verified domain straight to failed at the threshold", () => {
+    // Skipping `degraded` is not skipping the hysteresis: it still takes three
+    // consecutive failures, and `failed` is the honest word for a domain whose
+    // records were never published.
+    const outcome = sequence(["fail", "fail", "fail"], "pending");
+
+    expect(outcome.state).toBe("failed");
+    expect(outcome.transitions).toEqual(["pending->failed"]);
   });
 
   it("reaches failed only at the threshold", () => {

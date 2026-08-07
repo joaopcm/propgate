@@ -1,5 +1,11 @@
-import type { ProfileDefinition } from "@propgate/db";
-import { runChecks } from "@propgate/dns";
+import type { DomainExpectations, ProfileDefinition } from "@propgate/db";
+import {
+  parseDkimRecord,
+  query,
+  RecordType,
+  recordsOfType,
+  runChecks,
+} from "@propgate/dns";
 import { fixtureTarget } from "@propgate/dns-fixtures";
 import { describe, expect, it } from "vitest";
 import { attributeResults, compileProfile, overallVerdict } from "./compile";
@@ -14,21 +20,84 @@ import { attributeResults, compileProfile, overallVerdict } from "./compile";
 
 const TIMEOUT_MS = 2000;
 
-async function evaluate(domain: string, definition: ProfileDefinition) {
+function target() {
   const fixture = fixtureTarget("resolver");
+
+  return { address: fixture.address, port: fixture.port };
+}
+
+async function evaluate(
+  domain: string,
+  definition: ProfileDefinition,
+  expectations: DomainExpectations | null = null
+) {
+  const compiled = compileProfile(definition, "version-1", expectations);
+
+  if (compiled.kind !== "runnable") {
+    throw new Error(
+      `expected a runnable profile, got missing ${JSON.stringify(compiled.missing)}`
+    );
+  }
+
   const result = await runChecks({
     domain,
-    profile: compileProfile(definition, "version-1"),
+    profile: compiled.profile,
     resolver: {
       maxLookups: 60,
       recursionDesired: true,
-      target: { address: fixture.address, port: fixture.port },
+      target: target(),
       timeoutMs: TIMEOUT_MS,
     },
   });
 
-  return attributeResults(definition, result);
+  // The same values the compile got. Passing `null` here would make every
+  // deferred-selector assertion below pass for the wrong reason.
+  return attributeResults(definition, result, expectations);
 }
+
+/**
+ * The key `customer.test` actually publishes, read from the zone at run time.
+ *
+ * Deliberately discovered rather than pasted into this file. A hardcoded copy is
+ * a second source of truth that goes stale the next time the fixtures are
+ * re-signed, and the test that would then fail is the one asserting a *match* —
+ * so it would look like the merge broke rather than like the constant did.
+ */
+async function publishedKey(selector: string, domain: string): Promise<string> {
+  const outcome = await query({
+    name: `${selector}._domainkey.${domain}`,
+    recursionDesired: true,
+    target: target(),
+    timeoutMs: TIMEOUT_MS,
+    type: RecordType.TXT,
+  });
+
+  if (outcome.status !== "answered") {
+    throw new Error(`fixture lookup was ${outcome.status}`);
+  }
+
+  // `value` is the RFC 6763 concatenation. A key this long is always published
+  // as two character-strings, and the split is not what this test is about.
+  const [record] = recordsOfType(outcome.message.answers, "TXT");
+  const parsed = parseDkimRecord(record?.rdata.value ?? "");
+
+  if (!parsed.ok) {
+    throw new Error(`fixture DKIM record did not parse: ${parsed.detail}`);
+  }
+
+  return parsed.record.publicKeyBase64;
+}
+
+const DEFERS_KEY: ProfileDefinition = {
+  requirements: [
+    {
+      check: "dkim",
+      key: "dkim",
+      requiredPerDomain: ["expectedPublicKey"],
+      selector: "pg1",
+    },
+  ],
+};
 
 describe("a partner's profile against a correctly configured customer", () => {
   it("reports every requirement met", async () => {
@@ -89,15 +158,101 @@ describe("a partner's profile against a correctly configured customer", () => {
     const definition: ProfileDefinition = {
       requirements: [{ check: "dmarc", key: "dmarc" }],
     };
+    const compiled = compileProfile(definition, "version-1", null);
+
+    if (compiled.kind !== "runnable") {
+      throw new Error("expected a runnable profile");
+    }
 
     const result = await runChecks({
       domain: "customer.test",
-      profile: compileProfile(definition, "version-1"),
+      profile: compiled.profile,
       resolver: { target: { address: "127.0.0.1", port: 1 }, timeoutMs: 500 },
     });
 
-    expect(overallVerdict(attributeResults(definition, result))).toBe(
+    expect(overallVerdict(attributeResults(definition, result, null))).toBe(
       "indeterminate"
     );
+  });
+});
+
+describe("a per-domain DKIM key against the zone that publishes it", () => {
+  it("passes when the domain's own key is the one published", async () => {
+    // Uses the value the zone really serves, so this proves the merge reaches
+    // the *evaluator* rather than merely producing the right-looking object.
+    const attributed = await evaluate("customer.test", DEFERS_KEY, {
+      dkim: { expectedPublicKey: await publishedKey("pg1", "customer.test") },
+    });
+
+    expect(attributed[0]).toMatchObject({ satisfied: true, verdict: "pass" });
+  });
+
+  it("fails with a mismatch when a different valid key is expected", async () => {
+    // The domain that pasted a competitor's record. Without the expectation this
+    // zone passes, because a valid key really is published here.
+    const attributed = await evaluate("customer.test", DEFERS_KEY, {
+      dkim: { expectedPublicKey: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8ANOTTHEKEY" },
+    });
+
+    expect(attributed[0]?.verdict).toBe("fail");
+    expect(attributed[0]?.findings.map((entry) => entry.code)).toContain(
+      "DKIM_KEY_MISMATCH"
+    );
+  });
+
+  it("fails when the key differs only in letter case", async () => {
+    /**
+     * DNS names fold case; base64 does not.
+     *
+     * `pg1._domainkey` and `PG1._domainkey` are the same query, but a key
+     * differing in case is a different key and cannot sign anything. Comparing
+     * case-insensitively here would pass a domain whose DKIM is broken.
+     */
+    const key = await publishedKey("pg1", "customer.test");
+    const attributed = await evaluate("customer.test", DEFERS_KEY, {
+      dkim: { expectedPublicKey: key.toLowerCase() },
+    });
+
+    expect(attributed[0]?.verdict).toBe("fail");
+  });
+
+  it("attributes a deferred selector's outcome to its requirement", async () => {
+    /**
+     * A DKIM outcome is keyed by selector, and this requirement carries none —
+     * the domain supplies it. Attribution has to resolve it the same way the
+     * compile did, or it looks for `undefined` among the selectors the resolver
+     * actually reported and finds nothing.
+     *
+     * The symptom is the worst shape available: a check that passed, filed as
+     * `indeterminate`, so the domain can never reach `verified` and nothing in the
+     * result says why.
+     */
+    const attributed = await evaluate(
+      "customer.test",
+      {
+        requirements: [
+          { check: "dkim", key: "dkim", requiredPerDomain: ["selector"] },
+        ],
+      },
+      { dkim: { selector: "pg1" } }
+    );
+
+    expect(attributed[0]).toMatchObject({ satisfied: true, verdict: "pass" });
+  });
+
+  it("does not pass when the required key was never supplied", () => {
+    /**
+     * The one test that separates the design from the bug it replaced.
+     *
+     * `customer.test` publishes a perfectly valid key at `pg1`, so the old
+     * behaviour — collapsing an absent expectation into the bare selector
+     * spelling — reported this exact profile and this exact domain as `pass`.
+     * Per invariant 1 a mocked resolver would have agreed with whichever of those
+     * two answers we believed when we wrote the mock; only the real zone can tell
+     * them apart.
+     */
+    const compiled = compileProfile(DEFERS_KEY, "version-1", null);
+
+    expect(compiled.kind).toBe("incomplete");
   });
 });

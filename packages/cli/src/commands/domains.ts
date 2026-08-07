@@ -1,5 +1,6 @@
 import { apiRequest, paginate, queryString } from "../client";
 import type { Command, Input } from "../command";
+import { anyExpectations, parseExpectations } from "../expect";
 import { type Context, json, out, reportApiError, usage } from "../output";
 import { table, when } from "../table";
 import {
@@ -88,10 +89,17 @@ function describe(domain: DomainRow): void {
 
 async function add(input: Input, context: Context): Promise<number> {
   const externalId = input.text("external-id");
+  const expectations = parseExpectations(input.list("expect"));
+
+  if (typeof expectations === "string") {
+    return usage(expectations);
+  }
+
   const result = await apiRequest<DomainRow>({
     apiKey: context.apiKey,
     apiUrl: context.apiUrl,
     body: {
+      ...(anyExpectations(expectations) ? { expectations } : {}),
       ...(externalId === undefined ? {} : { externalId }),
       name: input.needPositional(),
       profile: input.need("profile"),
@@ -321,6 +329,57 @@ async function remove(input: Input, context: Context): Promise<number> {
   return 0;
 }
 
+async function update(input: Input, context: Context): Promise<number> {
+  const profile = input.text("profile");
+  const expectations = parseExpectations(input.list("expect"));
+
+  if (typeof expectations === "string") {
+    return usage(expectations);
+  }
+
+  const supplied = anyExpectations(expectations);
+
+  if (!supplied && profile === undefined) {
+    // Sent as-is this is a 422, and saying so here saves the round trip. It is
+    // also not a harmless no-op: the call resets the domain and re-verifies it.
+    return usage("nothing to change. Pass --expect, --profile, or both.");
+  }
+
+  const result = await apiRequest<DomainRow>({
+    apiKey: context.apiKey,
+    apiUrl: context.apiUrl,
+    body: {
+      ...(supplied ? { expectations } : {}),
+      ...(profile === undefined ? {} : { profile }),
+    },
+    method: "PATCH",
+    path: `/v1/domains/${encodeURIComponent(input.needPositional())}`,
+  });
+
+  if (!result.ok || result.body.data === null) {
+    return reportApiError(
+      result.status,
+      result.body.error?.message,
+      "could not update the domain"
+    );
+  }
+
+  if (context.json) {
+    return json(result.body);
+  }
+
+  describe(result.body.data);
+  out("");
+  // The reset is the surprising part, and the reason it is not a regression is
+  // worth one line: nothing has looked at the new values yet.
+  out(
+    "Back to pending, and no webhook was sent — the value we compare changed"
+  );
+  out("because you changed it. The next check verifies against it.");
+
+  return 0;
+}
+
 const profileField = {
   describe: "The profile key this domain must satisfy.",
   flag: "profile",
@@ -328,6 +387,23 @@ const profileField = {
   placeholder: "key",
   prompt: "Which profile should this domain satisfy?",
   required: true,
+};
+
+/**
+ * One value a profile requires per domain, repeatable.
+ *
+ * Declared once and shared by `add` and `update`, so the two cannot drift on the
+ * spelling of the thing a rotation depends on.
+ */
+const expectField = {
+  describe:
+    "A value the profile requires per domain, as <requirement>.<field>=<value>. Repeatable.",
+  flag: "expect",
+  kind: "string" as const,
+  placeholder: "dkim.expectedPublicKey=MIGf...",
+  prompt: "A value this profile requires per domain (enter to skip)",
+  repeatable: true,
+  required: false,
 };
 
 const externalIdField = {
@@ -351,8 +427,11 @@ const idPositional = {
 export const domainsCommands: readonly Command[] = [
   {
     authenticated: true,
-    examples: ["propgate domains add example.com --profile sending"],
-    fields: [profileField, externalIdField],
+    examples: [
+      "propgate domains add example.com --profile sending",
+      "propgate domains add example.com --profile sending --expect dkim.expectedPublicKey=MIGf...",
+    ],
+    fields: [profileField, externalIdField, expectField],
     networked: true,
     path: ["domains", "add"],
     positional: {
@@ -364,6 +443,20 @@ export const domainsCommands: readonly Command[] = [
     run: add,
     summary:
       "Register a domain against a profile. Does not touch DNS — it starts pending.",
+  },
+  {
+    authenticated: true,
+    examples: [
+      "propgate domains update dom_123 --expect dkim.expectedPublicKey=MIGf...NEW",
+      "propgate domains update dom_123 --profile full-mail",
+    ],
+    fields: [{ ...profileField, required: false }, expectField],
+    networked: true,
+    path: ["domains", "update"],
+    positional: idPositional,
+    run: update,
+    summary:
+      "Rotate the values a domain is judged against, re-point its profile, or both. Resets it to pending.",
   },
   {
     authenticated: true,

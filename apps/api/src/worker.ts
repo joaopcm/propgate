@@ -117,6 +117,14 @@ const checkWorker = new Worker<CheckDomainPayload>(
       return { state: "gone" };
     }
 
+    if (outcome.kind === "superseded") {
+      // The customer rotated a key or re-pointed a profile while this check was
+      // running, so its result was discarded. Completed rather than failed: the
+      // row is already `pending` and due, and the next tick asks the current
+      // question. Throwing would dead-letter a job that behaved correctly.
+      return { state: "superseded" };
+    }
+
     const { transition } = outcome.checked;
 
     if (transition !== null) {

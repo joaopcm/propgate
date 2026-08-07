@@ -1,12 +1,18 @@
-import { and, asc, desc, eq, gt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull } from "drizzle-orm";
 import type { Database } from "../client";
-import type { DomainResult, DomainState } from "../schema/domains";
+import type {
+  DomainExpectations,
+  DomainResult,
+  DomainState,
+} from "../schema/domains";
 import { domains } from "../schema/domains";
 import { recordChanges } from "../schema/record-changes";
 
 export interface DomainRow {
+  readonly configChangedAt: Date | null;
   readonly consecutiveFailures: number;
   readonly createdAt: Date;
+  readonly expectations: DomainExpectations | null;
   readonly externalId: string | null;
   readonly id: string;
   readonly lastCheckedAt: Date | null;
@@ -17,7 +23,41 @@ export interface DomainRow {
   readonly state: DomainState;
 }
 
+/**
+ * One column list, shared by every single-row read.
+ *
+ * `expectations` is in it because the sweeper reads a domain through
+ * `domainById` and nothing else, so a column missing here is a sweeper that
+ * compiles every profile with no expectations at all — forever, and silently,
+ * since a missing expectation used to look exactly like "any valid key is fine".
+ * Two callers with two column lists is how that ships.
+ */
 const COLUMNS = {
+  configChangedAt: domains.configChangedAt,
+  consecutiveFailures: domains.consecutiveFailures,
+  createdAt: domains.createdAt,
+  expectations: domains.expectations,
+  externalId: domains.externalId,
+  id: domains.id,
+  lastCheckedAt: domains.lastCheckedAt,
+  lastResult: domains.lastResult,
+  name: domains.name,
+  nextCheckAt: domains.nextCheckAt,
+  profileVersionId: domains.profileVersionId,
+  state: domains.state,
+};
+
+/**
+ * The list endpoint's own column list, without `expectations`.
+ *
+ * A 2048-bit DKIM key is about 400 bytes of base64, and the page size here was
+ * reasoned about rather than guessed: 389 bytes a domain, two hundred a page.
+ * Carrying one key per domain would double that for every page of a
+ * ten-thousand-domain reconciliation walk, to serve a field nothing on the list
+ * renders. Single-domain reads return it; the walk does not.
+ */
+const LIST_COLUMNS = {
+  configChangedAt: domains.configChangedAt,
   consecutiveFailures: domains.consecutiveFailures,
   createdAt: domains.createdAt,
   externalId: domains.externalId,
@@ -51,11 +91,13 @@ export type RegisterOutcome =
 export async function registerDomain(
   db: Database,
   input: {
+    readonly expectations?: DomainExpectations;
     readonly externalId?: string;
     readonly name: string;
     readonly profileVersionId: string;
     readonly tenantId: string;
-  }
+  },
+  now = new Date()
 ): Promise<RegisterOutcome> {
   if (input.externalId !== undefined) {
     const existing = await domainByExternalId(
@@ -65,6 +107,14 @@ export async function registerDomain(
     );
 
     if (existing !== undefined) {
+      /**
+       * Returns the row untouched, and deliberately writes nothing.
+       *
+       * This branch exists so a partner's retry or a re-run import is harmless.
+       * Letting it also update expectations would turn a replayed bulk import
+       * into a silent rewrite of live values, which is the opposite of what
+       * idempotency is for. Rotating a key is `PATCH /v1/domains/:id`.
+       */
       return { domain: existing, kind: "existing" };
     }
   }
@@ -78,6 +128,12 @@ export async function registerDomain(
   const [row] = await db
     .insert(domains)
     .values({
+      // Registration *is* the config being set, so this is stamped here rather
+      // than left null for `created_at` to stand in for.
+      configChangedAt: now,
+      ...(input.expectations === undefined
+        ? {}
+        : { expectations: input.expectations }),
       ...(input.externalId === undefined
         ? {}
         : { externalId: input.externalId }),
@@ -92,6 +148,53 @@ export async function registerDomain(
   }
 
   return { domain: row, kind: "created" };
+}
+
+/**
+ * Change what a domain is judged against: its values, its profile, or both.
+ *
+ * One function for both causes because both have the same consequence. The
+ * previous verdict was an answer to a different question, so it is not evidence
+ * about this one: the state goes back to `pending` and the failure run resets.
+ *
+ * That reset is the whole point. Without it the next check compares a freshly
+ * issued key against a zone that has not been updated yet, `applyHysteresis`
+ * reads one definite failure, and a `domain.degraded` webhook goes out claiming
+ * the customer's DNS broke. Across a fleet rotation that is one webhook per
+ * domain inside a single sweep interval, with no zone change behind any of them —
+ * the false page invariant 2 exists to prevent. `pending` is also simply true:
+ * we issued a new credential and nothing has verified the domain against it.
+ *
+ * Returns the updated row, or undefined when no such domain exists for the
+ * tenant, so a route can answer 404 without a second read.
+ */
+export async function updateDomainConfig(
+  db: Database,
+  tenantId: string,
+  id: string,
+  changes: {
+    readonly expectations?: DomainExpectations;
+    readonly profileVersionId?: string;
+  },
+  now = new Date()
+): Promise<DomainRow | undefined> {
+  const [row] = await db
+    .update(domains)
+    .set({
+      configChangedAt: now,
+      consecutiveFailures: 0,
+      ...(changes.expectations === undefined
+        ? {}
+        : { expectations: changes.expectations }),
+      ...(changes.profileVersionId === undefined
+        ? {}
+        : { profileVersionId: changes.profileVersionId }),
+      state: "pending",
+    })
+    .where(and(eq(domains.tenantId, tenantId), eq(domains.id, id)))
+    .returning(COLUMNS);
+
+  return row;
 }
 
 /**
@@ -169,6 +272,20 @@ export async function deleteDomain(
 export async function saveCheck(
   db: Database,
   input: {
+    /**
+     * `config_changed_at` as it was when the domain was read for this check.
+     *
+     * A compare-and-set, and the only thing standing between a rotation and a
+     * lie. A check takes up to ten seconds of DNS; a `PATCH` landing inside that
+     * window resets the domain to `pending` against a new key, and this write
+     * would then overwrite it with a verdict computed against the old one —
+     * storing `verified` for a value nothing has ever checked, next to an
+     * `expectationsFingerprint` that disagrees with the row it sits on.
+     *
+     * Mismatch means the result is an answer to a question nobody is asking any
+     * more, so nothing is written and the caller is told to discard it.
+     */
+    readonly configChangedAt: Date | null;
     /** The run of consecutive failures after this check. */
     readonly consecutiveFailures: number;
     readonly domainId: string;
@@ -185,8 +302,8 @@ export async function saveCheck(
     readonly tenantId: string;
   },
   now = new Date()
-): Promise<void> {
-  await db
+): Promise<boolean> {
+  const saved = await db
     .update(domains)
     .set({
       consecutiveFailures: input.consecutiveFailures,
@@ -196,12 +313,26 @@ export async function saveCheck(
       state: input.state,
     })
     .where(
-      and(eq(domains.tenantId, input.tenantId), eq(domains.id, input.domainId))
-    );
+      and(
+        eq(domains.tenantId, input.tenantId),
+        eq(domains.id, input.domainId),
+        // `null` is not a value SQL equality matches, so a row that predates the
+        // column needs the other spelling. Both are still a compare-and-set.
+        input.configChangedAt === null
+          ? isNull(domains.configChangedAt)
+          : eq(domains.configChangedAt, input.configChangedAt)
+      )
+    )
+    .returning({ id: domains.id });
+
+  return saved.length > 0;
 }
 
+/** A listed domain: everything a single-row read returns except `expectations`. */
+export type DomainListRow = Omit<DomainRow, "expectations">;
+
 export interface DomainPage {
-  readonly domains: readonly DomainRow[];
+  readonly domains: readonly DomainListRow[];
   /** Pass back as `cursor` to continue. Null when the walk is finished. */
   readonly nextCursor: string | null;
 }
@@ -246,7 +377,7 @@ export async function listDomains(
   // One more than asked for, so "is there another page" needs no second query
   // and no count(*) over the whole table.
   const rows = await db
-    .select(COLUMNS)
+    .select(LIST_COLUMNS)
     .from(domains)
     .where(and(...filters))
     .orderBy(asc(domains.id))

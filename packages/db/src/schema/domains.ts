@@ -55,8 +55,32 @@ export interface StoredLookup {
   readonly type: number;
 }
 
+/**
+ * What a domain's own expectations are, keyed by requirement key then field.
+ *
+ * The values behind a profile's `requiredPerDomain` declarations. Read and
+ * written whole — nothing ever wants one field without the rest of the check —
+ * which is why this is a document beside `last_result` rather than a table.
+ */
+export type DomainExpectations = Readonly<
+  Record<string, Readonly<Record<string, string>>>
+>;
+
 export interface DomainResult {
   readonly checkedAt: string;
+  /**
+   * Fingerprint of the merged expectation set this verdict was produced against.
+   *
+   * A stored `fail` is self-documenting: `DKIM_KEY_MISMATCH` carries the
+   * expected value in its evidence. A stored `pass` carries nothing, so "you
+   * said we were verified on Tuesday" was unanswerable once expectations became
+   * mutable. Comparing this to a fresh compile answers it.
+   *
+   * Merged rather than raw, so it also moves when a *profile literal* changes
+   * under a re-point — which no timestamp on the domain would notice. Absent on
+   * results stored before this existed.
+   */
+  readonly expectationsFingerprint?: string;
   /**
    * Every query the check made.
    *
@@ -75,6 +99,25 @@ export const domains = pgTable(
   "domains",
   {
     /**
+     * When what this domain is judged against last changed.
+     *
+     * Named for both causes rather than one: an expectations write and a re-point
+     * to another profile version both change the effective expectation set, and a
+     * column called `expectations_updated_at` would miss the second — which is
+     * precisely where the timeline would start claiming the customer's zone moved
+     * when it was us that moved.
+     *
+     * It earns its place twice. It is also the honest `stateSince` for scheduling:
+     * before this column the fifteen-minute fast-pending window was measured from
+     * `created_at`, so a year-old domain reset to `pending` by a key rotation got
+     * the five-minute cadence instead of the thirty-second one, at the exact
+     * moment somebody was waiting on the re-check.
+     *
+     * Nullable, because every row that predates it has never had its config
+     * changed and `created_at` is the right answer for those.
+     */
+    configChangedAt: timestamp("config_changed_at"),
+    /**
      * How many definite failures in a row, reset by any passing check.
      *
      * A run, not a total. An `indeterminate` check leaves it exactly as it was —
@@ -84,6 +127,19 @@ export const domains = pgTable(
      */
     consecutiveFailures: integer("consecutive_failures").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    /**
+     * The values behind this profile's `requiredPerDomain` declarations.
+     *
+     * Null and `{}` both mean "nothing supplied", and neither is an error on its
+     * own — a profile that declares nothing needs nothing. What makes a missing
+     * value loud is the compile, not this column.
+     *
+     * It lives on the domain rather than in a request body because the sweeper
+     * has no request: a job payload carries identifiers only, so an expectation
+     * the interactive path could supply and the sweeper could not would mean
+     * continuous monitoring silently comparing against nothing.
+     */
+    expectations: jsonb("expectations").$type<DomainExpectations>(),
     externalId: text("external_id"),
     id: text("id")
       .primaryKey()

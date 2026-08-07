@@ -40,7 +40,24 @@ Plus the hardest correctness property, which has nothing to do with lookups:
 
 ### Verification (v1)
 
-Customers define a versioned **domain profile** once — the set of records their product requires, including conditional requirements. We render per-domain instructions from it, evaluate them semantically, and return machine-readable diagnosis codes rather than booleans.
+Customers define a versioned **domain profile** once — the set of records their
+product requires, including conditional requirements. We evaluate them
+semantically and return machine-readable diagnosis codes rather than booleans.
+
+A profile states the *shape*; a domain supplies the *values*. That split is
+load-bearing rather than cosmetic. Some of what a platform expects is issued per
+domain — the DKIM key for `acme.com` is not the one for `globex.com` — so a
+requirement names those fields in `requiredPerDomain` and each domain carries them
+in `expectations`. Without it a tenant with ten thousand domains needs ten
+thousand profile versions and the versioning stops meaning anything. A value the
+profile did not ask for is ignored, so nothing a domain sends can widen what it is
+checked against; a value it did ask for and did not get makes the domain
+`indeterminate`, never `pass`.
+
+We deliberately **do not** render per-domain instructions. Every integrator
+already has a UI telling their customer what to paste, and being wrong about a
+provider's naming conventions should be visible to them rather than to us. What
+we return is which requirements are unmet and the DNS name each belongs at.
 
 Two verification modes with deliberately different SLOs:
 
@@ -78,7 +95,7 @@ Delegation is deliberately **not** in v1. It requires enormous trust (our namese
 - `@propgate/dns`: resolver, semantic record evaluators, diagnosis taxonomy (open source, published, zero runtime deps)
 - Free public domain checker + CLI, built on the same engine
 - REST API (`/v1`) with scoped API keys and a Stripe-shaped `{ data, error, meta }` envelope
-- Domain profiles: versioned, conditional requirements
+- Domain profiles: versioned, conditional requirements, with per-domain values
 - Continuous monitoring with adaptive scheduling and hysteresis
 - Record change timeline — "the customer deleted the DKIM record Tuesday at 14:02"
 - Webhooks on state transitions, [standard-webhooks](https://www.standardwebhooks.com/) compatible
@@ -106,7 +123,7 @@ Delegation is deliberately **not** in v1. It requires enormous trust (our namese
 2. **Never mock DNS in tests.** Run a real authoritative server with fixture zones covering the ugly cases. Mocking responses hides exactly the bugs the taxonomy exists to catch. (Same rule shape as "never mock Postgres.")
 3. **No per-invocation pricing in the sweep path.** A continuous polling loop is the worst possible fit for serverless billing. One long-running process. No serverless anything between the scheduler and the resolver.
 4. **Store changes, never observations.** Update `last_checked_at` / `last_result` in place; append to `record_changes` only on actual change; keep a day-partitioned `checks` table with 7-day retention for debugging. Logging every check result is how a $20 bill becomes a $400 one.
-5. **Semantics over string matching.** Evaluate SPF like an MTA would. Parse DKIM keys. Climb the CAA tree.
+5. **Semantics over string matching.** Evaluate SPF like an MTA would. Parse DKIM keys. Climb the CAA tree. Comparing against an expected value is not an exception to this: we parse first and compare the *parsed* field, so `DKIM_KEY_MISMATCH` is a comparison of two public keys rather than of two TXT records, and it can tell "a different key" from "the same key, differently split" — which a regex over the record cannot.
 6. **Escape hatches always.** A raw lookup API by vantage point, so nobody feels trapped.
 7. **State is not a boolean.** `pending → verifying → verified → degraded → failed`, with explicit transition rules.
 
@@ -178,6 +195,20 @@ threshold the sweeper and the state machine depend on ships commented as
 unmeasured, with the measurement that would justify it named next to it. Two of
 them — the consecutive-failure thresholds and the webhook retry budget — need
 roughly a month of real monitored domains, and that clock started at deploy.
+
+One exception to that, found after shipping rather than deferred: **expected
+values lived in the wrong place.** A DKIM key is issued per domain, but the field
+holding it was on the profile — a versioned template many domains pin — so
+asserting "this domain publishes *the* key we issued it" cost one profile version
+per domain. The mechanism above is the correction, and it is a gap being closed
+rather than scope being added: no new check kind, nothing new the resolver can do.
+
+Two check kinds that the problem statement at the top of this document names and
+this document then never picks up remain unbuilt: an **ownership TXT** token and a
+**tracking CNAME** target. Both are expected-value checks, and the token is one
+that can only ever be per-domain — which is why the mechanism had to come first.
+Neither is new scope for the same reason expected values were not; they are the
+rest of the record set on line 13.
 
 ## Roadmap
 

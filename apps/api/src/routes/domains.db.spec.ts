@@ -456,3 +456,296 @@ describe("GET /v1/domains", () => {
     expect("lookups" in body.data[0]).toBe(false);
   });
 });
+
+/** A profile whose DKIM key is issued per domain — the case the split is for. */
+const PER_DOMAIN = {
+  key: "per-domain",
+  requirements: [
+    { check: "spf", include: "one.spf.test", key: "spf" },
+    {
+      check: "dkim",
+      key: "dkim",
+      requiredPerDomain: ["expectedPublicKey"],
+      selector: "pg1",
+    },
+  ],
+};
+
+async function withPerDomainProfile(key: string) {
+  return await request(key, "/v1/profiles", {
+    body: PER_DOMAIN,
+    method: "POST",
+  });
+}
+
+async function message(response: Response): Promise<string> {
+  return (await response.json()).error.message;
+}
+
+describe("registering against a profile that requires values per domain", () => {
+  it("accepts the domain that supplies them", async () => {
+    const key = await tenantKey("partner");
+    await withPerDomainProfile(key);
+
+    const response = await request(key, "/v1/domains", {
+      body: {
+        expectations: { dkim: { expectedPublicKey: "MIIBIjANB" } },
+        name: "example.com",
+        profile: "per-domain",
+      },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.expectations).toEqual({
+      dkim: { expectedPublicKey: "MIIBIjANB" },
+    });
+  });
+
+  it("refuses one that supplies nothing, naming the path to set", async () => {
+    // Discovered here rather than at the first sweep. A domain whose profile
+    // requires a key it never received can only ever report `indeterminate`, and
+    // finding that out from a dashboard days later is strictly worse.
+    const key = await tenantKey("partner");
+    await withPerDomainProfile(key);
+
+    const response = await request(key, "/v1/domains", {
+      body: { name: "example.com", profile: "per-domain" },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(422);
+    expect(await message(response)).toContain(
+      "expectations.dkim.expectedPublicKey"
+    );
+  });
+
+  it("refuses a value naming a requirement that does not exist", async () => {
+    const key = await tenantKey("partner");
+    await withPerDomainProfile(key);
+
+    const response = await request(key, "/v1/domains", {
+      body: {
+        expectations: { dkm: { expectedPublicKey: "MIIBIjANB" } },
+        name: "example.com",
+        profile: "per-domain",
+      },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(422);
+    expect(await message(response)).toContain('expectations name "dkm"');
+  });
+
+  it("refuses a value for a field the profile did not defer", async () => {
+    const key = await tenantKey("partner");
+    await withPerDomainProfile(key);
+
+    const response = await request(key, "/v1/domains", {
+      body: {
+        expectations: {
+          dkim: { expectedPublicKey: "MIIBIjANB" },
+          spf: { include: "evil.example" },
+        },
+        name: "example.com",
+        profile: "per-domain",
+      },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(422);
+    expect(await message(response)).toContain('does not require "include"');
+  });
+
+  it("registers nothing when the values are refused", async () => {
+    const key = await tenantKey("partner");
+    await withPerDomainProfile(key);
+
+    await request(key, "/v1/domains", {
+      body: { name: "example.com", profile: "per-domain" },
+      method: "POST",
+    });
+
+    const list = await (await request(key, "/v1/domains")).json();
+
+    expect(list.data).toEqual([]);
+  });
+});
+
+describe("PATCH /v1/domains/:id", () => {
+  async function domain(key: string): Promise<string> {
+    await withPerDomainProfile(key);
+    const response = await request(key, "/v1/domains", {
+      body: {
+        expectations: { dkim: { expectedPublicKey: "original" } },
+        name: "example.com",
+        profile: "per-domain",
+      },
+      method: "POST",
+    });
+
+    return (await response.json()).data.id;
+  }
+
+  function patch(key: string, id: string, body: unknown) {
+    return request(key, `/v1/domains/${id}`, { body, method: "PATCH" });
+  }
+
+  it("replaces the values and resets the domain to pending", async () => {
+    const key = await tenantKey("partner");
+    const id = await domain(key);
+
+    const response = await patch(key, id, {
+      expectations: { dkim: { expectedPublicKey: "rotated" } },
+    });
+
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+
+    expect(body.data.expectations).toEqual({
+      dkim: { expectedPublicKey: "rotated" },
+    });
+    expect(body.data.state).toBe("pending");
+  });
+
+  it("re-points to another profile, which may be a different key entirely", async () => {
+    /**
+     * "Customer upgraded from sending-only to full-mail" is the same operation as
+     * a rotation: judge this domain against something else now.
+     *
+     * `sending` asks for nothing per domain, so the `dkim` value this domain
+     * carries is meaningless to it. That is accepted rather than refused — the
+     * key is stale rather than mistyped, and pruning it would make re-pointing
+     * back mean re-sending a value we already have.
+     */
+    const key = await tenantKey("partner");
+    const id = await domain(key);
+    await withProfile(key);
+
+    const response = await patch(key, id, { profile: "sending" });
+
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+
+    expect(body.data.state).toBe("pending");
+    expect(body.data.expectations).toEqual({
+      dkim: { expectedPublicKey: "original" },
+    });
+  });
+
+  it("still refuses a submitted key the new profile does not use", async () => {
+    // The leniency above is for values already in storage, not for what the
+    // caller just typed. A mistyped key here is a domain compared against nothing.
+    const key = await tenantKey("partner");
+    const id = await domain(key);
+    await withProfile(key);
+
+    const response = await patch(key, id, {
+      expectations: { dkim: { expectedPublicKey: "x" } },
+      profile: "sending",
+    });
+
+    expect(response.status).toBe(422);
+    expect(await message(response)).toContain(
+      'does not require "expectedPublicKey"'
+    );
+  });
+
+  it("refuses a re-point the stored values cannot satisfy, unchanged", async () => {
+    /**
+     * Validated against the effective pair, not the submitted one.
+     *
+     * Writing this and letting the next sweep discover the gap would turn a
+     * fixable 422 into a domain stuck at `indeterminate` — and at `pending`, so it
+     * would look like it was merely still being verified.
+     */
+    const key = await tenantKey("partner");
+    await request(key, "/v1/profiles", {
+      body: {
+        key: "stricter",
+        requirements: [
+          {
+            check: "dkim",
+            key: "dkim",
+            requiredPerDomain: ["expectedPublicKey"],
+            selector: "pg1",
+          },
+          { check: "caa", key: "caa", requiredPerDomain: ["caaIssuer"] },
+        ],
+      },
+      method: "POST",
+    });
+    const id = await domain(key);
+
+    const response = await patch(key, id, { profile: "stricter" });
+
+    expect(response.status).toBe(422);
+    expect(await message(response)).toContain("expectations.caa.caaIssuer");
+
+    const after = await (await request(key, `/v1/domains/${id}`)).json();
+
+    expect(after.data.expectations).toEqual({
+      dkim: { expectedPublicKey: "original" },
+    });
+  });
+
+  it("refuses the same bodies the register route refuses", async () => {
+    // What keeps the shared validator shared. Two spellings of the same rule is
+    // how one of them drifts.
+    const key = await tenantKey("partner");
+    const id = await domain(key);
+    const body = { expectations: { dkm: { expectedPublicKey: "x" } } };
+
+    const patched = await patch(key, id, body);
+    const registered = await request(key, "/v1/domains", {
+      body: { ...body, name: "other.example", profile: "per-domain" },
+      method: "POST",
+    });
+
+    expect(patched.status).toBe(422);
+    expect(registered.status).toBe(422);
+    expect(await message(patched)).toBe(await message(registered));
+  });
+
+  it("refuses a request that changes nothing", async () => {
+    // It would still reset the domain and re-verify it: a no-op with a side
+    // effect.
+    const key = await tenantKey("partner");
+    const id = await domain(key);
+
+    const response = await patch(key, id, {});
+
+    expect(response.status).toBe(422);
+    expect(await message(response)).toContain("expectations, profile, or both");
+  });
+
+  it("refuses a profile that does not exist", async () => {
+    const key = await tenantKey("partner");
+    const id = await domain(key);
+
+    const response = await patch(key, id, { profile: "nonesuch" });
+
+    expect(response.status).toBe(422);
+    expect(await message(response)).toContain('no profile named "nonesuch"');
+  });
+
+  it("is a 404 across tenants rather than a write", async () => {
+    const owner = await tenantKey("owner");
+    const other = await tenantKey("other");
+    const id = await domain(owner);
+
+    const response = await patch(other, id, {
+      expectations: { dkim: { expectedPublicKey: "stolen" } },
+    });
+
+    expect(response.status).toBe(404);
+
+    const after = await (await request(owner, `/v1/domains/${id}`)).json();
+
+    expect(after.data.expectations).toEqual({
+      dkim: { expectedPublicKey: "original" },
+    });
+  });
+});

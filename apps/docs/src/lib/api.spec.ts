@@ -1,3 +1,4 @@
+import { PER_DOMAIN_FIELDS_BY_CHECK } from "@propgate/db/src/schema/profiles";
 import { CHECK_KINDS } from "@propgate/dns";
 import { describe, expect, it } from "vitest";
 import { ENDPOINTS, REQUIREMENT_TYPES, VERDICTS } from "./api";
@@ -31,6 +32,36 @@ describe("requirement types", () => {
   it("says something about each one", () => {
     for (const [kind, type] of Object.entries(REQUIREMENT_TYPES)) {
       expect(type.summary.length, kind).toBeGreaterThan(40);
+    }
+  });
+
+  it("documents exactly the fields a profile can defer to the domain", () => {
+    /**
+     * A deep import rather than a package one, and in the spec rather than in
+     * `api.ts`, so the Next build does not pull a database driver in to render a
+     * table. The published reference still cannot omit a deferrable field or
+     * invent one: this is the source of truth, and the docs are the copy.
+     */
+    for (const [kind, type] of Object.entries(REQUIREMENT_TYPES)) {
+      expect([...type.perDomain].toSorted(), kind).toEqual(
+        [
+          ...PER_DOMAIN_FIELDS_BY_CHECK[
+            kind as keyof typeof PER_DOMAIN_FIELDS_BY_CHECK
+          ],
+        ].toSorted()
+      );
+    }
+  });
+
+  it("only advertises a per-domain field it also documents", () => {
+    // Otherwise a field appears in `requiredPerDomain` with nothing on the page
+    // explaining what value it takes.
+    for (const [kind, type] of Object.entries(REQUIREMENT_TYPES)) {
+      const documented = type.fields.map((field) => field.name);
+
+      for (const field of type.perDomain) {
+        expect(documented, `${kind}.${field}`).toContain(field);
+      }
     }
   });
 });

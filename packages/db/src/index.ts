@@ -15,6 +15,7 @@ export {
   revokeApiKey,
 } from "./queries/api-keys";
 export type {
+  DomainListRow,
   DomainPage,
   DomainRow,
   RegisterOutcome,
@@ -29,6 +30,7 @@ export {
   listDomains,
   registerDomain,
   saveCheck,
+  updateDomainConfig,
 } from "./queries/domains";
 export type { TenantMember } from "./queries/members";
 export { listMembersForTenant } from "./queries/members";
@@ -100,6 +102,7 @@ export {
   updateEndpoint,
 } from "./queries/webhooks";
 export type {
+  DomainExpectations,
   DomainResult,
   DomainState,
   RequirementResult as StoredRequirementResult,
@@ -109,10 +112,15 @@ export type {
 export { domains } from "./schema/domains";
 export { otpCodes } from "./schema/otp-codes";
 export type {
+  PerDomainField,
   ProfileDefinition,
   ProfileRequirement,
 } from "./schema/profiles";
-export { profiles } from "./schema/profiles";
+export {
+  PER_DOMAIN_FIELDS,
+  PER_DOMAIN_FIELDS_BY_CHECK,
+  profiles,
+} from "./schema/profiles";
 export type {
   StoredTransition,
   TransitionEvidence,

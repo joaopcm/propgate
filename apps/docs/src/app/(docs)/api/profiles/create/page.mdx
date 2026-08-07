@@ -46,18 +46,26 @@ keys, so pick ones you can switch on.
       type: "string",
     },
     {
-      description: "Required for check: dkim. The label before _domainkey.",
+      description:
+        "Fields this requirement takes from each domain rather than from here. Any of expectedPublicKey, selector, include, caaIssuer, where the check kind uses them. A field named here must not also be set here, and a domain that does not supply one is refused at registration.",
+      name: "requirements[].requiredPerDomain",
+      type: "string[]",
+    },
+    {
+      description:
+        "Required for check: dkim, unless named in requiredPerDomain. The label before _domainkey.",
       name: "requirements[].selector",
       type: "string",
     },
     {
       description:
-        "Optional, for check: dkim. The key you issued — turns \"a valid key is published\" into \"your key is published\".",
+        "Optional, for check: dkim. The key you issued — turns \"a valid key is published\" into \"your key is published\". Usually issued per domain, so usually named in requiredPerDomain rather than set here.",
       name: "requirements[].expectedPublicKey",
       type: "string",
     },
     {
-      description: "Required for check: caa. The CA that must be authorised.",
+      description:
+        "Required for check: caa, unless named in requiredPerDomain. The CA that must be authorised.",
       name: "requirements[].caaIssuer",
       type: "string",
     },
@@ -68,7 +76,7 @@ keys, so pick ones you can switch on.
     },
     {
       description:
-        "Optional and tri-state, for check: mx. Omit if unknown; false asserts the domain receives no mail.",
+        "Optional and tri-state, for check: mx. Omit if unknown; false asserts the domain receives no mail. Cannot be required per domain — it asserts what the domain is for, which is what a profile is.",
       name: "requirements[].expectsMail",
       type: "boolean",
     },
@@ -94,12 +102,22 @@ could never be answered:
 
 - no requirements, or more than 20
 - a duplicate requirement key
-- a `dkim` requirement with no `selector`, or two `dkim` requirements sharing
-  one `selector`
-- a `caa` requirement with no `caaIssuer`
+- a `dkim` requirement with neither a `selector` nor `selector` in
+  `requiredPerDomain`, or two `dkim` requirements sharing one literal `selector`
+- a `caa` requirement with neither a `caaIssuer` nor `caaIssuer` in
+  `requiredPerDomain`
+- a `requiredPerDomain` naming a field the check kind never reads — a value you
+  would supply forever and nothing would ever compare
+- a field that is both set here and named in `requiredPerDomain`, because there
+  is no rule for which one wins
 - two requirements naming the same non-`dkim` check — `dkim` is the one check
   that answers a question per selector rather than per domain, so it is the
   one allowed to repeat
+
+Two `dkim` requirements that both defer `selector` are accepted: their values are
+not known until a domain supplies them, so uniqueness is not decidable here. If
+they resolve to the same selector it is evaluated twice and both requirements are
+attributed the same outcome — wasteful, not wrong.
 
 <CodeBlock code={PROFILE_REJECTED_CURL} lang="bash" />
 <CodeBlock code={PROFILE_REJECTED_RESPONSE} lang="json" />

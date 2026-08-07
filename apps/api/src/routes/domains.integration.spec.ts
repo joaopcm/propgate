@@ -132,10 +132,19 @@ describe("verifying a correctly configured domain", () => {
       (entry: { satisfied: boolean }) => !entry.satisfied
     );
 
-    // `degraded`, not `failed`. One failing check is one failing check —
-    // hysteresis is what stands between a resolver blip and a webhook that pages
-    // a customer's customer. This asserted `failed` until that landed.
-    expect(body.data.state).toBe("degraded");
+    /**
+     * Not `failed`. One failing check is one failing check — hysteresis is what
+     * stands between a resolver blip and a webhook that pages a customer's
+     * customer. This asserted `failed` until that landed.
+     *
+     * And not `degraded` either, which it asserted until per-domain expectations
+     * landed. This domain has never been verified, so there is nothing for it to
+     * have regressed from; `degraded` would be a `domain.degraded` webhook saying
+     * "this used to work" about a domain whose customer has not finished adding
+     * their records. It stays `pending` and reaches `failed` on the third failure,
+     * which is the assertion below.
+     */
+    expect(body.data.state).toBe("pending");
     expect(body.data.requirementsMet).toBe(2);
     expect(unmet.map((entry: { key: string }) => entry.key)).toEqual([
       "rotated",
@@ -144,10 +153,16 @@ describe("verifying a correctly configured domain", () => {
   });
 
   it("reaches failed only after the threshold, through the real route", async () => {
-    // The pure function is table-tested in `hysteresis.spec.ts`. This is the
-    // end-to-end version: the counter has to survive a round trip through
-    // Postgres, or the domain would sit at `degraded` forever and nothing would
-    // ever be reported.
+    /**
+     * The pure function is table-tested in `hysteresis.spec.ts`. This is the
+     * end-to-end version: the counter has to survive a round trip through
+     * Postgres, or the domain would sit where it started forever and nothing would
+     * ever be reported.
+     *
+     * Reaching `failed` on exactly the third check is what proves that. A
+     * never-verified domain skips `degraded` — see the test above — but it does not
+     * skip the threshold.
+     */
     const { domainId, key } = await partner("partner", {
       key: "sending",
       requirements: [{ check: "dkim", key: "rotated", selector: "pg2" }],
@@ -158,8 +173,8 @@ describe("verifying a correctly configured domain", () => {
     const third = await (await check(key, domainId)).json();
 
     expect([first.data.state, second.data.state, third.data.state]).toEqual([
-      "degraded",
-      "degraded",
+      "pending",
+      "pending",
       "failed",
     ]);
   });

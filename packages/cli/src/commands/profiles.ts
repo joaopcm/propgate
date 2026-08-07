@@ -68,6 +68,13 @@ function describe(requirement: Requirement): string {
     requirement.expectedPublicKey === undefined
       ? null
       : "expectedPublicKey set",
+    // Rendered rather than omitted: it is the difference between a profile that
+    // works on its own and one every domain must supply a value for, and the
+    // registration that fails without it says nothing about which profile asked.
+    requirement.requiredPerDomain === undefined ||
+    requirement.requiredPerDomain.length === 0
+      ? null
+      : `per domain: ${[...requirement.requiredPerDomain].sort().join(" ")}`,
   ].filter((entry): entry is string => entry !== null);
 
   return detail.join(", ");
@@ -188,6 +195,33 @@ async function dkimFields(
 
   if (selector === CANCELLED) {
     return CANCELLED;
+  }
+
+  /**
+   * Asked before the key itself, because the answer decides whether there is a
+   * key to ask for.
+   *
+   * Defaulting to yes: a DKIM key is issued per domain, so a profile holding one
+   * literal key is a profile that works for exactly one domain. Someone reaching
+   * this prompt with ten thousand domains needs the default to be the shape that
+   * scales, and the other answer is one keypress away.
+   */
+  const perDomain = await askConfirm(
+    "Is the public key different for every domain?",
+    true
+  );
+
+  if (perDomain === CANCELLED) {
+    return CANCELLED;
+  }
+
+  if (perDomain) {
+    return {
+      check: "dkim",
+      key,
+      requiredPerDomain: ["expectedPublicKey"],
+      selector,
+    };
   }
 
   const expectedPublicKey = await optionalText(

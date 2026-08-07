@@ -1,0 +1,117 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import {
+  UPDATE_CURL,
+  UPDATE_EMPTY,
+  UPDATE_REPOINT_CURL,
+  UPDATE_RESPONSE,
+  UPDATE_UNSATISFIED,
+} from "./_snippets";
+
+# Update a domain
+
+<EndpointHeader method="PATCH" path="/v1/domains/:id" />
+
+Changes what a domain is judged against: the values it supplies, the profile it
+is pinned to, or both. This is how you rotate a DKIM key, and how a customer
+moves from one profile to another.
+
+Supply at least one of the two. A request that changes nothing would still reset
+the domain and re-verify it, which is a no-op with a side effect.
+
+<ParamsTable
+  rows={[
+    {
+      description:
+        "The complete set of values for this domain, keyed by requirement key then field. A full replace, not a merge — send every value the profile requires, not just the one that changed.",
+      name: "expectations",
+      type: "object",
+    },
+    {
+      description:
+        "A profile key to re-point this domain at. Resolves to that profile's current version. May name a different profile entirely, not only a newer version of the same one.",
+      name: "profile",
+      type: "string",
+    },
+  ]}
+/>
+
+No CLI command yet — updating a domain is API-only.
+
+<CodeBlock code={UPDATE_CURL} lang="bash" />
+<CodeBlock code={UPDATE_RESPONSE} lang="json" />
+
+## What it does to the domain
+
+The domain returns to `pending` and its consecutive-failure count resets to zero.
+`state` in the response says so.
+
+Both are deliberate, and both are about not lying. The previous verdict answered a
+different question, so it is not evidence about this one — and `pending` is
+literally true: you have issued a new credential and nothing has verified the
+domain against it yet.
+
+**No webhook fires.** A `domain.failed` is a claim about your customer's DNS, and
+this changed because you changed it. Without the reset, the next check would
+compare a freshly issued key against a zone that has not been updated yet, read
+one definite failure, and page somebody — and across ten thousand domains
+mid-rotation that is ten thousand false pages inside one sweep interval.
+
+**Nothing is appended to the timeline** for the first check afterwards, for the
+same reason. "The DKIM record changed Tuesday at 14:02" is the sentence the
+timeline exists to make true, and writing it about a zone that did not move would
+make the whole surface untrustworthy. The check after that resumes normally, with
+the new value as its baseline.
+
+`expectationsFingerprint` on the stored result is how you tell whether a check has
+looked at the new values yet: it is a digest of what the last check actually
+compared, so a `pass` recorded before the rotation has a different one.
+
+## Re-pointing to another profile
+
+<CodeBlock code={UPDATE_REPOINT_CURL} lang="bash" />
+
+An upgrade from sending-only to full mail is the same operation as a rotation —
+"judge this domain against something else now" — so it takes the same path and the
+same reset.
+
+Values are validated against the **effective** pair: the new profile, and the
+values you sent if you sent any, otherwise the ones already stored. A re-point the
+stored values cannot satisfy is refused and the domain is left exactly as it was:
+
+<CodeBlock code={UPDATE_UNSATISFIED} lang="json" />
+
+Writing it and letting the next sweep find the gap would turn a fixable `422` into
+a domain stuck at `indeterminate` — and at `pending`, so it would look like it was
+merely still being verified.
+
+Values left over from a previous profile are **kept, not pruned**. They are inert:
+the compile ignores anything the current profile did not ask for. Pruning them
+would make re-pointing lossy, so going back would mean re-sending values you had
+already given us.
+
+## Rotating without a failure window
+
+For a rotation with no window at all, add a **second selector** rather than
+swapping a value:
+
+1. Write a new profile version with a second `dkim` requirement for the new
+   selector.
+2. `PATCH` the domain onto it, supplying both keys.
+3. Retire the old requirement in a third version once DNS has caught up.
+
+Both keys are legitimately correct while the old TTL expires, and `dkim` is the one
+repeatable requirement type precisely so this works. Swapping in place is simpler
+and usually fine — the reset above means it costs a re-verification rather than a
+false alarm — but it does mean the domain reads `pending` until the zone catches
+up.
+
+## Errors
+
+A request with neither field is a `422`:
+
+<CodeBlock code={UPDATE_EMPTY} lang="json" />
+
+A `profile` that does not exist is a `422`. An id that does not exist, or belongs
+to a different account, is a `404` — and nothing is written.

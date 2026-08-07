@@ -197,7 +197,9 @@ npx @propgate/cli profiles create --key sending \
   --require 'dkim:dkim:selector=google'
 npx @propgate/cli profiles get sending
 
-npx @propgate/cli domains add example.com --profile sending
+npx @propgate/cli domains add example.com --profile sending \
+  --expect dkim.expectedPublicKey=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...
+npx @propgate/cli domains update <id> --expect dkim.expectedPublicKey=MIGf...NEW
 npx @propgate/cli domains list --state failed --all
 npx @propgate/cli domains get <id>
 npx @propgate/cli domains check <id>
@@ -250,6 +252,28 @@ runner's timeout with nothing saying why. Prompting is off when stdin or stdout
 is not a TTY, when `--json` is passed, when `CI=true`, or when
 `PROPGATE_NO_INPUT=1` — four checks because each catches a case the others
 miss.
+
+## Values a profile requires per domain
+
+A DKIM key is issued per domain, so a profile cannot hold one: it says *there
+must be a key at this selector* and each domain says *and here is ours*. A
+requirement names the fields it defers, and `--expect` supplies them:
+
+```sh
+npx @propgate/cli profiles create --key sending \
+  --require 'dkim:dkim:selector=google,requiredPerDomain=expectedPublicKey'
+
+npx @propgate/cli domains add example.com --profile sending \
+  --expect dkim.expectedPublicKey=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...
+```
+
+Omit one the profile asked for and the API refuses the registration, naming the
+path it wanted. `requiredPerDomain` is repeated rather than comma-separated,
+because a comma already separates fields within a `--require`.
+
+`domains update` rotates a value or re-points the profile. The domain goes back
+to `pending` and no webhook fires — the value being compared changed because you
+changed it, not because your customer's DNS moved.
 
 | Variable | |
 |---|---|

@@ -157,7 +157,8 @@ curl -s -X POST $A/v1/profiles -H "authorization: Bearer $KEY" \
     "requirements": [
       { "key": "ns",    "check": "delegation" },
       { "key": "spf",   "check": "spf", "include": "_spf.google.com" },
-      { "key": "dkim",  "check": "dkim", "selector": "google" },
+      { "key": "dkim",  "check": "dkim", "selector": "google",
+        "requiredPerDomain": ["expectedPublicKey"] },
       { "key": "dmarc", "check": "dmarc" },
       { "key": "mail",  "check": "mx", "expectsMail": true }
     ]
@@ -169,16 +170,33 @@ domains stay pinned to the version they were registered against. Otherwise one
 edit silently reclassifies every domain at once.
 
 A definition is refused at write time if any requirement could never be
-answered — a duplicate key, a DKIM requirement with no selector, a CAA
-requirement with no issuer. Accepting those would be a promise this API could
-not keep.
+answered — a duplicate key, a DKIM requirement with neither a selector nor one
+required per domain, a CAA requirement with no issuer. Accepting those would be a
+promise this API could not keep.
+
+`requiredPerDomain` is the shape/value split. The profile says *there must be a
+DKIM key at the `google` selector*; each domain says *and here is the one we
+issued it*. Anything a platform hands out per domain belongs there —
+`expectedPublicKey`, `selector`, `include`, `caaIssuer` — and everything that is
+the same for every domain stays in the profile, like the `include` above. Without
+it, ten thousand domains with ten thousand keys means ten thousand profiles.
+
+Supplying the key is what turns "a valid key is published" into "*your* key is
+published", which is the difference between passing a domain that pasted a
+competitor's record and catching it.
 
 ### Register, then verify
 
 ```sh
 curl -s -X POST $A/v1/domains -H "authorization: Bearer $KEY" \
-  -H 'content-type: application/json' \
-  -d '{"name":"yourdomain.dev","profile":"sending","externalId":"cust_1"}' | j
+  -H 'content-type: application/json' -d '{
+    "name": "yourdomain.dev",
+    "profile": "sending",
+    "externalId": "cust_1",
+    "expectations": {
+      "dkim": { "expectedPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A..." }
+    }
+  }' | j
 
 export ID=$(curl -s "$A/v1/domains?externalId=cust_1" -H "authorization: Bearer $KEY" \
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"][0]["id"])')
@@ -207,6 +225,46 @@ curl -s -X POST $A/v1/domains/$ID/checks -H "authorization: Bearer $KEY" | j
 at. No instructions are rendered — you already have a UI that tells your
 customer what to paste, and being wrong about a provider's naming conventions is
 visible to your customer rather than to us.
+
+Omit a value your profile requires and the registration is refused, naming the
+path to set:
+
+```json
+{ "error": { "message": "profile \"sending\" requires expectations.dkim.expectedPublicKey, which was not supplied" } }
+```
+
+That is deliberately a 422 rather than a domain that registers and reports
+`indeterminate` forever. A domain nobody can judge is worse than a request that
+failed, because you find out about the first one from a dashboard days later.
+
+### Rotating a key
+
+```sh
+curl -s -X PATCH $A/v1/domains/$ID -H "authorization: Bearer $KEY" \
+  -H 'content-type: application/json' -d '{
+    "expectations": { "dkim": { "expectedPublicKey": "MIIBIjANBgkq...NEW" } }
+  }' | j
+```
+
+The domain goes back to `pending`, its failure run resets, and **no webhook
+fires**. The value we compare against changed because you changed it, not because
+your customer's DNS moved — and a `domain.failed` on ten thousand domains mid-
+rotation would page ten thousand people for nothing. The next sweep verifies
+against the new key and reports normally. Nothing is appended to the timeline for
+that first check either, for the same reason: it would read as "the DKIM record
+changed" about a zone that did not change.
+
+Zero-downtime rotation is a **second selector** rather than a swapped value: add a
+`dkim` requirement for the new selector in a new profile version, `PATCH` the
+domain onto it with `{"profile": "sending"}`, and retire the old one once DNS has
+caught up. Several `dkim` requirements per profile is the one repeatable
+requirement type, and this is what it is for.
+
+`PATCH` also takes `profile` on its own, which is how a customer moves from one
+profile to another — an upgrade from sending-only to full mail is the same
+operation as a rotation, and gets the same reset. Re-pointing to a profile whose
+requirements your stored values cannot satisfy is refused, and the domain is left
+alone.
 
 ### Read it back, and watch it change
 

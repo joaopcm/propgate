@@ -25,6 +25,7 @@ const ENDPOINTS: readonly { command: string; endpoint: string }[] = [
   { command: "profiles create", endpoint: "POST /v1/profiles" },
   { command: "profiles get", endpoint: "GET /v1/profiles/:key" },
   { command: "domains add", endpoint: "POST /v1/domains" },
+  { command: "domains update", endpoint: "PATCH /v1/domains/:id" },
   { command: "domains list", endpoint: "GET /v1/domains" },
   { command: "domains get", endpoint: "GET /v1/domains/:id" },
   { command: "domains check", endpoint: "POST /v1/domains/:id/checks" },
