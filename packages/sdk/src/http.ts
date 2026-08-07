@@ -228,6 +228,35 @@ type Attempt =
       readonly url: string;
     };
 
+/**
+ * The two failures that mean "stop", shared by both places they can happen.
+ *
+ * A connection can drop while the headers are being read or while the body is,
+ * and the answer to "was this cancelled" or "did this run out of time" is the
+ * same on either side of that line.
+ */
+function abortedByCaller(): Attempt {
+  return {
+    error: new PropgateError({
+      code: "aborted",
+      message: "the request was aborted by its caller",
+    }),
+    kind: "failed",
+    retryable: false,
+  };
+}
+
+function timedOut(url: string, timeoutMs: number, method: HttpMethod): Attempt {
+  return {
+    error: new PropgateError({
+      code: "timeout",
+      message: `${url} did not answer within ${timeoutMs}ms`,
+    }),
+    kind: "failed",
+    retryable: mayRepeat(method, undefined),
+  };
+}
+
 async function attempt(
   transport: Transport,
   spec: RequestSpec,
@@ -263,25 +292,11 @@ async function attempt(
      * should be, and anything else is the network.
      */
     if (spec.signal?.aborted === true) {
-      return {
-        error: new PropgateError({
-          code: "aborted",
-          message: "the request was aborted by its caller",
-        }),
-        kind: "failed",
-        retryable: false,
-      };
+      return abortedByCaller();
     }
 
     if (timeout.aborted) {
-      return {
-        error: new PropgateError({
-          code: "timeout",
-          message: `${url} did not answer within ${timeoutMs}ms`,
-        }),
-        kind: "failed",
-        retryable: mayRepeat(spec.method, undefined),
-      };
+      return timedOut(url, timeoutMs, spec.method);
     }
 
     // DNS failure, refused connection, TLS problem. Name the URL: the most
@@ -302,12 +317,21 @@ async function attempt(
     text = await response.text();
   } catch (cause) {
     /**
-     * Headers arrived and the body did not — a connection dropped mid-response.
+     * Headers arrived and the body did not — a connection dropped mid-response,
+     * or the budget ran out between the two.
      *
      * Caught rather than left to propagate, because a rejection escaping here
      * would be the one place this package throws, and it would do it from
      * whichever call happened to be running when somebody's network blipped.
      */
+    if (spec.signal?.aborted === true) {
+      return abortedByCaller();
+    }
+
+    if (timeout.aborted) {
+      return timedOut(url, timeoutMs, spec.method);
+    }
+
     return {
       error: new PropgateError({
         code: "connection_error",
