@@ -116,10 +116,57 @@ export function normaliseBaseUrl(raw: string): string {
   return raw.replace(TRAILING_SLASHES, "");
 }
 
-function sleep(ms: number): Promise<void> {
+/**
+ * Wait, unless the caller stops waiting.
+ *
+ * Resolves either way — the loop checks the signal afterwards. A backoff that
+ * ignored the signal would hold a cancelled call open for up to the ceiling and
+ * then spend one more `fetch` on a signal that is already aborted.
+ */
+function sleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
   return new Promise((resolve) => {
-    setTimeout(resolve, ms);
+    if (signal === undefined) {
+      setTimeout(resolve, ms);
+
+      return;
+    }
+
+    const done = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+
+    signal.addEventListener("abort", done, { once: true });
   });
+}
+
+/**
+ * The per-request budget, or a complaint about the value it was given.
+ *
+ * `AbortSignal.timeout` throws a `TypeError` on anything that is not a
+ * non-negative integer, and it does so at the top of `attempt` — outside the
+ * `try`, so it would escape as the one exception this package can throw. A
+ * caller who passes `NaN` deserves to be told which option and which value,
+ * through the same channel as every other failure.
+ */
+function budgetFor(
+  spec: RequestSpec,
+  transport: Transport
+): number | PropgateError {
+  const raw = spec.timeoutMs ?? transport.timeoutMs;
+
+  if (!(Number.isFinite(raw) && raw >= 0)) {
+    return new PropgateError({
+      code: "invalid_option",
+      message: `timeoutMs must be a non-negative number of milliseconds, got ${raw}`,
+    });
+  }
+
+  // Truncated rather than refused: a fractional millisecond is a computed value
+  // rather than a typo, and `AbortSignal.timeout` will not take one.
+  return Math.floor(raw);
 }
 
 /**
@@ -176,9 +223,9 @@ type Attempt =
 async function attempt(
   transport: Transport,
   spec: RequestSpec,
-  url: string
+  url: string,
+  timeoutMs: number
 ): Promise<Attempt> {
-  const timeoutMs = spec.timeoutMs ?? transport.timeoutMs;
   const timeout = AbortSignal.timeout(timeoutMs);
   const signal =
     spec.signal === undefined
@@ -241,13 +288,62 @@ async function attempt(
     };
   }
 
+  let text: string;
+
+  try {
+    text = await response.text();
+  } catch (cause) {
+    /**
+     * Headers arrived and the body did not — a connection dropped mid-response.
+     *
+     * Caught rather than left to propagate, because a rejection escaping here
+     * would be the one place this package throws, and it would do it from
+     * whichever call happened to be running when somebody's network blipped.
+     */
+    return {
+      error: new PropgateError({
+        code: "connection_error",
+        message: `${url} answered ${response.status} but the body did not arrive: ${(cause as Error).message}`,
+        statusCode: response.status,
+      }),
+      kind: "failed",
+      retryable: mayRepeat(spec.method, undefined),
+    };
+  }
+
   return {
     kind: "answered",
     retryAfterSeconds: retryAfterSeconds(response),
     status: response.status,
-    text: await response.text(),
+    text,
     url,
   };
+}
+
+/**
+ * How long before the next attempt, or undefined to stop retrying.
+ *
+ * One function for both branches so the ceiling cannot apply to a rate limit and
+ * not to a backoff — which is what it did before this existed, leaving
+ * `maxRetries: 10` to wait 128 seconds on the ninth attempt of something the
+ * caller thought was a quick GET.
+ */
+function nextWaitMs(input: {
+  attemptsMade: number;
+  exhausted: boolean;
+  retryAfterSeconds: number | undefined;
+  retryable: boolean;
+}): number | undefined {
+  if (input.exhausted || !input.retryable) {
+    return;
+  }
+
+  const waitMs =
+    input.retryAfterSeconds === undefined
+      ? RETRY_BASE_DELAY_MS * 2 ** input.attemptsMade
+      : input.retryAfterSeconds * MS_PER_SECOND;
+
+  return waitMs > MAX_RETRY_WAIT_MS ? undefined : waitMs;
 }
 
 /**
@@ -273,38 +369,45 @@ export async function send(
     };
   }
 
+  const budget = budgetFor(spec, transport);
+
+  if (budget instanceof PropgateError) {
+    return { error: budget };
+  }
+
   const url = `${transport.baseUrl}${spec.path}${queryString(spec.query)}`;
 
   for (let attemptsMade = 0; ; attemptsMade += 1) {
     // biome-ignore lint/performance/noAwaitInLoops: a retry is by definition what happens after the previous attempt
-    const outcome = await attempt(transport, spec, url);
+    const outcome = await attempt(transport, spec, url, budget);
     const exhausted = attemptsMade >= transport.maxRetries;
+    const waitMs = nextWaitMs({
+      attemptsMade,
+      exhausted,
+      retryAfterSeconds:
+        outcome.kind === "answered" ? outcome.retryAfterSeconds : undefined,
+      retryable:
+        outcome.kind === "failed"
+          ? outcome.retryable
+          : RETRYABLE_STATUSES.has(outcome.status) &&
+            mayRepeat(spec.method, outcome.status),
+    });
 
-    if (outcome.kind === "failed") {
-      if (outcome.retryable && !exhausted) {
-        await sleep(RETRY_BASE_DELAY_MS * 2 ** attemptsMade);
-        continue;
-      }
-
-      return { error: outcome.error };
+    if (waitMs === undefined) {
+      return outcome.kind === "failed" ? { error: outcome.error } : outcome;
     }
 
-    const waitMs =
-      outcome.retryAfterSeconds === undefined
-        ? RETRY_BASE_DELAY_MS * 2 ** attemptsMade
-        : outcome.retryAfterSeconds * MS_PER_SECOND;
+    await sleep(waitMs, spec.signal);
 
-    if (
-      exhausted ||
-      waitMs > MAX_RETRY_WAIT_MS ||
-      !(
-        RETRYABLE_STATUSES.has(outcome.status) &&
-        mayRepeat(spec.method, outcome.status)
-      )
-    ) {
-      return outcome;
+    if (spec.signal?.aborted === true) {
+      // Cancelled mid-backoff. Spending another `fetch` on a signal that is
+      // already aborted would only produce the same answer more slowly.
+      return {
+        error: new PropgateError({
+          code: "aborted",
+          message: "the request was aborted by its caller",
+        }),
+      };
     }
-
-    await sleep(waitMs);
   }
 }

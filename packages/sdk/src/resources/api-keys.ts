@@ -36,9 +36,10 @@ export class ApiKeys {
   /**
    * Mint a key. `data.key` is the only time the secret is ever readable.
    *
-   * Not retried on a transport failure, unlike every other call here: this is
-   * the one route where repeating a request that may have succeeded mints a
-   * second key nobody knows about.
+   * Not retried on a transport failure — and this route is where that rule
+   * comes from. Repeating a request that may already have succeeded mints a
+   * second key nobody knows about, so no `POST` here is repeated except when
+   * the server said 429 and therefore did nothing.
    */
   create(
     input: ApiKeyCreateInput,

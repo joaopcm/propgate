@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Propgate } from "./client";
 import { callAt, envelope, json, refusal, silent, stub } from "./test/stub";
 
@@ -211,6 +211,54 @@ describe("what may be retried", () => {
     expect(transport.calls).toHaveLength(1);
   });
 
+  it("stops backing off before the wait grows past what a caller would accept", async () => {
+    /**
+     * The ceiling applies to the backoff and not only to `Retry-After`. Without
+     * it, `maxRetries: 10` waits 250ms, 500ms, 1s, 2s, 4s, 8s… — two minutes
+     * inside one `await`, on something the caller thought was a quick GET.
+     */
+    const transport = stub([refusal("Internal server error", 500)]);
+
+    vi.useFakeTimers();
+
+    try {
+      const pending = client(transport, { maxRetries: 10 }).members.list();
+
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      const { error } = await pending;
+
+      // 250, 500, 1000, 2000, 4000 — and then 8000, which is past the ceiling.
+      // Six attempts rather than eleven, and 7.75 seconds of waiting rather
+      // than two minutes.
+      expect(transport.calls).toHaveLength(6);
+      expect(error?.statusCode).toBe(500);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports a body that never arrived as a connection error", async () => {
+    // Headers, then a dropped connection. A rejection escaping here would be
+    // the one place this package throws.
+    const transport = stub([
+      () =>
+        new Response(
+          new ReadableStream({
+            pull(controller) {
+              controller.error(new Error("socket hang up"));
+            },
+          }),
+          { status: 200 }
+        ),
+    ]);
+
+    const { error } = await client(transport, { maxRetries: 0 }).members.list();
+
+    expect(error?.code).toBe("connection_error");
+    expect(error?.message).toContain("socket hang up");
+  });
+
   it("passes a 404 straight back rather than retrying it", async () => {
     const transport = stub([refusal("no such domain", 404)]);
 
@@ -248,6 +296,45 @@ describe("giving up", () => {
 
     expect(error?.code).toBe("aborted");
     expect(transport.calls).toHaveLength(1);
+  });
+
+  it("stops waiting the moment the caller aborts, rather than at the end of the backoff", async () => {
+    const transport = stub([
+      () => {
+        throw new TypeError("fetch failed");
+      },
+    ]);
+    const controller = new AbortController();
+    const pending = client(transport, { maxRetries: 5 }).members.list({
+      signal: controller.signal,
+    });
+
+    setTimeout(() => controller.abort(), 10);
+
+    const { error } = await pending;
+
+    expect(error?.code).toBe("aborted");
+    // One attempt, and no second one against a signal that is already aborted.
+    expect(transport.calls).toHaveLength(1);
+  });
+
+  it("reports an unusable timeout instead of throwing out of the call", async () => {
+    /**
+     * `AbortSignal.timeout` throws a `TypeError` on `NaN`, and it does so before
+     * anything this package can catch — which would make a mistyped option the
+     * one way to get an exception out of a client that promises never to throw.
+     */
+    const transport = stub([envelope([])]);
+
+    for (const timeoutMs of [Number.NaN, -1, Number.POSITIVE_INFINITY]) {
+      // biome-ignore lint/performance/noAwaitInLoops: three values, one assertion each
+      const { error } = await client(transport).members.list({ timeoutMs });
+
+      expect(error?.code).toBe("invalid_option");
+      expect(error?.message).toContain("timeoutMs");
+    }
+
+    expect(transport.calls).toHaveLength(0);
   });
 
   it("lets a per-call timeout override the client's", async () => {

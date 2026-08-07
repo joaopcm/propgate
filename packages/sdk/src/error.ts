@@ -34,6 +34,15 @@ export type PropgateErrorCode =
   /** The request never reached an API: DNS, TLS, or a refused connection. */
   | "connection_error"
   | "forbidden"
+  /**
+   * An option this client was given cannot be used, so nothing was sent.
+   *
+   * A mistake in the calling code rather than anything about the API — a
+   * `timeoutMs` of `NaN`, say. Reported rather than thrown, so the promise that
+   * no method throws holds for every input, and the message names the option and
+   * the value it was given.
+   */
+  | "invalid_option"
   | "invalid_request"
   /** Something answered, and it was not this API. */
   | "invalid_response"
