@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DocsSearch } from "@/components/docs-search";
 import { MobileSidebar } from "@/components/mobile-sidebar";
 
 export function DocsHeader() {
@@ -9,6 +10,7 @@ export function DocsHeader() {
         propgate <span className="text-muted-foreground">docs</span>
       </Link>
       <nav className="ml-auto flex items-center gap-4 text-muted-foreground text-xs">
+        <DocsSearch />
         <Link className="transition-colors hover:text-foreground" href="/api">
           API
         </Link>
