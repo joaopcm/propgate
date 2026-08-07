@@ -43,6 +43,20 @@ alias here would mean the error and the input never quite match.
 | `mx` | `expectsMail` |
 | `caa` | `caaIssuer` (required) |
 
+Every check also takes `requiredPerDomain`, naming a field each *domain*
+supplies rather than this profile. A DKIM key is issued per domain, so that is
+almost always where it belongs:
+
+```sh
+--require 'dkim:dkim:selector=google,requiredPerDomain=expectedPublicKey'
+```
+
+Repeat the assignment to name more than one — `requiredPerDomain=selector,requiredPerDomain=expectedPublicKey`
+— because a comma already separates fields within a `--require`, and a second
+separator to learn is worse than repeating the word. Which names are legal is the
+server's to say. Supplying the values is
+[`domains add --expect`](/cli/domains).
+
 Values keep everything after the first `=`, so a base64 key retains its
 padding — a DKIM key that quietly lost its `==` is one that never matches for
 a reason nobody can see.
@@ -50,16 +64,19 @@ a reason nobody can see.
 ### What is checked here, and what is not
 
 Two rules are enforced before anything is sent: **`dkim` needs a selector**
-and **`caa` needs an issuer**.
+and **`caa` needs an issuer** — from this profile, or from every domain via
+`requiredPerDomain`. Deferring one still keeps the promise, just somewhere else:
+registration refuses a domain that supplies no value for it.
 
 <CodeBlock code={REJECTED} lang="text" />
 
 Those two are not a second copy of the server's validation — they are the two
 that decide which question the guided flow asks next, so this code needs them
 anyway. Everything else about a valid profile stays on the server: duplicate
-keys, more than twenty requirements, two of a kind that may only appear once.
-A second implementation of a rule is a second thing that can disagree, and the
-API's `422` is already the better message.
+keys, more than twenty requirements, two of a kind that may only appear once,
+and which field names `requiredPerDomain` may hold. A second implementation of a
+rule is a second thing that can disagree, and the API's `422` is already the
+better message.
 
 ## `--file`, for something generated
 
@@ -77,6 +94,13 @@ One requirement at a time, asking only the fields that check actually has.
 `mx` offers three answers rather than a yes/no, because `expectsMail` is
 tri-state: unstated makes no claim, and `false` asserts the domain receives no
 mail — which makes a null MX correct rather than a fault.
+
+`dkim` asks whether the public key differs for every domain, and **defaults to
+yes**. A profile holding one literal key is a profile that works for exactly one
+domain; someone reaching this prompt with ten thousand of them needs the default
+to be the shape that scales, and the other answer is one keypress away. Answering
+yes sets `requiredPerDomain` and skips the question about the key itself, because
+there is no single key to ask for.
 
 ## `profiles get`
 

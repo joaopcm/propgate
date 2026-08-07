@@ -83,22 +83,37 @@ Do not expect to see it on a domain that is already being monitored.
 ```
 pending ──first pass or warn────────────────────────▶ verified
    │                                                      │
-   │ fail, reaching the degraded threshold      fail, reaching the
-   ▼                                            degraded threshold
-degraded ──further fails, reaching the failed threshold──▶ failed
-   ▲                                                      │
-   └────────────────── pass or warn ─────────────────────┘
+   │ fails, reaching the                       fail, reaching the
+   │ failed threshold                          degraded threshold
+   │                                                      ▼
+   │                                                  degraded
+   │                                                      │
+   │                          further fails, reaching the │
+   ▼                                     failed threshold ▼
+failed ◀──────────────────────────────────────────────────┘
+   │                                                      ▲
+   └──── pass or warn ──▶ verified ◀── pass or warn ──────┘
 
 indeterminate: no arrow from any state. The counter behind this diagram is
 untouched, and the domain keeps whatever state it already had.
 ```
 
-A domain can reach `degraded` straight from `pending` — the same
-consecutive-failure counter drives a first verification and an established
-domain's regression, so there is only one state machine to reason about
-rather than two. [Monitoring and hysteresis](/concepts/monitoring) covers what
-"reaching the threshold" means and why the thresholds are the numbers they
-are.
+**`degraded` is only reachable from `verified`.** It means a regression, so it
+needs something to have regressed from: a domain nobody has verified yet cannot
+have got worse. A failing `pending` domain stays `pending` and goes straight to
+`failed` once it crosses that threshold — which is the honest reading of a
+customer who has not finished adding their records, and stops `domain.degraded`
+firing about a domain that never worked.
+
+One counter drives both paths, so there is still a single state machine to
+reason about rather than two; only where it can land differs.
+[Monitoring and hysteresis](/concepts/monitoring) covers what "reaching the
+threshold" means and why the thresholds are the numbers they are.
+
+A domain also returns to `pending` when its
+[configuration is updated](/api/domains/update) — a rotated expectation or a
+re-pointed profile. That is not a regression either: nothing has been verified
+against the new values yet, and no webhook fires for it.
 
 ## Next
 

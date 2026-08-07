@@ -11,7 +11,11 @@ import {
 
 # Update a domain
 
-<EndpointHeader method="PATCH" path="/v1/domains/:id" />
+<EndpointHeader
+  cliCommand="propgate domains update <id> [--expect <requirement>.<field>=<value>] [--profile <key>]"
+  method="PATCH"
+  path="/v1/domains/:id"
+/>
 
 Changes what a domain is judged against: the values it supplies, the profile it
 is pinned to, or both. This is how you rotate a DKIM key, and how a customer
@@ -36,8 +40,6 @@ the domain and re-verify it, which is a no-op with a side effect.
     },
   ]}
 />
-
-No CLI command yet — updating a domain is API-only.
 
 <CodeBlock code={UPDATE_CURL} lang="bash" />
 <CodeBlock code={UPDATE_RESPONSE} lang="json" />

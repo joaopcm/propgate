@@ -37,6 +37,22 @@ If the check causes a state transition, whether `pending` to `verified`,
 sweeper causes one. See [Webhooks](/webhooks) for the event names and payload
 shape.
 
+## `meta.superseded`
+
+A check reads the domain, spends up to ten seconds on DNS, and then stores what
+it found. If an [update](/api/domains/update) lands inside that window — a key
+rotated while somebody was clicking verify — the result describes values the
+domain no longer holds, so it is **discarded rather than stored**: no state
+change, no timeline entry, no webhook.
+
+The response is still a `200`, carrying the domain as it now stands (`pending`,
+against the new values) with `meta.superseded: true`. Reporting the computed
+verdict instead would be this endpoint announcing a state for a configuration
+nothing has checked.
+
+Nothing needs retrying. The update already left the domain due, so the sweeper
+picks it up on the pending cadence — or call this endpoint again.
+
 ## Rate limit
 
 **100 checks a minute per account**, separate from the general request limit
