@@ -2,11 +2,14 @@ import { CodeBlock } from "@/components/docs/code-block";
 import { CodeTabs } from "@/components/docs/code-tabs";
 import { REQUIREMENT_TYPES } from "@/lib/api";
 import {
+  DOMAIN_EXPECTATIONS_CURL,
+  DOMAIN_EXPECTATIONS_MISSING,
   PROFILE_CREATE_CLI,
   PROFILE_CREATE_CURL,
   PROFILE_CREATE_RESPONSE,
   PROFILE_EDIT_CURL,
   PROFILE_EDIT_RESPONSE,
+  PROFILE_PER_DOMAIN_CURL,
   PROFILE_REJECTED_CURL,
   PROFILE_REJECTED_RESPONSE,
 } from "./_snippets";
@@ -45,11 +48,74 @@ on your side to explain it. Pinning the version is what keeps "we tightened
 our sending profile" from turning into "we tightened it and every customer got
 paged."
 
+## The profile is the shape; the domain is the values
+
+A DKIM key is issued per domain. The key for `acme.com` is not the key for
+`globex.com`, so a field holding one cannot live on a template that ten thousand
+domains share — that would be ten thousand profiles, and the versioning above
+would stop meaning anything.
+
+So a requirement names the fields it takes from the domain instead of setting
+them here:
+
+<CodeBlock code={PROFILE_PER_DOMAIN_CURL} lang="bash" />
+
+and each domain supplies them at registration:
+
+<CodeBlock code={DOMAIN_EXPECTATIONS_CURL} lang="bash" />
+
+The `include` stays in the profile because `_spf.google.com` is the same for
+every domain you send for. The key does not, because it is not. That is the whole
+rule: what is true of your platform belongs in the profile, and what you issue per
+customer belongs on the domain.
+
+Four fields can be deferred — `expectedPublicKey`, `selector`, `include` and
+`caaIssuer`. `expectsMail` deliberately cannot: it asserts what a domain is *for*,
+which is exactly what a profile is.
+
+Supplying `expectedPublicKey` is what turns "a valid key is published here" into
+"*your* key is published here" — the difference between passing a domain that
+pasted a competitor's record and catching it.
+
+### A required value that is missing is never a pass
+
+Omit one and the registration is refused, naming the path to set:
+
+<CodeBlock code={DOMAIN_EXPECTATIONS_MISSING} lang="json" />
+
+If a domain somehow reaches a check without one, every requirement comes back
+`indeterminate` with an `EXPECTATION_MISSING` finding, and no DNS is sent at all.
+It never reads as `pass`. This matters more than it looks: a valid DKIM key
+probably *is* published at that selector, so a check that forgot the expectation
+would find one and report success.
+
+### Rotating a value
+
+`PATCH /v1/domains/:id` replaces a domain's values, re-points it at another
+profile, or both. The domain returns to `pending` and **no webhook fires** — the
+compared value moved because you moved it, and a `domain.failed` across a fleet
+mid-rotation would page every one of your customers for nothing. Nothing is
+appended to that domain's timeline for the first check afterwards either, for the
+same reason: it would claim the customer's zone changed when it did not.
+
+For zero-downtime rotation, add a **second selector** in a new profile version and
+`PATCH` the domain onto it rather than swapping the value in place. Both keys are
+legitimately correct while DNS catches up, and several `dkim` requirements per
+profile is what the one repeatable requirement type is for.
+
+One thing this does not stop: a new profile version that *drops* a
+`requiredPerDomain` declaration without setting a literal is accepted, and quietly
+weakens "your key is published" back to "a key is published". It is your profile,
+so it is your call — but it is a weakening you will not be warned about.
+
 ## Rejected at write time
 
 A definition is refused before it is ever stored if a requirement inside it
 could never be answered: a duplicate key, two requirements competing for one
-check, a DKIM requirement with no selector, a CAA requirement with no issuer.
+check, a DKIM requirement with neither a selector nor one required per domain, a
+CAA requirement with no issuer from either side. The same applies to a field that
+is both set in the profile and required per domain — there is no rule for which
+would win, so the write is refused rather than resolved by convention.
 
 <CodeBlock code={PROFILE_REJECTED_CURL} lang="bash" />
 <CodeBlock code={PROFILE_REJECTED_RESPONSE} lang="json" />
@@ -85,6 +151,12 @@ actually check.
             <li key={field.name}>
               <code className="font-mono text-xs">{field.name}</code> —{" "}
               {field.note}
+              {type.perDomain.includes(field.name) ? (
+                <span className="text-muted-foreground/70">
+                  {" "}
+                  Can be required per domain.
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>

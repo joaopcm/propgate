@@ -109,3 +109,36 @@ export const PROFILE_REJECTED_RESPONSE = `{
   },
   "meta": null
 }`;
+
+export const PROFILE_PER_DOMAIN_CURL = `curl -s -X POST https://api.propgate.dev/v1/profiles \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
+  -H 'content-type: application/json' -d '{
+    "key": "sending",
+    "requirements": [
+      { "key": "spf", "check": "spf", "include": "_spf.google.com" },
+      {
+        "key": "dkim",
+        "check": "dkim",
+        "selector": "google",
+        "requiredPerDomain": ["expectedPublicKey"]
+      }
+    ]
+  }'`;
+
+export const DOMAIN_EXPECTATIONS_CURL = `curl -s -X POST https://api.propgate.dev/v1/domains \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
+  -H 'content-type: application/json' -d '{
+    "name": "acme.com",
+    "profile": "sending",
+    "expectations": {
+      "dkim": { "expectedPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A..." }
+    }
+  }'`;
+
+export const DOMAIN_EXPECTATIONS_MISSING = `{
+  "data": null,
+  "error": {
+    "message": "profile \\"sending\\" requires expectations.dkim.expectedPublicKey, which was not supplied"
+  },
+  "meta": null
+}`;

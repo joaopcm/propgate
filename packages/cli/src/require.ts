@@ -23,6 +23,19 @@ export interface Requirement {
   readonly expectsMail?: boolean;
   readonly include?: string;
   readonly key: string;
+  /**
+   * Fields each domain supplies instead of this profile, sent with `--expect`.
+   *
+   * Repeat the assignment to name more than one:
+   * `k1:dkim:requiredPerDomain=selector,requiredPerDomain=expectedPublicKey`.
+   * A comma-separated value would collide with the field separator, and a second
+   * separator to learn is worse than repeating the word.
+   *
+   * Which names are legal is the server's to say — the list lives in
+   * `@propgate/db`, and this package deliberately depends on nothing but
+   * `@propgate/dns`.
+   */
+  readonly requiredPerDomain?: readonly string[];
   readonly selector?: string;
 }
 
@@ -36,8 +49,12 @@ const STRING_FIELDS = [
 
 const BOOLEAN_FIELDS = ["expectsMail"] as const;
 
+/** Fields that accumulate across repeated assignments rather than overwriting. */
+const LIST_FIELDS = ["requiredPerDomain"] as const;
+
 type StringField = (typeof STRING_FIELDS)[number];
 type BooleanField = (typeof BOOLEAN_FIELDS)[number];
+type ListField = (typeof LIST_FIELDS)[number];
 
 function isStringField(name: string): name is StringField {
   return (STRING_FIELDS as readonly string[]).includes(name);
@@ -47,7 +64,13 @@ function isBooleanField(name: string): name is BooleanField {
   return (BOOLEAN_FIELDS as readonly string[]).includes(name);
 }
 
-const KNOWN_FIELDS = [...STRING_FIELDS, ...BOOLEAN_FIELDS].sort().join(", ");
+function isListField(name: string): name is ListField {
+  return (LIST_FIELDS as readonly string[]).includes(name);
+}
+
+const KNOWN_FIELDS = [...STRING_FIELDS, ...BOOLEAN_FIELDS, ...LIST_FIELDS]
+  .sort()
+  .join(", ");
 
 /**
  * Split into at most three parts on `:`.
@@ -76,10 +99,14 @@ function head(value: string): [string, string, string | undefined] {
 }
 
 /** Partial: every field is optional, which is what makes the checks below real. */
-type Assignments = Partial<Record<BooleanField | StringField, string>>;
+interface Assignments {
+  readonly lists: Partial<Record<ListField, string[]>>;
+  readonly scalars: Partial<Record<BooleanField | StringField, string>>;
+}
 
 function assignments(rest: string): Assignments | string {
-  const fields: Assignments = {};
+  const scalars: Partial<Record<BooleanField | StringField, string>> = {};
+  const lists: Partial<Record<ListField, string[]>> = {};
 
   for (const pair of rest.split(",")) {
     const trimmed = pair.trim();
@@ -99,7 +126,7 @@ function assignments(rest: string): Assignments | string {
     const name = trimmed.slice(0, split).trim();
     const value = trimmed.slice(split + 1).trim();
 
-    if (!(isStringField(name) || isBooleanField(name))) {
+    if (!(isStringField(name) || isBooleanField(name) || isListField(name))) {
       return `unknown requirement field "${name}"; known fields are ${KNOWN_FIELDS}`;
     }
 
@@ -107,10 +134,22 @@ function assignments(rest: string): Assignments | string {
       return `${name} needs a value`;
     }
 
-    fields[name] = value;
+    if (isListField(name)) {
+      const seen = lists[name] ?? [];
+
+      if (seen.includes(value)) {
+        return `${name}=${value} was given twice`;
+      }
+
+      seen.push(value);
+      lists[name] = seen;
+      continue;
+    }
+
+    scalars[name] = value;
   }
 
-  return fields;
+  return { lists, scalars };
 }
 
 /**
@@ -137,27 +176,39 @@ export function parseRequirement(value: string): Requirement | string {
     return `unknown check "${kind}"; one of ${CHECK_KINDS.join(", ")}`;
   }
 
-  const fields = rest === undefined ? {} : assignments(rest);
+  const parsed =
+    rest === undefined ? { lists: {}, scalars: {} } : assignments(rest);
 
-  if (typeof fields === "string") {
-    return `${trimmedKey}: ${fields}`;
+  if (typeof parsed === "string") {
+    return `${trimmedKey}: ${parsed}`;
   }
 
+  const { lists, scalars } = parsed;
   const requirement: Requirement = {
     check: kind as CheckKind,
     key: trimmedKey,
-    ...(fields.caaIssuer === undefined ? {} : { caaIssuer: fields.caaIssuer }),
-    ...(fields.expectedPublicKey === undefined
+    ...(scalars.caaIssuer === undefined
       ? {}
-      : { expectedPublicKey: fields.expectedPublicKey }),
-    ...(fields.include === undefined ? {} : { include: fields.include }),
-    ...(fields.selector === undefined ? {} : { selector: fields.selector }),
-    ...(fields.expectsMail === undefined
+      : { caaIssuer: scalars.caaIssuer }),
+    ...(scalars.expectedPublicKey === undefined
       ? {}
-      : { expectsMail: fields.expectsMail !== "false" }),
+      : { expectedPublicKey: scalars.expectedPublicKey }),
+    ...(scalars.include === undefined ? {} : { include: scalars.include }),
+    ...(scalars.selector === undefined ? {} : { selector: scalars.selector }),
+    ...(lists.requiredPerDomain === undefined
+      ? {}
+      : { requiredPerDomain: lists.requiredPerDomain }),
+    ...(scalars.expectsMail === undefined
+      ? {}
+      : { expectsMail: scalars.expectsMail !== "false" }),
   };
 
   return checkShape(requirement);
+}
+
+/** Whether the domain, rather than this profile, supplies `field`. */
+function defers(requirement: Requirement, field: string): boolean {
+  return requirement.requiredPerDomain?.includes(field) ?? false;
 }
 
 /**
@@ -166,16 +217,29 @@ export function parseRequirement(value: string): Requirement | string {
  * These two decide which question the guided flow asks next, so knowing them on
  * this side is not duplication — it is the same fact, needed here anyway. Every
  * other rule in `rejectDefinition` (unique keys, at most twenty, only DKIM may
- * repeat a kind) stays on the server, because a second implementation of a rule
- * is a second thing that can disagree, and the API's 422 already says it better.
+ * repeat a kind, which names `requiredPerDomain` may hold) stays on the server,
+ * because a second implementation of a rule is a second thing that can disagree,
+ * and the API's 422 already says it better.
+ *
+ * Both rules are satisfied by deferring the field instead of setting it. The
+ * requirement is still answerable — registration refuses a domain that supplies
+ * no value for it — so refusing it here would reject a profile the server accepts.
  */
 function checkShape(requirement: Requirement): Requirement | string {
-  if (requirement.check === "dkim" && requirement.selector === undefined) {
-    return `${requirement.key}: dkim needs a selector, as ${requirement.key}:dkim:selector=<name>`;
+  if (
+    requirement.check === "dkim" &&
+    requirement.selector === undefined &&
+    !defers(requirement, "selector")
+  ) {
+    return `${requirement.key}: dkim needs a selector, as ${requirement.key}:dkim:selector=<name>, or requiredPerDomain=selector`;
   }
 
-  if (requirement.check === "caa" && requirement.caaIssuer === undefined) {
-    return `${requirement.key}: caa needs an issuer, as ${requirement.key}:caa:caaIssuer=<ca>`;
+  if (
+    requirement.check === "caa" &&
+    requirement.caaIssuer === undefined &&
+    !defers(requirement, "caaIssuer")
+  ) {
+    return `${requirement.key}: caa needs an issuer, as ${requirement.key}:caa:caaIssuer=<ca>, or requiredPerDomain=caaIssuer`;
   }
 
   return requirement;

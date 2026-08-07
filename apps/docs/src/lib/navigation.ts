@@ -116,6 +116,7 @@ export const navigation: readonly NavSection[] = [
       {
         items: [
           { href: "/api/domains/register", title: "Register domain" },
+          { href: "/api/domains/update", title: "Update domain" },
           { href: "/api/domains/verify", title: "Verify domain" },
           { href: "/api/domains/list", title: "List domains" },
           { href: "/api/domains/get", title: "Get domain" },

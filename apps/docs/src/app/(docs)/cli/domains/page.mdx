@@ -4,6 +4,8 @@ import { Callout } from "@/components/docs/callout";
 import {
   ADD_CLI,
   ADD_CURL,
+  ADD_EXPECT_CLI,
+  ADD_EXPECT_CURL,
   ADD_OUTPUT,
   CHECK_CLI,
   DELETE_CLI,
@@ -43,6 +45,30 @@ checked against, so the API refuses it with a `422` rather than accepting a
 domain with no meaning. Nothing has been checked yet: `state: pending` here
 means "nobody has looked", not "broken". The sweeper picks up the first check
 on its own schedule.
+
+## `--expect` for values the profile requires per domain
+
+If the profile names anything in `requiredPerDomain` — a DKIM key it issued for
+this domain, say — pass it with `--expect <requirement>.<field>=<value>`, once per
+value:
+
+<CodeTabs
+  items={[
+    { code: ADD_EXPECT_CURL, label: "cURL", lang: "bash" },
+    { code: ADD_EXPECT_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+Without these the API refuses the registration, naming the path it wanted. The
+value is split on the **first** `=`, so a base64 key keeps its `=` padding, and the
+requirement key is everything before the **last** `.`. Giving the same
+`<requirement>.<field>` twice is an error rather than a last-one-wins: a typo and a
+genuine second value look identical here, and silently dropping one of two keys is
+how a domain ends up verified against the wrong one.
+
+See [Profiles and versions](/concepts/profiles) for why a key belongs on the domain
+rather than in the profile. Rotating one afterwards is
+[`PATCH /v1/domains/:id`](/api/domains/update), which has no CLI equivalent yet.
 
 ## `domains list --state`
 

@@ -1,4 +1,10 @@
-import type { Database, DomainRow, DomainState } from "@propgate/db";
+import type {
+  Database,
+  DomainListRow,
+  DomainRow,
+  DomainState,
+  ProfileVersion,
+} from "@propgate/db";
 import {
   currentProfileVersion,
   deleteDomain,
@@ -7,6 +13,7 @@ import {
   listDomains,
   profileVersionById,
   registerDomain,
+  updateDomainConfig,
 } from "@propgate/db";
 import type { ServerAddress } from "@propgate/dns";
 import type { DeliverWebhookPayload } from "@propgate/jobs";
@@ -16,6 +23,10 @@ import { z } from "zod";
 import { checkAndPersist } from "../domains/check";
 import type { HysteresisThresholds } from "../domains/hysteresis";
 import type { AuthVariables } from "../middleware/auth";
+import {
+  rejectExpectations,
+  rejectUnsatisfiedExpectations,
+} from "../profiles/expectations";
 import {
   MAX_DOMAIN_LENGTH,
   normaliseDomain,
@@ -87,13 +98,56 @@ function boundedLimit(raw: string | undefined, fallback: number, max: number) {
     : fallback;
 }
 
+/**
+ * The same bound a profile's literal `expectedPublicKey` gets.
+ *
+ * A 2048-bit RSA key is about 400 characters of base64 and a 4096-bit one about
+ * 800, so this is a tripwire rather than a limit: it sits past anything a real
+ * key reaches, and only a value that is not a key can touch it.
+ */
+const MAX_EXPECTATION_VALUE_LENGTH = 4096;
+
+const expectationsSchema = z.record(
+  z.string().min(1).max(MAX_PROFILE_KEY_LENGTH),
+  z.record(
+    z.string().min(1),
+    z.string().min(1).max(MAX_EXPECTATION_VALUE_LENGTH)
+  )
+);
+
 const registerSchema = z.object({
+  /**
+   * The values for whatever the profile requires per domain.
+   *
+   * Keyed by requirement key, then by field. Which keys and fields are legal
+   * cannot be expressed here: it depends on the profile this domain is being
+   * registered against, which is fetched after the body is parsed. See
+   * `rejectExpectations`.
+   */
+  expectations: expectationsSchema.optional(),
   externalId: z.string().min(1).max(MAX_EXTERNAL_ID_LENGTH).optional(),
   name: z.string().min(1).max(MAX_DOMAIN_LENGTH),
   profile: z.string().min(1).max(MAX_PROFILE_KEY_LENGTH),
 });
 
-function serialise(domain: DomainRow, includeLookups = false) {
+/**
+ * Changing what a domain is judged against.
+ *
+ * Both fields are optional and at least one is required, because a PATCH that
+ * changes nothing would still reset the domain to `pending` and re-verify it —
+ * a no-op request with a side effect.
+ */
+const updateSchema = z
+  .object({
+    expectations: expectationsSchema.optional(),
+    profile: z.string().min(1).max(MAX_PROFILE_KEY_LENGTH).optional(),
+  })
+  .refine(
+    (body) => body.expectations !== undefined || body.profile !== undefined,
+    { message: "supply expectations, profile, or both" }
+  );
+
+function serialise(domain: DomainListRow, includeLookups = false) {
   const result = domain.lastResult;
 
   return {
@@ -117,6 +171,26 @@ function serialise(domain: DomainRow, includeLookups = false) {
     requirementsTotal: result === null ? null : result.requirements.length,
     state: domain.state,
     verdict: result === null ? null : result.verdict,
+  };
+}
+
+/**
+ * One domain, with the fields the list deliberately omits.
+ *
+ * `expectations` is off the list because a page of two hundred domains was sized
+ * at 389 bytes each and one DKIM key would roughly double that for a field the
+ * list does not render. On a single domain it is the cheapest rotation-debugging
+ * tool there is, and a public key is not a secret.
+ *
+ * `expectationsFingerprint` comes from the stored result rather than from the row,
+ * because it describes what the *last check* compared — which is the question
+ * worth asking after a rotation: has anything looked at the new value yet?
+ */
+function serialiseDetail(domain: DomainRow, includeLookups = false) {
+  return {
+    ...serialise(domain, includeLookups),
+    expectations: domain.expectations ?? null,
+    expectationsFingerprint: domain.lastResult?.expectationsFingerprint ?? null,
   };
 }
 
@@ -159,7 +233,28 @@ export function createDomainsRoute(options: {
       return error(c, 422, `no profile named "${parsed.data.profile}"`);
     }
 
+    /**
+     * Now that the profile is known, whether these values fit it is decidable.
+     *
+     * Refused here rather than discovered at the first sweep: a domain whose
+     * profile requires a DKIM key it never received is one that can only ever
+     * report `indeterminate`, and finding that out from a dashboard days later is
+     * strictly worse than finding out from this response.
+     */
+    const unsatisfied = rejectExpectations(
+      parsed.data.profile,
+      profile.definition,
+      parsed.data.expectations ?? null
+    );
+
+    if (unsatisfied !== null) {
+      return error(c, 422, unsatisfied);
+    }
+
     const outcome = await registerDomain(db, {
+      ...(parsed.data.expectations === undefined
+        ? {}
+        : { expectations: parsed.data.expectations }),
       ...(parsed.data.externalId === undefined
         ? {}
         : { externalId: parsed.data.externalId }),
@@ -176,10 +271,126 @@ export function createDomainsRoute(options: {
       );
     }
 
-    return success(c, serialise(outcome.domain), {
+    return success(c, serialiseDetail(outcome.domain), {
       // Re-sending an external id is what a partner's retry does. Saying which
-      // happened lets them tell a retry from a second customer.
+      // happened lets them tell a retry from a second customer. It also means
+      // `created: false` is the signal that any expectations in this request were
+      // *not* applied — rotating a value is PATCH, not a second POST.
       created: outcome.kind === "created",
+    });
+  });
+
+  /**
+   * Change a domain's values, its profile, or both.
+   *
+   * This route is what makes per-domain expectations usable rather than
+   * write-once. A platform rotating a DKIM key has to be able to tell us the new
+   * one, and the obvious alternative — re-POSTing with the same `externalId` —
+   * answers 200 having written nothing, because that path is deliberately
+   * idempotent. A success response for a no-op, with the sweeper still comparing
+   * the old key, is the worst of the available failures.
+   *
+   * Re-pointing to another profile is the same operation and shares the code path.
+   * A tenant moving a customer from `sending-only` to `full-mail` and a tenant
+   * rotating a key are both saying "judge this domain against something else now",
+   * and both invalidate the previous verdict in the same way.
+   */
+  route.patch("/:id", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const parsed = updateSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return error(c, 422, firstIssue(parsed.error));
+    }
+
+    const tenantId = c.get("tenantId");
+    const domain = await domainById(db, tenantId, c.req.param("id"));
+
+    if (domain === undefined) {
+      return error(c, 404, "no such domain");
+    }
+
+    let profile: ProfileVersion | undefined;
+
+    if (parsed.data.profile === undefined) {
+      profile = await profileVersionById(db, tenantId, domain.profileVersionId);
+
+      if (profile === undefined) {
+        // The reference does not cascade precisely so this cannot happen
+        // silently. Same answer as the verify route gives.
+        return error(
+          c,
+          500,
+          `domain ${domain.id} is pinned to profile version ${domain.profileVersionId}, which no longer exists`
+        );
+      }
+    } else {
+      profile = await currentProfileVersion(db, tenantId, parsed.data.profile);
+
+      if (profile === undefined) {
+        return error(c, 422, `no profile named "${parsed.data.profile}"`);
+      }
+    }
+
+    /**
+     * Validated against the effective pair, not the submitted one.
+     *
+     * A re-point that leaves a required field unsupplied has to fail here, with
+     * the domain untouched. Writing it and letting the next sweep discover the
+     * gap would turn a fixable 422 into a domain stuck at `indeterminate` — and
+     * `pending`, so it would look like it was merely still being verified.
+     *
+     * Which check depends on where the values came from. Anything submitted gets
+     * the strict one, so a mistyped key is caught while the caller is still
+     * looking. Values only carried forward get the lenient one: a domain
+     * re-pointed at another profile keeps the keys its previous one asked for, and
+     * those are legitimately unknown to the new definition rather than a mistake.
+     *
+     * Stale keys are retained rather than pruned. The merge already ignores
+     * anything the profile did not ask for, and pruning would make re-pointing
+     * lossy: going back would mean re-sending values we already had.
+     */
+    const effective =
+      parsed.data.expectations === undefined
+        ? domain.expectations
+        : parsed.data.expectations;
+    const unsatisfied =
+      parsed.data.expectations === undefined
+        ? rejectUnsatisfiedExpectations(
+            profile.key,
+            profile.definition,
+            effective
+          )
+        : rejectExpectations(profile.key, profile.definition, effective);
+
+    if (unsatisfied !== null) {
+      return error(c, 422, unsatisfied);
+    }
+
+    const updated = await updateDomainConfig(db, tenantId, domain.id, {
+      ...(parsed.data.expectations === undefined
+        ? {}
+        : { expectations: parsed.data.expectations }),
+      ...(parsed.data.profile === undefined
+        ? {}
+        : { profileVersionId: profile.id }),
+    });
+
+    if (updated === undefined) {
+      // Deleted between the read and the write.
+      return error(c, 404, "no such domain");
+    }
+
+    /**
+     * No webhook, and no transition row.
+     *
+     * The domain going back to `pending` is not news about the customer's DNS —
+     * it is news about us, and they are the ones who just told us. `pending` is
+     * not an event any webhook fires on, so this needs no suppression beyond not
+     * inventing one.
+     */
+    return success(c, serialiseDetail(updated), {
+      profileVersionId: profile.id,
     });
   });
 
@@ -262,7 +473,7 @@ export function createDomainsRoute(options: {
 
     return success(
       c,
-      serialise(
+      serialiseDetail(
         {
           ...domain,
           lastCheckedAt: checked.checkedAt,
@@ -316,7 +527,7 @@ export function createDomainsRoute(options: {
       return error(c, 404, "no such domain");
     }
 
-    return success(c, serialise(domain, true));
+    return success(c, serialiseDetail(domain, true));
   });
 
   route.get("/:id/timeline", async (c) => {

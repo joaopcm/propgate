@@ -94,7 +94,21 @@ function stateForFailures(
     return "failed";
   }
 
-  if (failures >= thresholds.degradedAfter) {
+  /**
+   * `degraded` is a regression, so it needs something to have regressed from.
+   *
+   * A domain nobody has verified yet cannot have got worse. It stays `pending`
+   * until it has failed enough times to be `failed` outright — which is the
+   * honest reading of a customer who has not finished adding their records.
+   *
+   * Without this, two things fire `domain.degraded` when they should not: a
+   * freshly registered domain whose first check finds nothing published, and a
+   * domain reset to `pending` because its expectations were rotated. Both would
+   * be a webhook saying "this used to work" about something that never did.
+   */
+  const couldRegress = current === "verified" || current === "degraded";
+
+  if (couldRegress && failures >= thresholds.degradedAfter) {
     return "degraded";
   }
 

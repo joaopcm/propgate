@@ -5,6 +5,7 @@ import { ParamsTable } from "@/components/docs/params-table";
 import {
   REGISTER_CLI,
   REGISTER_CURL,
+  REGISTER_MISSING_EXPECTATION,
   REGISTER_NAME_TAKEN,
   REGISTER_RESPONSE,
 } from "./_snippets";
@@ -12,7 +13,7 @@ import {
 # Register a domain
 
 <EndpointHeader
-  cliCommand="propgate domains add <domain> --profile <key> [--external-id <id>]"
+  cliCommand="propgate domains add <domain> --profile <key> [--expect <requirement>.<field>=<value>]"
   method="POST"
   path="/v1/domains"
 />
@@ -39,6 +40,12 @@ thousand DNS runs as a side effect of a bulk insert.
       name: "externalId",
       type: "string",
     },
+    {
+      description:
+        "The values this profile requires per domain, keyed by requirement key then field — e.g. {\"dkim\": {\"expectedPublicKey\": \"MIIB...\"}}. Every field named in a requirement's requiredPerDomain must appear, or this call is a 422. A key or field the profile did not ask for is also a 422, rather than ignored.",
+      name: "expectations",
+      type: "object",
+    },
   ]}
 />
 
@@ -56,8 +63,26 @@ second row, it returns the domain that already exists. `meta.created` is what
 lets your retry logic tell "this is the customer I already had" from "this is
 a new one" without keeping a mapping table of its own.
 
+Because that branch writes nothing, it is **not** how you rotate a value. Sending
+the same `externalId` with new `expectations` returns `200` having changed nothing,
+and the sweeper keeps comparing the old value. Use
+[update](/api/domains/update) instead.
+
 Registering a name that already exists under a **different** external id is a
 `409` — that would be two records of one domain, and quietly returning one of
 them would hide it:
 
 <CodeBlock code={REGISTER_NAME_TAKEN} lang="json" />
+
+## Values the profile requires
+
+If the profile names anything in `requiredPerDomain`, those values are part of
+registering. Omit one and the call is refused, naming the path to set:
+
+<CodeBlock code={REGISTER_MISSING_EXPECTATION} lang="json" />
+
+A `422` here rather than a domain that registers and reports `indeterminate`
+forever: the second one is only discoverable from a dashboard days later, and by
+then it looks like a check that is failing rather than a value that never arrived.
+See [Profiles and versions](/concepts/profiles) for why a DKIM key belongs on the
+domain rather than in the profile.

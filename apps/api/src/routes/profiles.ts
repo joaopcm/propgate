@@ -1,5 +1,9 @@
 import type { Database, ProfileDefinition } from "@propgate/db";
-import { createProfileVersion, currentProfileVersion } from "@propgate/db";
+import {
+  createProfileVersion,
+  currentProfileVersion,
+  PER_DOMAIN_FIELDS,
+} from "@propgate/db";
 import { CHECK_KINDS } from "@propgate/dns";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -28,6 +32,14 @@ const requirementSchema = z.object({
   expectsMail: z.boolean().optional(),
   include: z.string().min(1).max(MAX_VALUE_LENGTH).optional(),
   key: z.string().min(1).max(MAX_KEY_LENGTH),
+  /**
+   * Which of this requirement's values the domain supplies instead.
+   *
+   * Whether a named field makes sense for the check kind, and whether it clashes
+   * with a literal, is `rejectDefinition`'s job — a zod enum can say the field
+   * exists but not that `include` means nothing to a DKIM check.
+   */
+  requiredPerDomain: z.array(z.enum(PER_DOMAIN_FIELDS)).min(1).optional(),
   selector: z.string().min(1).max(MAX_SELECTOR_LENGTH).optional(),
 });
 

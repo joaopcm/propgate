@@ -14,6 +14,19 @@ export const ADD_CURL = `curl -X POST https://api.propgate.dev/v1/domains \\
 export const ADD_CLI =
   "npx @propgate/cli domains add yourdomain.dev --profile sending";
 
+export const ADD_EXPECT_CURL = `curl -X POST https://api.propgate.dev/v1/domains \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
+  -H "content-type: application/json" -d '{
+    "name": "yourdomain.dev",
+    "profile": "sending",
+    "expectations": {
+      "dkim": { "expectedPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A..." }
+    }
+  }'`;
+
+export const ADD_EXPECT_CLI = `npx @propgate/cli domains add yourdomain.dev --profile sending \\
+  --expect dkim.expectedPublicKey=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...`;
+
 export const ADD_OUTPUT = `yourdomain.dev registered as 019fcf4f-....
 
 Nothing has been checked yet — the sweeper will pick it up.`;

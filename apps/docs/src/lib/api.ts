@@ -15,6 +15,15 @@ import type { CheckKind, Verdict } from "@propgate/dns";
 export interface RequirementType {
   /** What the tenant states, beyond the check name. */
   readonly fields: readonly { readonly name: string; readonly note: string }[];
+  /**
+   * Fields this check kind can take from the domain rather than from the profile.
+   *
+   * Named in a requirement's `requiredPerDomain`, supplied in a domain's
+   * `expectations`. Plain data here rather than imported, so the docs build does
+   * not pull a database driver in for a table — `api.spec.ts` asserts it against
+   * `PER_DOMAIN_FIELDS_BY_CHECK`, which is the source of truth.
+   */
+  readonly perDomain: readonly string[];
   readonly repeatable: boolean;
   readonly summary: string;
 }
@@ -24,33 +33,40 @@ export const REQUIREMENT_TYPES: Record<CheckKind, RequirementType> = {
     fields: [
       {
         name: "caaIssuer",
-        note: "Required. The CA that must be authorised, e.g. letsencrypt.org.",
+        note: "Required, unless named in requiredPerDomain. The CA that must be authorised, e.g. letsencrypt.org.",
       },
     ],
+    perDomain: ["caaIssuer"],
     repeatable: false,
     summary:
-      "The CAA tree authorises a named certificate authority. Rejected without an issuer: the evaluator has nothing to compare against, so the requirement could never be reported on.",
+      "The CAA tree authorises a named certificate authority. Rejected without an issuer, from either side: the evaluator has nothing to compare against, so the requirement could never be reported on.",
   },
   delegation: {
     fields: [],
+    perDomain: [],
     repeatable: false,
     summary:
       "Every nameserver in the delegation answers authoritatively and agrees. Catches lame delegations and stale NS records, which look like intermittent outages to everyone else.",
   },
   dkim: {
     fields: [
-      { name: "selector", note: "Required. The label before _domainkey." },
+      {
+        name: "selector",
+        note: "Required, unless named in requiredPerDomain. The label before _domainkey.",
+      },
       {
         name: "expectedPublicKey",
-        note: "Optional. The key you issued. Supplying it turns “a valid key is published” into “your key is published”, which is what catches a domain that pasted someone else's record.",
+        note: "Optional. The key you issued. Supplying it turns “a valid key is published” into “your key is published”, which is what catches a domain that pasted someone else's record. Usually issued per domain, so usually named in requiredPerDomain rather than set here.",
       },
     ],
+    perDomain: ["expectedPublicKey", "selector"],
     repeatable: true,
     summary:
       "A selector publishes a valid, usable key. The one requirement type that may appear more than once, because DKIM answers a question per selector rather than per domain.",
   },
   dmarc: {
     fields: [],
+    perDomain: [],
     repeatable: false,
     summary:
       "A valid DMARC record is discoverable at the right name. A p=none policy is a warning, not a failure — there is deliberately no way to require a minimum policy, because the evaluator cannot assert one and a requirement nobody can evaluate is a promise this API would not keep.",
@@ -62,6 +78,9 @@ export const REQUIREMENT_TYPES: Record<CheckKind, RequirementType> = {
         note: "Optional, and tri-state. Omit it if you do not know. false asserts the domain receives no mail, which makes a null MX correct rather than a fault.",
       },
     ],
+    // Deliberately empty. `expectsMail` asserts what the domain is *for*, which
+    // is what a profile is; it is not a value a platform issues per domain.
+    perDomain: [],
     repeatable: false,
     summary:
       "Mail is deliverable, or correctly declared undeliverable. Whether a null MX is right depends entirely on intent, which no amount of looking at DNS reveals.",
@@ -72,11 +91,8 @@ export const REQUIREMENT_TYPES: Record<CheckKind, RequirementType> = {
         name: "include",
         note: "Optional. The include: token you publish. Expanded recursively, the way an MTA would, with the RFC 7208 ten-lookup and two-void-lookup limits enforced.",
       },
-      {
-        name: "ip",
-        note: "Optional. A specific sending address to evaluate the record against.",
-      },
     ],
+    perDomain: ["include"],
     repeatable: false,
     summary:
       "The SPF record authorises your sending infrastructure and is within the RFC limits.",
@@ -191,7 +207,14 @@ export const ENDPOINTS: readonly Endpoint[] = [
     method: "POST",
     path: "/v1/domains",
     summary:
-      "Register a domain against a profile. Does not touch DNS. The domain starts pending.",
+      "Register a domain against a profile, with the values that profile requires per domain. Does not touch DNS. The domain starts pending.",
+  },
+  {
+    cli: "propgate domains update <id>",
+    method: "PATCH",
+    path: "/v1/domains/:id",
+    summary:
+      "Change the values a domain is judged against, the profile it is pinned to, or both. Resets it to pending; fires no webhook.",
   },
   {
     cli: "propgate domains check <id>",

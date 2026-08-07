@@ -1,5 +1,6 @@
 import type {
   Database,
+  DomainExpectations,
   DomainResult,
   DomainState,
   ProfileDefinition,
@@ -10,6 +11,7 @@ import { recordObservation, recordTransition, saveCheck } from "@propgate/db";
 import type { CheckResult, ServerAddress } from "@propgate/dns";
 import { runChecksAcrossVantagePoints } from "@propgate/dns";
 import {
+  attributeMissing,
   attributeResults,
   compileProfile,
   overallVerdict,
@@ -60,10 +62,28 @@ export interface CheckSettings {
 }
 
 export interface CheckableDomain {
+  /**
+   * When this domain's values or its pinned profile last changed.
+   *
+   * Null for a row registered before the column existed, where `createdAt` is the
+   * right stand-in — registration is when a domain's configuration was set.
+   */
+  readonly configChangedAt: Date | null;
   readonly consecutiveFailures: number;
   /** Registration time, which is when a never-verified domain became pending. */
   readonly createdAt: Date;
+  /**
+   * The values behind the profile's `requiredPerDomain` declarations.
+   *
+   * Required rather than optional, and null is the way to say "none". Both
+   * callers build this by spreading a `DomainRow`, so an optional field would let
+   * them keep compiling while passing nothing — and passing nothing used to be
+   * indistinguishable from "any valid key is fine". The type is the only thing
+   * that catches that.
+   */
+  readonly expectations: DomainExpectations | null;
   readonly id: string;
+  readonly lastCheckedAt: Date | null;
   readonly name: string;
   readonly state: DomainState;
   readonly tenantId: string;
@@ -152,6 +172,58 @@ async function recordChanges(
   );
 }
 
+/** One vantage point's conclusion, as the transition evidence records it. */
+interface VantageVerdict {
+  readonly server: string;
+  readonly verdict: string;
+}
+
+/**
+ * What a check concluded, from DNS or from refusing to ask.
+ *
+ * The two paths converge here so everything downstream — hysteresis, scheduling,
+ * the row, the transition — has exactly one shape to handle. A domain we cannot
+ * judge must still be scheduled and still be stored, and forking the persistence
+ * is how one of those gets forgotten.
+ */
+interface Assessment {
+  readonly fingerprint?: string;
+  readonly lookups: readonly StoredLookup[];
+  readonly minTtlSeconds?: number;
+  readonly requirements: readonly StoredRequirementResult[];
+  readonly vantages: readonly VantageVerdict[];
+}
+
+/**
+ * A profile whose values are not all here yet cannot be evaluated at all.
+ *
+ * No DNS is sent, deliberately. `overallVerdict` folds with `worstVerdict`, which
+ * ranks `indeterminate` above `warn`, so running the requirements that *are*
+ * complete cannot change the overall verdict, cannot move the state, and cannot
+ * append to the timeline. It would only spend up to nineteen upstream queries per
+ * check against a domain we knew in advance we could not judge — and an
+ * incomplete domain never fixes itself, so that spend never stops.
+ *
+ * What it does cost is a dashboard that says nothing about DMARC on a domain whose
+ * only fault is a missing DKIM key. That is the trade, and it is the cheap side.
+ */
+function assessIncomplete(
+  definition: ProfileDefinition,
+  missing: readonly {
+    readonly field: string;
+    readonly requirementKey: string;
+  }[]
+): Assessment {
+  return {
+    lookups: [],
+    requirements: attributeMissing(
+      definition,
+      missing as Parameters<typeof attributeMissing>[1]
+    ),
+    vantages: [],
+  };
+}
+
 export async function checkAndPersist(
   db: Database,
   input: {
@@ -164,23 +236,50 @@ export async function checkAndPersist(
   },
   now = new Date()
 ): Promise<CheckedDomain> {
-  const checked = await runChecksAcrossVantagePoints({
-    domain: input.domain.name,
-    profile: compileProfile(input.profile.definition, input.profile.id),
-    resolver: {
-      budgetMs: CHECK_BUDGET_MS,
-      maxLookups: MAX_LOOKUPS,
-      recursionDesired: true,
-      timeoutMs: PER_QUERY_TIMEOUT_MS,
-    },
-    vantagePoints: input.settings.resolvers,
-  });
+  const compiled = compileProfile(
+    input.profile.definition,
+    input.profile.id,
+    input.domain.expectations
+  );
 
-  const requirements = attributeResults(input.profile.definition, checked);
+  let assessment: Assessment;
+
+  if (compiled.kind === "incomplete") {
+    assessment = assessIncomplete(input.profile.definition, compiled.missing);
+  } else {
+    const checked = await runChecksAcrossVantagePoints({
+      domain: input.domain.name,
+      profile: compiled.profile,
+      resolver: {
+        budgetMs: CHECK_BUDGET_MS,
+        maxLookups: MAX_LOOKUPS,
+        recursionDesired: true,
+        timeoutMs: PER_QUERY_TIMEOUT_MS,
+      },
+      vantagePoints: input.settings.resolvers,
+    });
+    const minTtlSeconds = observedMinTtlSeconds(checked);
+
+    assessment = {
+      fingerprint: compiled.fingerprint,
+      lookups: storedLookups(checked),
+      ...(minTtlSeconds === undefined ? {} : { minTtlSeconds }),
+      requirements: attributeResults(input.profile.definition, checked),
+      vantages: checked.vantages.map((vantage) => ({
+        server: `${vantage.vantagePoint.address}:${vantage.vantagePoint.port}`,
+        verdict: vantage.result.verdict,
+      })),
+    };
+  }
+
+  const { requirements } = assessment;
   const overall = overallVerdict(requirements);
   const result: DomainResult = {
     checkedAt: now.toISOString(),
-    lookups: storedLookups(checked),
+    ...(assessment.fingerprint === undefined
+      ? {}
+      : { expectationsFingerprint: assessment.fingerprint }),
+    lookups: assessment.lookups,
     requirements,
     verdict: overall,
   };
@@ -194,15 +293,20 @@ export async function checkAndPersist(
     verdict: overall,
   });
   const { state } = hysteresis;
-  const minTtlSeconds = observedMinTtlSeconds(checked);
   const scheduled = nextCheckAt({
     ...(input.settings.intervals === undefined
       ? {}
       : { intervals: input.settings.intervals }),
-    ...(minTtlSeconds === undefined ? {} : { minTtlSeconds }),
+    ...(assessment.minTtlSeconds === undefined
+      ? {}
+      : { minTtlSeconds: assessment.minTtlSeconds }),
     now,
     state,
-    stateSince: input.domain.createdAt,
+    // A config change is the most recent thing that made this domain pending, so
+    // it is what the fast-pending window should be measured from. Falling back to
+    // registration for a row that predates the column, which has never had its
+    // config changed and so is correctly measured from there.
+    stateSince: input.domain.configChangedAt ?? input.domain.createdAt,
   });
 
   await saveCheck(
@@ -218,10 +322,26 @@ export async function checkAndPersist(
     now
   );
 
-  // An indeterminate check appends nothing at all. Recording the requirements
-  // that did resolve would put half a picture on the timeline, taken while the
-  // resolver was misbehaving.
-  if (overall !== "indeterminate") {
+  /**
+   * The timeline records what the *customer's* zone did, so two checks are
+   * silent.
+   *
+   * An indeterminate check appends nothing at all: recording the requirements
+   * that did resolve would put half a picture on the timeline, taken while the
+   * resolver was misbehaving.
+   *
+   * The first check after a config change appends nothing either. The compared
+   * value moved because we rotated a key or re-pointed the profile, and writing
+   * "the DKIM record changed Tuesday at 14:02" into the surface built to deflect
+   * support tickets — about a zone that did not move — is worse than a gap. The
+   * next check resumes normally with the new value as its baseline.
+   */
+  const configMoved =
+    input.domain.lastCheckedAt !== null &&
+    input.domain.configChangedAt !== null &&
+    input.domain.configChangedAt > input.domain.lastCheckedAt;
+
+  if (overall !== "indeterminate" && !configMoved) {
     await recordChanges(db, input.domain.id, requirements);
   }
 
@@ -240,10 +360,7 @@ export async function checkAndPersist(
           requirement.findings.map((finding) => finding.code)
         ),
         consecutiveFailures: hysteresis.consecutiveFailures,
-        vantages: checked.vantages.map((vantage) => ({
-          server: `${vantage.vantagePoint.address}:${vantage.vantagePoint.port}`,
-          verdict: vantage.result.verdict,
-        })),
+        vantages: assessment.vantages,
         verdict: overall,
       },
       fromState: hysteresis.transition.from,
