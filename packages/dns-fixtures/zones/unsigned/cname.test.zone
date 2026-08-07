@@ -29,6 +29,15 @@ track.flat      IN A      198.51.100.20
 ; target's addresses to compare against, and the opposite verdict.
 track.wrong     IN A      203.0.113.5
 
+; Our address and a stranger's, side by side. What a customer produces by
+; *adding* our record next to the one their previous vendor left behind, rather
+; than replacing it. Resolvers hand out the whole set, so some requests reach us
+; and some do not — the fault that reads as "it works sometimes" with nobody
+; lying, and the reason the address comparison is a subset test rather than an
+; overlap test. An overlap test passes this zone.
+track.partial   IN A      198.51.100.20
+track.partial   IN A      203.0.113.5
+
 ; An alias, pointed at somebody else. Left over from the provider the customer
 ; migrated off, which is the usual way this happens.
 track.stale     IN CNAME  track.competitor.invalid.

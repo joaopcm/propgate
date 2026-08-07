@@ -347,6 +347,30 @@ function valueFor(
 }
 
 /**
+ * What tells one repeated requirement from its siblings, once the domain's
+ * values are known. `undefined` for a kind that cannot repeat.
+ *
+ * `rejectDefinition` claims these at profile-write time, but only the ones
+ * written as literals: a deferred discriminator has no value yet, so uniqueness
+ * is not decidable there. This is the same question asked at the point it *is*
+ * decidable, which is when a domain supplies its expectations.
+ *
+ * The empty string is the apex, matching `ownershipLabel` in `@propgate/dns`.
+ */
+export function discriminatorFor(
+  requirement: ProfileRequirement,
+  expectations: DomainExpectations | null
+): string | undefined {
+  const field = DISCRIMINATOR_BY_CHECK[requirement.check];
+
+  if (field === undefined) {
+    return;
+  }
+
+  return valueFor(requirement, field, expectations) ?? "";
+}
+
+/**
  * A definition and a domain's values, merged, or the reason they cannot be.
  *
  * A value in `expectations` for a field the profile did not defer is ignored
@@ -568,6 +592,24 @@ function toRequirementFinding(finding: Finding): RequirementFinding {
  * keeps the two from drifting; the header of this file is about exactly that
  * failure.
  */
+/**
+ * The one match, or nothing at all when there is more than one.
+ *
+ * `find` would take the first, which is how two requirements resolving to one
+ * name both get the first one's verdict — so the second reads whatever the first
+ * observed, including `satisfied` for a value that was never checked. A false
+ * pass on a verification check is the worst thing this file can produce.
+ *
+ * `rejectExpectations` refuses that domain at registration, so this is a
+ * backstop rather than the fix. It is here because the two run at different
+ * times: a profile stored before the rule existed still has to be attributed,
+ * and "we cannot tell which of these is yours" is honestly `indeterminate` —
+ * which leaves the domain's state alone rather than transitioning it either way.
+ */
+function only<T>(matches: readonly T[] | undefined): T | undefined {
+  return matches?.length === 1 ? matches[0] : undefined;
+}
+
 function sourceFor(
   requirement: ProfileRequirement,
   outcome: ReturnType<typeof outcomeFor>,
@@ -576,7 +618,9 @@ function sourceFor(
   if (requirement.check === "dkim") {
     const selector = valueFor(requirement, "selector", expectations);
 
-    return outcome?.selectors?.find((entry) => entry.selector === selector);
+    return only(
+      outcome?.selectors?.filter((entry) => entry.selector === selector)
+    );
   }
 
   if (requirement.check === "ownership" || requirement.check === "cname") {
@@ -585,7 +629,7 @@ function sourceFor(
     // nothing and reads `indeterminate` forever.
     const label = valueFor(requirement, "label", expectations) ?? "";
 
-    return outcome?.records?.find((entry) => entry.label === label);
+    return only(outcome?.records?.filter((entry) => entry.label === label));
   }
 
   return outcome;

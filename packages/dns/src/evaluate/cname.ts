@@ -168,10 +168,20 @@ async function probeAppended(
 /**
  * The flattening question: are the addresses here the target's addresses?
  *
- * Reached only when no CNAME is published and something else is. An overlap of
- * one is enough — a target behind several addresses can legitimately have been
- * flattened to any subset of them, and a provider that resolved the alias once
- * and cached the result will have exactly one.
+ * Reached only when no CNAME is published and something else is. The test is
+ * **subset**, not overlap, and the difference is a false pass:
+ *
+ *  - *Subset* is what a flattening provider produces. A target behind several
+ *    addresses may legitimately have been flattened to any subset of them, and
+ *    one that resolved the alias once and cached the answer will have exactly
+ *    one. Nothing there is wrong.
+ *  - *Overlap with something left over* is a different domain entirely. It is
+ *    what a customer produces by **adding** our record next to the one their
+ *    previous vendor left behind. Resolvers hand out the whole set and clients
+ *    pick from it, so some requests reach us and some reach a host we have never
+ *    heard of — which the customer experiences as "it works sometimes" and
+ *    nobody is lying. Reporting that as configured is worse than reporting
+ *    nothing, because it is acted on.
  */
 async function judgeAddresses(
   context: EvaluationContext,
@@ -193,8 +203,11 @@ async function judgeAddresses(
   }
 
   const shared = observed.filter((address) => expected.found.includes(address));
+  const strangers = observed.filter(
+    (address) => !expected.found.includes(address)
+  );
 
-  if (shared.length > 0) {
+  if (shared.length > 0 && strangers.length === 0) {
     context.report(DiagnosisCode.PROVIDER_FLATTENED_CNAME, {
       detail:
         "the alias was resolved at edit time and stored as an address record, which is what this provider does to every CNAME; it points at us and it will not follow the target if the target's addresses change",
@@ -204,6 +217,17 @@ async function judgeAddresses(
     });
 
     return "pass";
+  }
+
+  if (shared.length > 0) {
+    context.report(DiagnosisCode.CNAME_TARGET_PARTIAL, {
+      detail: `${shared.length} of the ${observed.length} addresses here are ${target}'s and ${strangers.length} ${strangers.length === 1 ? "is" : "are"} not; clients pick from the whole set, so requests for this name are split between us and somewhere else — usually a record from a previous provider that was added to rather than replaced`,
+      expected: target,
+      name,
+      observed: strangers.join(", "),
+    });
+
+    return "fail";
   }
 
   context.report(DiagnosisCode.CNAME_TARGET_MISMATCH, {

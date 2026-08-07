@@ -45,6 +45,8 @@ export const DiagnosisCode = {
   CNAME_RECORD_MISSING: "CNAME_RECORD_MISSING",
   /** Something is published here and it does not point at the issued target. */
   CNAME_TARGET_MISMATCH: "CNAME_TARGET_MISMATCH",
+  /** Some addresses here are the target's and some are somebody else's. */
+  CNAME_TARGET_PARTIAL: "CNAME_TARGET_PARTIAL",
   /** A valid key, but not the one the profile expects. */
   DKIM_KEY_MISMATCH: "DKIM_KEY_MISMATCH",
   /** p= is empty, which RFC 6376 defines as revocation. */
@@ -267,6 +269,13 @@ export const DIAGNOSIS_REGISTRY: Readonly<
     slug: "cname-target-mismatch",
     summary:
       "This name points somewhere other than the target that was issued for it, so traffic for it does not arrive.",
+  },
+  CNAME_TARGET_PARTIAL: {
+    code: DiagnosisCode.CNAME_TARGET_PARTIAL,
+    severity: "error",
+    slug: "cname-target-partial",
+    summary:
+      "Some of the addresses at this name are the right ones and some belong to somewhere else, so only some requests for it arrive.",
   },
   DKIM_KEY_MISMATCH: {
     code: DiagnosisCode.DKIM_KEY_MISMATCH,

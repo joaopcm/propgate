@@ -148,3 +148,74 @@ describe("values carried forward rather than submitted", () => {
     );
   });
 });
+
+describe("values that would collapse two requirements onto one name", () => {
+  const TWO_TOKENS: ProfileDefinition = {
+    requirements: [
+      { check: "ownership", key: "a", requiredPerDomain: ["label", "token"] },
+      { check: "ownership", key: "b", requiredPerDomain: ["label", "token"] },
+    ],
+  };
+
+  it("refuses a domain supplying one label for both", () => {
+    /**
+     * The write-time half of the fix. `rejectDefinition` cannot see this: at
+     * profile-write time neither label has a value yet, so uniqueness is not
+     * decidable. Here it is, and refusing is what stops the domain from ever
+     * reaching attribution — where two outcomes share a label, only one can be
+     * taken, and the requirement that loses reads its neighbour's verdict.
+     */
+    expect(
+      rejectExpectations("own", TWO_TOKENS, {
+        a: { label: "_pg", token: "T1" },
+        b: { label: "_pg", token: "T2" },
+      })
+    ).toContain("neither result could be told from the other");
+  });
+
+  it("accepts the same pair at different labels", () => {
+    expect(
+      rejectExpectations("own", TWO_TOKENS, {
+        a: { label: "_pg-one", token: "T1" },
+        b: { label: "_pg-two", token: "T2" },
+      })
+    ).toBeNull();
+  });
+
+  it("names the apex rather than an empty string", () => {
+    // A label is optional for ownership, so two requirements deferring only the
+    // token both land at the apex. The message has to say where.
+    expect(
+      rejectExpectations(
+        "own",
+        {
+          requirements: [
+            { check: "ownership", key: "a", requiredPerDomain: ["token"] },
+            { check: "ownership", key: "b", requiredPerDomain: ["token"] },
+          ],
+        },
+        { a: { token: "T1" }, b: { token: "T2" } }
+      )
+    ).toContain("the apex");
+  });
+
+  it("reports a missing value as missing rather than as a collision", () => {
+    // Two requirements with nothing behind them resolve to the same empty
+    // discriminator. Reporting that as a collision names the wrong fault and
+    // sends the caller to change a label instead of supplying a token.
+    expect(
+      rejectExpectations("own", TWO_TOKENS, { a: { label: "_pg" } })
+    ).toContain("which was not supplied");
+  });
+
+  it("applies to values carried forward, not only to submitted ones", () => {
+    // A domain re-pointed at another profile keeps its old values. If those
+    // collide under the new definition, the domain is unverifiable either way.
+    expect(
+      rejectUnsatisfiedExpectations("own", TWO_TOKENS, {
+        a: { label: "_pg", token: "T1" },
+        b: { label: "_pg", token: "T2" },
+      })
+    ).toContain("neither result could be told from the other");
+  });
+});

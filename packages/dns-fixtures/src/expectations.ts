@@ -61,10 +61,11 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
     codes: [
       "CNAME_RECORD_MISSING",
       "CNAME_TARGET_MISMATCH",
+      "CNAME_TARGET_PARTIAL",
       "PROVIDER_FLATTENED_CNAME",
     ],
     reason:
-      "The alias behind every custom subdomain, and the reason it needs an evaluator rather than a lookup: `flat` publishes an address record carrying track.propgate-fixture.test's own address, which is what a provider that resolves aliases at edit time leaves behind. It is correct configuration and indistinguishable from the wrong address next to it without resolving the target we issued. Keep the two addresses in step or `flat` stops testing flattening.",
+      "The alias behind every custom subdomain, and the reason it needs an evaluator rather than a lookup: `flat` publishes an address record carrying track.propgate-fixture.test's own address, which is what a provider that resolves aliases at edit time leaves behind. It is correct configuration and indistinguishable from the wrong address next to it without resolving the target we issued. `partial` carries both at once, which is what an overlap test passes and a subset test catches — the customer added our record beside their old vendor's instead of replacing it, so some requests arrive and some do not. Keep the addresses in step with propgate-fixture.test or `flat` stops testing flattening.",
     role: "auth",
     zone: "cname.test",
   },

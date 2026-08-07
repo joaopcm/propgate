@@ -81,6 +81,30 @@ describe("a provider that flattened the alias", () => {
     ).toMatchObject({ observed: "198.51.100.20" });
   });
 
+  it("fails when one of our addresses sits beside a stranger's", async () => {
+    /**
+     * The regression this pair exists for. An overlap test passes `partial`: it
+     * finds 198.51.100.20 among the addresses and stops looking. But resolvers
+     * hand out the whole set and clients pick from it, so half the requests for
+     * this name reach a host we have never heard of — which the customer
+     * experiences as "it works sometimes" and which a green tick makes them
+     * stop investigating.
+     */
+    const result = await evaluate({
+      domain: "partial.cname.test",
+      label: "track",
+      target: TARGET,
+    });
+
+    expect(result.verdict).toBe("fail");
+    expect(codes(result)).toEqual([DiagnosisCode.CNAME_TARGET_PARTIAL]);
+    // The evidence is the stranger, not the address that is fine — that is the
+    // record the customer has to remove.
+    expect(
+      evidenceOf(result, DiagnosisCode.CNAME_TARGET_PARTIAL)
+    ).toMatchObject({ observed: "203.0.113.5" });
+  });
+
   it("fails an address record that is not the target's", async () => {
     // Identical in shape to the case above and the opposite verdict. Only the
     // target's own addresses separate them.

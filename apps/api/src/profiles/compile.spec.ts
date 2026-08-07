@@ -724,6 +724,51 @@ describe("attributeResults", () => {
     expect(attributed[0]).toMatchObject({ satisfied: true, verdict: "pass" });
   });
 
+  it("refuses to guess when two requirements resolve to one label", () => {
+    /**
+     * The regression. Two requirements deferring their label, a domain supplying
+     * the same label for both, and different tokens behind them. `find` took the
+     * first record for both, so the second requirement was reported against a
+     * token it never asked about — `satisfied: true` for a value nobody
+     * published, which is the worst thing attribution can produce.
+     *
+     * `rejectExpectations` refuses this domain at registration. This is the
+     * backstop for a profile stored before that rule existed: unattributable,
+     * so `indeterminate`, which leaves the domain's state alone rather than
+     * transitioning it on a guess.
+     */
+    const definition: ProfileDefinition = {
+      requirements: [
+        { check: "ownership", key: "a", requiredPerDomain: ["label", "token"] },
+        { check: "ownership", key: "b", requiredPerDomain: ["label", "token"] },
+      ],
+    };
+
+    const attributed = attributeResults(
+      definition,
+      result([
+        {
+          findings: [],
+          kind: "ownership",
+          lookups: [],
+          records: [
+            { findings: [], label: "_pg", lookups: [], verdict: "pass" },
+            { findings: [], label: "_pg", lookups: [], verdict: "fail" },
+          ],
+          verdict: "fail",
+        },
+      ]),
+      { a: { label: "_pg", token: "T1" }, b: { label: "_pg", token: "T2" } }
+    );
+
+    for (const entry of attributed) {
+      expect(entry).toMatchObject({
+        satisfied: false,
+        verdict: "indeterminate",
+      });
+    }
+  });
+
   it("counts a warning as met, because it describes something that works", () => {
     const attributed = attributeResults(
       { requirements: [{ check: "dmarc", key: "dmarc" }] },

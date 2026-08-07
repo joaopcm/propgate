@@ -22,13 +22,27 @@ the fixture standing in for our infrastructure was already there, waiting for an
 evaluator that knew which addresses to compare against. `NOT_YET_EMITTED` is now
 empty.
 
+The address comparison is a **subset** test rather than an overlap test, which
+is the difference between a pass and a false pass: a flattening provider stores
+some subset of the target's addresses and nothing else, while a customer who
+*added* our record beside their previous vendor's leaves one of ours and one of
+theirs. Resolvers hand out the whole set, so requests split between us and a
+host we have never heard of — which reads as "it works sometimes" and is
+reported as `CNAME_TARGET_PARTIAL`.
+
 New diagnosis codes: `OWNERSHIP_TOKEN_MISSING`, `OWNERSHIP_TOKEN_MISMATCH`,
-`CNAME_RECORD_MISSING`, `CNAME_TARGET_MISMATCH`. All four are fixture-backed.
+`CNAME_RECORD_MISSING`, `CNAME_TARGET_MISMATCH`, `CNAME_TARGET_PARTIAL`. All
+five are fixture-backed.
 `PROVIDER_APPENDED_ZONE_NAME` now also covers an alias whose *target* was
 appended to, which is a value the customer pasted correctly and must not read as
 pointing somewhere else on purpose.
 
 Both kinds repeat within a profile, so `CheckOutcome` gains `records`, keyed by
-label the way `selectors` is keyed by selector. `propgate check` gains `--token`,
+label the way `selectors` is keyed by selector. Two requirements resolving to one
+label are now refused when a domain supplies the values, and attribution returns
+nothing rather than the first match when it cannot tell two apart — previously
+the second requirement inherited the first's verdict, which could report a
+domain verified for a token nobody published. That last part fixes the same
+latent hole for DKIM selectors. `propgate check` gains `--token`,
 `--token-at` and `--cname <label>=<target>`, and refuses `--only ownership` or
 `--only cname` with nothing to compare against rather than reporting nothing.
