@@ -184,12 +184,22 @@ export function DocsSearch() {
   const tokens = useMemo(() => tokenize(query), [query]);
   const showMenu = open && query.trim() !== "";
 
+  /**
+   * `useKey: true` is load-bearing, not a preference.
+   *
+   * Without it `react-hotkeys-hook` matches on `event.code`, which for this key
+   * is `Slash` — never equal to the hotkey `"/"`, so the binding silently never
+   * fires. It is also the right semantics: the reader is asking for the
+   * character they typed, and on a German layout `/` is Shift+7 on a physical
+   * key whose `code` is `Digit7`. Matching the character works everywhere;
+   * matching the position works on US layouts and nowhere else.
+   */
   useHotkeys(
     "/",
     () => {
       inputRef.current?.focus();
     },
-    { preventDefault: true }
+    { preventDefault: true, useKey: true }
   );
 
   const go = useCallback(
