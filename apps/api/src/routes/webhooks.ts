@@ -64,7 +64,22 @@ const DELIVERY_STATUSES: readonly DeliveryStatus[] = [
 const BLOCKED_HOSTS =
   /^(localhost|127\.|0\.0\.0\.0|10\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?)/i;
 
-function rejectUrl(raw: string): string | null {
+/**
+ * A complaint about a URL, or null to accept it.
+ *
+ * Injected rather than read from the environment, and the distinction is the
+ * whole point: an env flag that relaxes this would exist in the production
+ * binary, one `docker run -e` away from being switched on during an incident by
+ * someone who needed a webhook to work. A parameter cannot be set by a
+ * deployment — the only caller that can pass a different policy is one that
+ * constructs the app in-process, which is a test.
+ *
+ * The reason it needs relaxing at all: an end-to-end spec has to register a
+ * receiver it can actually observe, and that receiver is on loopback.
+ */
+export type WebhookUrlPolicy = (raw: string) => string | null;
+
+export const rejectPublicWebhookUrl: WebhookUrlPolicy = (raw) => {
   let parsed: URL;
 
   try {
@@ -82,7 +97,7 @@ function rejectUrl(raw: string): string | null {
   }
 
   return null;
-}
+};
 
 const eventsSchema = z.array(z.enum(WEBHOOK_EVENTS)).optional();
 
@@ -125,9 +140,13 @@ function boundedLimit(raw: string | undefined): number {
     : DEFAULT_DELIVERY_LIMIT;
 }
 
-export function createWebhooksRoute(options: { db: Database }) {
+export function createWebhooksRoute(options: {
+  db: Database;
+  urlPolicy?: WebhookUrlPolicy;
+}) {
   const route = new Hono<{ Variables: AuthVariables }>();
   const { db } = options;
+  const rejectUrl = options.urlPolicy ?? rejectPublicWebhookUrl;
 
   route.post("/", async (c) => {
     const body = await c.req.json().catch(() => null);

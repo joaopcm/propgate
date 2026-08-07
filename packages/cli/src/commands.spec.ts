@@ -773,6 +773,22 @@ describe("webhooks", () => {
     expect(received).toHaveLength(0);
   });
 
+  it("lets loopback through and leaves the decision to the server", async () => {
+    /**
+     * The https rule is a statement about a network, and loopback has none —
+     * the same line browsers draw for secure contexts. Refusing it here would
+     * mean the CLI could never talk to a self-hosted API, because this runs
+     * before any request and the CLI cannot know what that server permits.
+     * api.propgate.dev still refuses it, which is where the answer belongs.
+     */
+    reply("POST /v1/webhooks", ok(ENDPOINT), 201);
+
+    expect(
+      await run("webhooks", "create", "--url", "http://127.0.0.1:8080/hooks")
+    ).toBe(0);
+    expect(received).toHaveLength(1);
+  });
+
   it("rejects an event the API does not have", async () => {
     expect(
       await run(

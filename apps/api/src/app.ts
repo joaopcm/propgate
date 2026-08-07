@@ -32,6 +32,7 @@ import {
   SIGNUP_RATE_LIMIT_WINDOW_MS,
   SIGNUPS_PER_IP_PER_HOUR,
 } from "./routes/signup";
+import type { WebhookUrlPolicy } from "./routes/webhooks";
 import { createWebhooksRoute } from "./routes/webhooks";
 import { RateLimiter } from "./utils/rate-limit";
 
@@ -79,6 +80,15 @@ export function createApp(options: {
   resolvers?: readonly ServerAddress[];
   /** Hysteresis thresholds. Defaults are in `hysteresis.ts`. */
   thresholds?: HysteresisThresholds;
+  /**
+   * Which webhook URLs are acceptable. Defaults to `rejectPublicWebhookUrl`,
+   * which is https-only and refuses private addresses.
+   *
+   * A parameter and never an env var: see the note on `WebhookUrlPolicy`. The
+   * only thing that can pass a different one is a caller holding this function,
+   * which is a test — a deployment has no way to reach it.
+   */
+  webhookUrlPolicy?: WebhookUrlPolicy;
   /** Absent means deliveries are recorded but wait for the reconciler. */
   webhooks?: Queue<DeliverWebhookPayload>;
 }) {
@@ -191,7 +201,15 @@ export function createApp(options: {
     app.route("/v1/api-keys", createApiKeysRoute({ db }));
     app.route("/v1/members", createMembersRoute({ db }));
     app.route("/v1/profiles", createProfilesRoute({ db }));
-    app.route("/v1/webhooks", createWebhooksRoute({ db }));
+    app.route(
+      "/v1/webhooks",
+      createWebhooksRoute({
+        db,
+        ...(options.webhookUrlPolicy === undefined
+          ? {}
+          : { urlPolicy: options.webhookUrlPolicy }),
+      })
+    );
     app.route(
       "/v1/domains",
       createDomainsRoute({

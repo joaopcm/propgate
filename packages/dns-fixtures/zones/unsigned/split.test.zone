@@ -28,3 +28,21 @@ $TTL 300
 
 ; Authorises the platform. The divergent side does not.
 @                   IN TXT  "v=spf1 include:one.spf.test -all"
+
+; The selector the platform issued, present on this side only.
+;
+; The SPF divergence above cannot move a domain's state, and that is not a
+; defect in it: evaluating `include:one.spf.test` needs zones dns-divergent does
+; not serve, so from that vantage point the answer is SPF_TEMPORARY_FAILURE —
+; `indeterminate`, which by design changes nothing. Correct for SPF, useless for
+; anything that has to observe a transition.
+;
+; DKIM is one lookup inside this zone, so dns-divergent answers NODATA on its
+; own authority and the verdict is a clean `fail`. That is what lets the
+; end-to-end spec drive verified -> degraded -> failed -> recovered by moving
+; between vantage points, with no zone edited while a test is running.
+;
+; The key is byte-identical to customer.test's, so one expectation value serves
+; both domains. Keep it that way, or `cli.e2e.spec.ts` needs two.
+pg1._domainkey         IN TXT ( "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApbBuIv1NwQ/rmgGPN8OufvLBfd2asvyk4ajVkiW2CsC12MohickhGufJPsGNyO/ZXD4b/HnClukz07BZwpJe80wz0w/AfhJCqM8F3v/aVHF7wWnd9wBBPBroTL7kNx5u39NnBZZj8SYJF7zNaQ3rud4ekF+GAyTovT7MUfXHQBgEZn0n5Y4dN7b7VEMi4/97T"
+                                "DCNDJucFywdDmbJ9r6LaCu+l+gWfZGl4rDimTJCw3oCQIpCOGlNrWPwxRLuB0sLR2gR1GT9EqBg3yGforXasq2wqBuZlpI1YXmdldEZh3VRIyft4TeVTHRJAf7/TKuAINb8+LOoXHj5hFYl+C4zUQIDAQAB" )

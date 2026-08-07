@@ -16,6 +16,22 @@ import {
 const MAX_DELIVERY_LIMIT = 200;
 const MAX_ROTATION_WINDOW_HOURS = 168;
 
+/**
+ * The one address `http://` is allowed for.
+ *
+ * The reason a webhook URL must be https is that the signature protects the
+ * body and not the connection — so it is a statement about a network, and
+ * loopback has none. This is the same line browsers draw when they treat
+ * `http://127.0.0.1` as a secure context.
+ *
+ * Refusing it here anyway would mean the CLI cannot talk to a self-hosted API,
+ * because this check happens before any request is made and the CLI has no way
+ * to know what the server on the other end permits. api.propgate.dev still
+ * refuses loopback outright, so this relaxes nothing for anyone pointed at us:
+ * it moves the final say to the server, which is the only side that knows.
+ */
+const LOOPBACK = /^http:\/\/(127\.\d+\.\d+\.\d+|\[?::1\]?|localhost)(:\d+)?\//i;
+
 interface WebhookRow {
   readonly createdAt: string;
   readonly disabled: boolean;
@@ -405,7 +421,7 @@ export const webhooksCommands: readonly Command[] = [
         prompt: "Where should we POST?",
         required: true,
         validate: (value) =>
-          value.startsWith("https://")
+          value.startsWith("https://") || LOOPBACK.test(value)
             ? undefined
             : "a webhook URL must start with https://",
       },
