@@ -32,10 +32,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@clack/prompts": "^1.7.0",
     "@propgate/dns": "workspace:*"
   },
   "devDependencies": {
     "@propgate/dns-fixtures": "workspace:*",
+    "@propgate/webhooks": "workspace:*",
     "@types/node": "^24.13.3",
     "tsup": "^8.5.1",
     "typescript": "^5.7",

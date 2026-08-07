@@ -1,177 +1,186 @@
-import { getServers } from "node:dns";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import {
-  CHECK_KINDS,
-  type CheckResult,
-  DIAGNOSIS_REGISTRY,
-  type DomainProfile,
-  runChecks,
-  type ServerAddress,
-} from "@propgate/dns";
-import { ACCOUNT_USAGE, isAccountCommand, runAccountCommand } from "./account";
-import { type Options, parse, parseResolver, USAGE } from "./args";
-import { exitCodeFor, render, type Style } from "./report";
+import { parseArgs } from "node:util";
+import { optionsFor, readArgs, usageFor } from "./args";
+import type { Command } from "./command";
+import { familyUsage, usage as globalUsage, lookup } from "./commands/registry";
+import { credentials } from "./config";
+import { EXIT_CANCELLED, EXIT_PROBLEM, EXIT_USAGE } from "./exit";
+import { type Context, fail, requireKey } from "./output";
+import { cancelled } from "./prompt";
+import { isInteractive, resolve, surroundings } from "./resolve";
 import { version } from "./version";
 
 /**
- * `propgate check <domain>`
+ * Dispatch.
  *
- * The same engine as the public checker and the API. Three surfaces, one
- * implementation — and this is the one to reach for when a customer reports
- * something odd, because it runs against whichever resolver *they* are using
- * rather than against ours.
+ * Every command is a `Command` literal in `commands/registry.ts`, and this file
+ * does the same four things for each of them: find it, parse its own flags,
+ * fill in what is missing, run it. Adding an endpoint touches the registry and
+ * nothing here.
  */
-
-/** Generous enough that a slow authority is not mistaken for a dead one. */
-const BUDGET_MS = 15_000;
-const TIMEOUT_MS = 4000;
-const MAX_LOOKUPS = 100;
-
-const TRAILING_DOT = /\.$/;
-
-/** Reserved for "you asked for something impossible", distinct from any verdict. */
-const EXIT_USAGE = 64;
 
 /**
- * The resolver to query when none was given.
+ * Positionals before we know which option table applies.
  *
- * `node:dns` is read here for its *configuration* — `getServers` returns what
- * the machine is set up with and makes no query. The package's rule is that
- * nothing resolves through c-ares, and nothing does: every packet is still
- * built and parsed by `@propgate/dns`.
+ * `strict: false` because the command has not been identified yet, so no table
+ * can be the right one — `propgate webhooks rotate --window-hours 0` would fail
+ * on an unknown flag if this pass judged flags. It does not: it only finds the
+ * words, and the real parse immediately after is strict.
  */
-function systemResolver(): ServerAddress | string {
-  const [first] = getServers();
+function words(argv: readonly string[]): {
+  readonly positionals: readonly string[];
+  readonly values: Readonly<Record<string, unknown>>;
+} {
+  try {
+    const { positionals, values } = parseArgs({
+      allowPositionals: true,
+      args: [...argv],
+      strict: false,
+    });
 
-  if (first === undefined) {
-    return "no resolver is configured on this machine; pass --resolver";
+    return { positionals, values };
+  } catch {
+    return { positionals: [], values: {} };
   }
-
-  return parseResolver(first);
 }
 
-function profileFor(options: Options): DomainProfile {
-  return {
-    checks: options.checks ?? [...CHECK_KINDS],
-    id: "cli",
-    ...(options.expectsMail === undefined
-      ? {}
-      : { expectsMail: options.expectsMail }),
-    ...(options.caaIssuer === undefined
-      ? {}
-      : { caaIssuer: options.caaIssuer }),
-    ...(options.selectors.length === 0
-      ? {}
-      : { dkimSelectors: options.selectors }),
-    ...(options.spfInclude === undefined
-      ? {}
-      : { spfInclude: options.spfInclude }),
-  };
+function wants(
+  values: Readonly<Record<string, unknown>>,
+  flag: string
+): boolean {
+  return values[flag] === true;
 }
 
-/** The machine-readable form, carrying the taxonomy exactly as the API does. */
-function toJson(result: CheckResult) {
-  return {
-    checks: result.checks.map((outcome) => ({
-      findings: outcome.findings.map((finding) => ({
-        code: finding.code,
-        evidence: finding.evidence,
-        severity: finding.severity,
-        slug: DIAGNOSIS_REGISTRY[finding.code].slug,
-        summary: DIAGNOSIS_REGISTRY[finding.code].summary,
-      })),
-      kind: outcome.kind,
-      lookups: outcome.lookups.map((lookup) => ({
-        name: lookup.name,
-        purpose: lookup.purpose,
-        server: `${lookup.server.address}:${lookup.server.port}`,
-        status: lookup.outcome.status,
-        type: lookup.type,
-      })),
-      verdict: outcome.verdict,
-    })),
-    domain: result.domain,
-    verdict: result.verdict,
-  };
-}
+async function dispatch(
+  command: Command,
+  argv: readonly string[]
+): Promise<number> {
+  const read = readArgs(argv, optionsFor(command));
 
-async function check(options: Options): Promise<number> {
-  const resolver =
-    options.resolver === undefined
-      ? systemResolver()
-      : parseResolver(options.resolver);
+  if (!read.ok) {
+    process.stderr.write(`propgate: ${read.message}\n\n${usageFor(command)}`);
 
-  if (typeof resolver === "string") {
-    process.stderr.write(`propgate: ${resolver}\n`);
     return EXIT_USAGE;
   }
 
-  const result = await runChecks({
-    domain: options.domain.trim().replace(TRAILING_DOT, "").toLowerCase(),
-    profile: profileFor(options),
-    resolver: {
-      budgetMs: BUDGET_MS,
-      maxLookups: MAX_LOOKUPS,
-      recursionDesired: true,
-      target: resolver,
-      timeoutMs: TIMEOUT_MS,
-    },
-  });
+  if (read.values.help === true) {
+    process.stdout.write(usageFor(command));
 
-  if (options.json) {
-    process.stdout.write(`${JSON.stringify(toJson(result), null, 2)}\n`);
-  } else {
-    // Colour off when stdout is not a terminal, so a pipe stays clean.
-    const style: Style = { colour: process.stdout.isTTY === true };
-
-    process.stdout.write(
-      `${render(result, { style, trace: options.trace }).join("\n")}\n`
-    );
+    return 0;
   }
 
-  return exitCodeFor(result);
+  const json = read.values.json === true;
+  const givenApiUrl = read.values["api-url"];
+  let context: Context;
+
+  try {
+    const resolved = credentials({
+      apiUrl: typeof givenApiUrl === "string" ? givenApiUrl : undefined,
+    });
+
+    context = {
+      apiKey: resolved.apiKey,
+      apiUrl: resolved.apiUrl,
+      apiUrlGiven: typeof givenApiUrl === "string",
+      interactive: isInteractive({ json, where: surroundings() }),
+      json,
+    };
+  } catch (cause) {
+    return fail((cause as Error).message);
+  }
+
+  if (command.authenticated && requireKey(context) === null) {
+    return EXIT_PROBLEM;
+  }
+
+  const resolution = await resolve(
+    command,
+    {
+      // The words that named the command are not arguments to it.
+      positionals: read.positionals.slice(command.path.length),
+      values: read.values,
+    },
+    { interactive: context.interactive }
+  );
+
+  if (resolution.kind === "cancelled") {
+    await cancelled();
+
+    return EXIT_CANCELLED;
+  }
+
+  if (resolution.kind === "invalid") {
+    process.stderr.write(`propgate: ${resolution.message}\n`);
+
+    return EXIT_USAGE;
+  }
+
+  if (resolution.kind === "missing") {
+    process.stderr.write(
+      `propgate: ${resolution.message}\n\n${usageFor(command)}`
+    );
+
+    return EXIT_USAGE;
+  }
+
+  return await command.run(resolution.input, context);
 }
 
 export async function main(argv: readonly string[]): Promise<number> {
-  const [first] = argv;
+  const { positionals, values } = words(argv);
 
   /**
-   * Account commands are routed before the check parser sees the arguments.
+   * Before the help branch, and that order is the whole point.
    *
-   * Not for tidiness: `parseArgs` throws on an unknown flag, so `--email` would be
-   * an error rather than a command if this ran afterwards. Routing on the verb also
-   * keeps the two option tables disjoint, which is what stops
-   * `propgate check example.com --code 123456` from parsing.
+   * `--version` arrives with no positionals, so the "no arguments means help"
+   * check below swallowed it: `propgate --version` printed usage in every release
+   * that has ever shipped. Nothing caught it because the version path had no spec
+   * and the constant it printed was stale anyway, so neither half of the feature
+   * worked and each hid the other.
    */
-  if (first !== undefined && isAccountCommand(first)) {
-    if (argv.includes("--help") || argv.includes("-h")) {
-      process.stdout.write(ACCOUNT_USAGE);
+  if (positionals.length === 0) {
+    if (wants(values, "version") || wants(values, "v")) {
+      process.stdout.write(`${version()}\n`);
 
       return 0;
     }
 
-    return await runAccountCommand(argv);
-  }
+    process.stdout.write(globalUsage());
 
-  const parsed = parse(argv);
-
-  if (parsed.kind === "help") {
-    process.stdout.write(USAGE);
     return 0;
   }
 
-  if (parsed.kind === "version") {
-    process.stdout.write(`${version()}\n`);
-    return 0;
-  }
+  const match = lookup(positionals);
 
-  if (parsed.kind === "error") {
-    process.stderr.write(`propgate: ${parsed.message}\n\n${USAGE}`);
+  if (match.kind === "unknown") {
+    process.stderr.write(
+      `propgate: unknown command: ${match.word}\n\n${globalUsage()}`
+    );
+
     return EXIT_USAGE;
   }
 
-  return await check(parsed.options);
+  if (match.kind === "family") {
+    // A family named alone is someone asking what is under it, not a mistake.
+    const [, subcommand] = positionals;
+
+    process.stderr.write(
+      subcommand === undefined
+        ? familyUsage(match.family)
+        : `propgate: ${match.family} has no "${subcommand}" command\n\n${familyUsage(match.family)}`
+    );
+
+    return subcommand === undefined ? 0 : EXIT_USAGE;
+  }
+
+  if (match.kind === "none") {
+    process.stdout.write(globalUsage());
+
+    return 0;
+  }
+
+  return await dispatch(match.command, argv);
 }
 
 /**

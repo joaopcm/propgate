@@ -11,6 +11,24 @@ propgate check example.com`;
 
 export const CONFIG_PATH = "$XDG_CONFIG_HOME/propgate/config.json  (mode 0600)";
 
+export const GUIDED = `$ propgate domains add example.com
+
+│  Which profile should this domain satisfy?
+│  sending
+│
+│  Your own id for this domain, if you have one
+│  cust_1
+│
+example.com registered as 019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a.
+Nothing has been checked yet — the sweeper will pick it up.`;
+
+export const NON_INTERACTIVE = `$ CI=true propgate domains add example.com
+propgate: domains add needs --profile.
+Pass it, or run in a terminal without --json for the guided flow.
+
+$ echo $?
+64`;
+
 export const PRECEDENCE = `1. --api-url                  (flag, account commands only)
 2. PROPGATE_API_URL           (env)
 3. apiUrl in config.json      (written by confirm, non-default only)

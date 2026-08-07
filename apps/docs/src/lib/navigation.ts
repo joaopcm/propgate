@@ -80,7 +80,13 @@ export const navigation: readonly NavSection[] = [
   },
   {
     groups: [
-      { items: [{ href: "/api", title: "Overview" }], title: "Get started" },
+      {
+        items: [
+          { href: "/api", title: "Overview" },
+          { href: "/api/checks", title: "Check a domain" },
+        ],
+        title: "Get started",
+      },
       {
         items: [
           { href: "/api/accounts/signup", title: "Sign up" },
@@ -138,7 +144,9 @@ export const navigation: readonly NavSection[] = [
       { href: "/cli", title: "Overview" },
       { href: "/cli/check", title: "check" },
       { href: "/cli/accounts", title: "signup, confirm, keys" },
+      { href: "/cli/profiles", title: "profiles" },
       { href: "/cli/domains", title: "domains" },
+      { href: "/cli/webhooks", title: "webhooks" },
     ],
     title: "CLI",
   },

@@ -1,12 +1,7 @@
 import type { CheckResult, Finding, Verdict } from "@propgate/dns";
 import { describe, expect, it } from "vitest";
-import {
-  EXIT_OK,
-  EXIT_PROBLEM,
-  EXIT_UNKNOWN,
-  exitCodeFor,
-  render,
-} from "./report";
+import { EXIT_OK, EXIT_PROBLEM, EXIT_UNKNOWN } from "./exit";
+import { exitCodeFor, render } from "./report";
 
 /**
  * Output and exit codes are pure, and are where a CLI is usually least tested

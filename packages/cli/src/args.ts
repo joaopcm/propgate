@@ -1,184 +1,238 @@
-import { parseArgs } from "node:util";
-import { CHECK_KINDS, type CheckKind } from "@propgate/dns";
+import { type ParseArgsConfig, parseArgs } from "node:util";
+import { type Command, commandName, type Field } from "./command";
 
 /**
  * Argument parsing, kept away from anything that touches DNS.
  *
- * `node:util`'s `parseArgs` rather than a dependency: this package is published
- * MIT as the credibility artifact, and a CLI that pulls in a tree of argument
- * parsers to read six flags undercuts the claim that the resolver underneath
- * has none.
+ * `node:util`'s `parseArgs` rather than a dependency: the resolver underneath
+ * this package has zero runtime dependencies, and a CLI that pulls in a tree of
+ * argument parsers to read six flags muddies what that claim is about. (The
+ * prompt layer is a dependency, deliberately — it does something `node:util`
+ * does not, and it is loaded only when there is a person to prompt.)
+ *
+ * The option table is derived **per command** from its `Field[]`. That is
+ * stronger than the two hand-written tables it replaces, which kept
+ * `propgate check example.com --code 123456` from parsing by keeping the check
+ * and account flags disjoint. Per-command tables keep every pair disjoint, so
+ * `check` can gain `--api-url` without `confirm`'s `--code` becoming valid on it.
  */
 
-export interface Options {
-  readonly caaIssuer: string | undefined;
-  readonly checks: readonly CheckKind[] | undefined;
-  readonly domain: string;
-  readonly expectsMail: boolean | undefined;
-  readonly json: boolean;
-  readonly resolver: string | undefined;
-  readonly selectors: readonly string[];
-  readonly spfInclude: string | undefined;
-  /** Print every DNS query behind the answer. */
-  readonly trace: boolean;
-}
+type OptionTable = NonNullable<ParseArgsConfig["options"]>;
 
-export type Parsed =
-  | { readonly kind: "run"; readonly options: Options }
-  | { readonly kind: "help" }
-  | { readonly kind: "version" }
-  | { readonly kind: "error"; readonly message: string };
-
-export const USAGE = `propgate — DNS diagnosis from the terminal
-
-  propgate check <domain> [options]
-
-Account and domains (see \`propgate signup --help\`)
-  propgate signup --email <address>
-  propgate confirm --email <address> --code <code>
-  propgate keys list | create <name> | revoke <prefix>
-  propgate domains add <domain> --profile <key> | list
-
-Options
-  --selector <name>     A DKIM selector to check. Repeatable.
-  --spf-include <name>  An include: token that must authorise this domain.
-  --caa-issuer <name>   A certificate authority that must be authorised.
-  --receives-mail       This domain should receive mail, so undeliverable
-                        mail is a problem. Unstated by default.
-  --only <kinds>        Comma-separated: ${CHECK_KINDS.join(", ")}.
-  --resolver <addr>     Resolver to query, as address or address:port.
-                        Defaults to the system resolver.
-  --trace               Print every DNS query behind the answer.
-  --json                Machine-readable output.
-  --help, --version
-
-Exit codes
-  0  nothing to fix
-  1  something is wrong
-  2  a check could not be completed — which is not the same as a failure
-`;
-
-function splitKinds(value: string): readonly CheckKind[] | string {
-  const requested = value
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-
-  const unknown = requested.filter(
-    (entry) => !CHECK_KINDS.includes(entry as CheckKind)
-  );
-
-  if (unknown.length > 0) {
-    return `unknown check: ${unknown.join(", ")}`;
+function optionFor(field: Field): OptionTable[string] {
+  if (field.kind === "boolean") {
+    return { type: "boolean" };
   }
 
-  if (requested.length === 0) {
-    return "--only needs at least one check";
-  }
-
-  return requested as readonly CheckKind[];
+  return {
+    multiple: field.kind === "multiselect" || field.repeatable === true,
+    type: "string",
+  };
 }
-
-const OPTIONS = {
-  "caa-issuer": { type: "string" },
-  help: { short: "h", type: "boolean" },
-  json: { type: "boolean" },
-  only: { type: "string" },
-  "receives-mail": { type: "boolean" },
-  resolver: { type: "string" },
-  selector: { multiple: true, type: "string" },
-  "spf-include": { type: "string" },
-  trace: { type: "boolean" },
-  version: { short: "v", type: "boolean" },
-} as const;
 
 /**
- * `parseArgs` throws on an unknown flag, and its return type is derived from
- * the options object — so the config has to be inline at the call site for the
- * values to be typed. Wrapping the throw here keeps that inference and gives
- * the caller a value to switch on.
+ * The flags every command answers to.
+ *
+ * `--api-url` only where there is an API to point at, so passing it to a purely
+ * local command is an error rather than a value that quietly does nothing.
  */
-function read(argv: readonly string[]) {
+export function optionsFor(command: Command): OptionTable {
+  const table: OptionTable = {
+    help: { short: "h", type: "boolean" },
+    json: { type: "boolean" },
+  };
+
+  if (command.networked) {
+    table["api-url"] = { type: "string" };
+  }
+
+  for (const field of command.fields) {
+    table[field.flag] = optionFor(field);
+  }
+
+  return table;
+}
+
+export type Read =
+  | {
+      readonly ok: true;
+      readonly positionals: readonly string[];
+      readonly values: Readonly<Record<string, unknown>>;
+    }
+  | { readonly message: string; readonly ok: false };
+
+/**
+ * `parseArgs` throws on an unknown flag, and its return type is derived from the
+ * options object — so the config has to be inline at the call site for the values
+ * to be typed. Wrapping the throw here keeps that inference and gives the caller
+ * a value to switch on.
+ */
+export function readArgs(argv: readonly string[], options: OptionTable): Read {
   try {
-    return {
-      ok: true,
-      parsed: parseArgs({
-        allowPositionals: true,
-        args: [...argv],
-        options: OPTIONS,
-      }),
-    } as const;
+    const { positionals, values } = parseArgs({
+      allowPositionals: true,
+      args: [...argv],
+      options,
+    });
+
+    return { ok: true, positionals, values };
   } catch (cause) {
     return {
       message:
         cause instanceof Error ? cause.message : "could not read options",
       ok: false,
-    } as const;
+    };
   }
 }
 
-export function parse(argv: readonly string[]): Parsed {
-  const result = read(argv);
-
-  if (!result.ok) {
-    return { kind: "error", message: result.message };
+function flagUsage(field: Field): string {
+  if (field.kind === "boolean") {
+    return `--${field.flag}`;
   }
 
-  const { positionals, values } = result.parsed;
-
-  /**
-   * Before the help branch, and that order is the whole point.
-   *
-   * `--version` arrives with no positionals, so the "no arguments means help"
-   * check below swallowed it: `propgate --version` printed usage in every release
-   * that has ever shipped. Nothing caught it because the version path had no spec
-   * and the constant it printed was stale anyway, so neither half of the feature
-   * worked and each hid the other.
-   */
-  if (values.version === true) {
-    return { kind: "version" };
+  if (field.kind === "multiselect") {
+    return `--${field.flag} <values>`;
   }
 
-  if (values.help === true || positionals.length === 0) {
-    return { kind: "help" };
+  if (field.kind === "select") {
+    return `--${field.flag} <value>`;
   }
 
-  const [command, domain, ...extra] = positionals;
+  return `--${field.flag} <${field.placeholder ?? "value"}>`;
+}
 
-  if (command !== "check") {
-    return { kind: "error", message: `unknown command: ${command}` };
+/**
+ * The choices belong in the description, not in the signature.
+ *
+ * `--only <delegation|spf|dkim|dmarc|mx|caa>` is forty-two characters of flag
+ * name, which pushes every description on the page out of alignment to
+ * accommodate one line.
+ */
+function describeField(field: Field): string {
+  const allowed = (field.choices ?? []).map((choice) => choice.value);
+  const parts = [
+    field.describe,
+    allowed.length > 0 ? `One of: ${allowed.join(", ")}.` : "",
+    field.required ? "Required." : "",
+  ];
+
+  return parts.filter((part) => part !== "").join(" ");
+}
+
+/** `domains add <domain> --profile <key>` — the line at the top of `--help`. */
+export function signature(command: Command): string {
+  const positional =
+    command.positional === undefined
+      ? ""
+      : ` ${command.positional.required ? "" : "["}<${command.positional.name}>${
+          command.positional.required ? "" : "]"
+        }`;
+  const required = command.fields
+    .filter((field) => field.required)
+    .map((field) => ` ${flagUsage(field)}`)
+    .join("");
+  const hasOptional = command.fields.some((field) => !field.required);
+
+  return `propgate ${commandName(command)}${positional}${required}${
+    hasOptional ? " [options]" : ""
+  }`;
+}
+
+/** Wide enough to read, narrow enough to survive a split terminal. */
+const WIDTH = 80;
+const INDENT = 2;
+const GAP = 2;
+
+/** Greedy wrap. Long enough words simply overflow, which is the right failure. */
+function wrap(text: string, width: number): string[] {
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of text.split(" ")) {
+    if (current === "") {
+      current = word;
+    } else if (current.length + 1 + word.length <= width) {
+      current = `${current} ${word}`;
+    } else {
+      lines.push(current);
+      current = word;
+    }
   }
 
-  if (domain === undefined) {
-    return { kind: "error", message: "check needs a domain" };
+  if (current !== "") {
+    lines.push(current);
   }
 
-  if (extra.length > 0) {
-    // One domain at a time. Accepting several would make the exit code a
-    // summary of unrelated answers, which is worse than running it twice.
-    return { kind: "error", message: "check takes one domain" };
+  return lines.length === 0 ? [""] : lines;
+}
+
+/**
+ * Two columns, with the width measured rather than guessed.
+ *
+ * A fixed column is how `--only <delegation|spf|…>` came to run straight into
+ * its own description with no space between them: the flag was longer than the
+ * number somebody picked, and `padEnd` cannot pad past the string it is given.
+ */
+function columns(
+  rows: readonly (readonly [string, string])[],
+  indent: number
+): string[] {
+  const label = Math.max(...rows.map(([name]) => name.length));
+  const pad = " ".repeat(indent);
+  const hanging = " ".repeat(indent + label + GAP);
+
+  return rows.flatMap(([name, description]) =>
+    wrap(description, WIDTH - indent - label - GAP).map((line, index) =>
+      index === 0
+        ? `${pad}${name.padEnd(label + GAP)}${line}`
+        : `${hanging}${line}`
+    )
+  );
+}
+
+const JSON_DESCRIPTION = "Machine-readable output. Implies no prompting.";
+
+export function usageFor(command: Command): string {
+  const lines = [signature(command), "", ...wrap(command.summary, WIDTH)];
+
+  if (command.positional !== undefined) {
+    lines.push(
+      "",
+      "Argument",
+      ...columns(
+        [[`<${command.positional.name}>`, command.positional.describe]],
+        INDENT
+      )
+    );
   }
 
-  const only = values.only === undefined ? undefined : splitKinds(values.only);
+  lines.push(
+    "",
+    "Options",
+    ...columns(
+      [
+        ...command.fields.map(
+          (field) =>
+            [flagUsage(field), describeField(field)] as readonly [
+              string,
+              string,
+            ]
+        ),
+        ["--json", JSON_DESCRIPTION] as readonly [string, string],
+      ],
+      INDENT
+    )
+  );
 
-  if (typeof only === "string") {
-    return { kind: "error", message: only };
+  if (command.examples !== undefined && command.examples.length > 0) {
+    lines.push("", "Examples");
+
+    for (const example of command.examples) {
+      lines.push(`  ${example}`);
+    }
   }
 
-  return {
-    kind: "run",
-    options: {
-      caaIssuer: values["caa-issuer"],
-      checks: only,
-      domain,
-      expectsMail: values["receives-mail"] === true ? true : undefined,
-      json: values.json === true,
-      resolver: values.resolver,
-      selectors: values.selector ?? [],
-      spfInclude: values["spf-include"],
-      trace: values.trace === true,
-    },
-  };
+  return `${lines.join("\n")}\n`;
 }
 
 /** `[2001:db8::1]:5353` — the only form where a colon can mean a port. */

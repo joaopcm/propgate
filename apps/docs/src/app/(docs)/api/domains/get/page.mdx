@@ -11,9 +11,6 @@ Returns the **stored** result, whatever the last check left behind. This call
 never re-checks; it is a read against Postgres, not a DNS run. To get a fresh
 result, call [verify](/api/domains/verify) first.
 
-No CLI command yet — the CLI's `domains list` covers the common case; reading
-one domain back is API-only.
-
 <Callout>
   The request below is quoted verbatim from QUICKSTART.md, a real command
   against the live API, called here with `includeLookups: true`.

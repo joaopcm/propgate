@@ -3,8 +3,8 @@
 DNS diagnosis from the terminal. Tells you *why* a domain's mail configuration
 is wrong, not just that a lookup failed.
 
-Zero runtime dependencies beyond [`@propgate/dns`](https://www.npmjs.com/package/@propgate/dns),
-which has none of its own. MIT licensed. Part of
+Built on [`@propgate/dns`](https://www.npmjs.com/package/@propgate/dns), which
+has zero runtime dependencies of its own. MIT licensed. Part of
 [propgate](https://github.com/joaopcm/propgate).
 
 ```sh
@@ -75,16 +75,21 @@ propgate check <domain> [options]
 
   --selector <name>     A DKIM selector to check. Repeatable.
   --spf-include <name>  An include: token that must authorise this domain.
-  --caa-issuer <name>   A certificate authority that must be authorised.
+  --caa-issuer <ca>     A certificate authority that must be authorised.
   --receives-mail       This domain should receive mail, so undeliverable mail
                         is a problem. Unstated by default.
-  --only <kinds>        Comma-separated: delegation, spf, dkim, dmarc, mx, caa.
+  --only <values>       One of: delegation, spf, dkim, dmarc, mx, caa.
   --resolver <addr>     Resolver to query, as address or address:port.
                         Defaults to the system resolver.
   --trace               Print every DNS query behind the answer.
+  --remote              Ask the propgate API instead of resolving here.
   --json                Machine-readable output.
   --help, --version
 ```
+
+`propgate --help` lists every command; `propgate <command> --help` describes
+one. Both are generated from the command definitions, so neither can describe a
+flag that does not exist.
 
 `--receives-mail` is worth understanding. Whether a null MX is correct depends
 entirely on intent, and no amount of looking at DNS reveals it — so the flag is
@@ -98,6 +103,8 @@ mail becomes a failure.
 | `0` | Nothing to fix. Warnings count as nothing to fix — they describe something that works |
 | `1` | Something is wrong |
 | `2` | A check could not be completed, which is **not** the same as a failure |
+| `64` | The arguments were wrong. Nothing was attempted |
+| `130` | Cancelled at a prompt |
 
 That third code is the one that matters in a pipeline. A resolver that timed out
 says nothing about the domain, and treating it as a failure is how a deployment
@@ -171,29 +178,84 @@ npx @propgate/cli signup --email you@example.com
 npx @propgate/cli confirm --email you@example.com --code 123456
 ```
 
-`confirm` prints the key once and stores it in
-`$XDG_CONFIG_HOME/propgate/config.json` at mode `0600`. There is no endpoint that
-can show it again — only a hash is stored — so a lost key means running the flow
-again, which mints an additional key against the same account rather than a
-second account.
+In a terminal, `signup` goes on to ask for the code and finishes the job in one
+command. `confirm` prints the key once and stores it in
+`$XDG_CONFIG_HOME/propgate/config.json` at mode `0600`. There is no endpoint
+that can show it again — only a hash is stored — so a lost key means running
+the flow again, which mints an additional key against the same account rather
+than a second account.
+
+Every endpoint the API has has a command here. A spec in this package asserts
+that both ways, so a route without a command is a failing test.
 
 ```sh
-npx @propgate/cli keys list
-npx @propgate/cli keys create ci
-npx @propgate/cli keys revoke pg_live_Ab3x
+npx @propgate/cli keys list | create <name> | revoke <prefix|id>
+npx @propgate/cli members list
+
+npx @propgate/cli profiles create --key sending \
+  --require 'spf:spf:include=_spf.google.com' \
+  --require 'dkim:dkim:selector=google'
+npx @propgate/cli profiles get sending
 
 npx @propgate/cli domains add example.com --profile sending
-npx @propgate/cli domains list --state failed
+npx @propgate/cli domains list --state failed --all
+npx @propgate/cli domains get <id>
+npx @propgate/cli domains check <id>
+npx @propgate/cli domains timeline <id>
+npx @propgate/cli domains delete <id>
+
+npx @propgate/cli webhooks create --url https://example.com/hooks \
+  --events domain.failed,domain.recovered
+npx @propgate/cli webhooks list | get <id> | update <id> | delete <id>
+npx @propgate/cli webhooks rotate <id> --window-hours 24
+npx @propgate/cli webhooks deliveries <id> --status failed --all
 ```
 
 `keys revoke` takes the prefix, which is the part of a key still readable after
 it was issued. If a prefix matches more than one key it refuses and asks for an
 id rather than guessing which one you meant.
 
+`propgate check <domain>` reads DNS and writes nothing. `propgate domains check
+<id>` re-checks a *registered* domain: it moves the domain's state and can fire
+a webhook. They are different enough that `check` refuses a uuid and points at
+the other rather than routing it.
+
+## Two ways to run anything
+
+Leave out a required flag and, if there is a terminal to ask in, it asks:
+
+```
+$ propgate domains add example.com
+
+│  Which profile should this domain satisfy?
+│  sending
+│
+example.com registered as 019fcf7a-....
+```
+
+Both paths come from one declaration per command — the flag and the question
+are the same field — so they cannot describe different arguments.
+
+When there is nobody to ask, it does not wait. It names every missing flag at
+once and exits `64`:
+
+```
+$ CI=true propgate domains add example.com
+propgate: domains add needs --profile.
+Pass it, or run in a terminal without --json for the guided flow.
+```
+
+A CLI that blocks on stdin because a flag was missing hangs a build until the
+runner's timeout with nothing saying why. Prompting is off when stdin or stdout
+is not a TTY, when `--json` is passed, when `CI=true`, or when
+`PROPGATE_NO_INPUT=1` — four checks because each catches a case the others
+miss.
+
 | Variable | |
 |---|---|
 | `PROPGATE_API_KEY` | Overrides the stored key. For CI, where no config file exists |
 | `PROPGATE_API_URL` | Overrides the API base URL. `--api-url` beats both |
+| `PROPGATE_NO_INPUT` | Set to `1` to never prompt |
 
 ## Related
 

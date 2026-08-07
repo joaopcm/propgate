@@ -1,6 +1,8 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { REQUIREMENT_TYPES } from "@/lib/api";
 import {
+  PROFILE_CREATE_CLI,
   PROFILE_CREATE_CURL,
   PROFILE_CREATE_RESPONSE,
   PROFILE_EDIT_CURL,
@@ -16,10 +18,13 @@ requirements, each with a key you choose. Registering a domain does not point
 at "the sending profile" in the abstract. It pins the specific version that
 existed at that moment.
 
-<CodeBlock code={PROFILE_CREATE_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: PROFILE_CREATE_CURL, label: "cURL", lang: "bash" },
+    { code: PROFILE_CREATE_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
 <CodeBlock code={PROFILE_CREATE_RESPONSE} lang="json" />
-
-The CLI has no equivalent yet — a profile is created over the API only.
 
 ## Editing writes a new version
 

@@ -1,10 +1,10 @@
 import {
-  type CheckResult,
   DIAGNOSIS_REGISTRY,
   type DiagnosisCode,
   type Finding,
   type Verdict,
 } from "@propgate/dns";
+import { EXIT_OK, EXIT_PROBLEM, EXIT_UNKNOWN } from "./exit";
 
 /**
  * Turning a result into something a terminal can show.
@@ -13,6 +13,32 @@ import {
  * what makes the output testable without a fixture tier, and the formatting is
  * where a CLI is usually least tested and most often wrong.
  */
+
+/**
+ * What rendering actually needs.
+ *
+ * Structural rather than `CheckResult`, so the same renderer serves both the
+ * local run and `--remote`. A `CheckResult` satisfies it as-is; the API's JSON
+ * satisfies it once its `server: "addr:port"` strings are left behind, which the
+ * report never looks at anyway. The alternative was a second renderer, and two
+ * of these drift the first time a finding gains a field.
+ */
+export interface Renderable {
+  readonly checks: readonly {
+    readonly findings: readonly Finding[];
+    readonly kind: string;
+    readonly lookups: readonly {
+      readonly name: string;
+      readonly outcome: { readonly status: string };
+      readonly purpose: string;
+      readonly type: number;
+    }[];
+    readonly verdict: Verdict;
+  }[];
+  readonly domain: string;
+  readonly findings: readonly Finding[];
+  readonly verdict: Verdict;
+}
 
 const RESET = "\u001B[0m";
 
@@ -73,8 +99,18 @@ export function recordTypeName(type: number): string {
   return RECORD_TYPES[type] ?? String(type);
 }
 
+/**
+ * The code itself when the registry has never heard of it.
+ *
+ * Reachable only under `--remote`, where an API newer than the installed CLI can
+ * name a diagnosis this build does not carry. Printing the bare code is a worse
+ * report than the summary and a far better one than a crash on the line that was
+ * about to explain what went wrong.
+ */
 function summaryOf(finding: Finding): string {
-  return DIAGNOSIS_REGISTRY[finding.code as DiagnosisCode].summary;
+  return (
+    DIAGNOSIS_REGISTRY[finding.code as DiagnosisCode]?.summary ?? finding.code
+  );
 }
 
 function findingLines(finding: Finding, style: Style): string[] {
@@ -115,7 +151,7 @@ function findingLines(finding: Finding, style: Style): string[] {
  * long and only wanted when the answer is being argued with.
  */
 export function render(
-  result: CheckResult,
+  result: Renderable,
   options: { style: Style; trace: boolean }
 ): string[] {
   const { style, trace } = options;
@@ -159,7 +195,7 @@ export function render(
   return lines;
 }
 
-function closing(result: CheckResult): string {
+function closing(result: Renderable): string {
   const errors = result.findings.filter((f) => f.severity === "error").length;
 
   if (errors > 0) {
@@ -190,19 +226,7 @@ function rankOf(verdict: Verdict): number {
   return VERDICT_RANK[verdict];
 }
 
-export const EXIT_OK = 0;
-export const EXIT_PROBLEM = 1;
-/**
- * "Could not tell" gets its own exit code.
- *
- * The resolver keeps `indeterminate` separate from `fail` all the way down, and
- * collapsing them here would undo that at the one place a script reads. A CI
- * job that fails a deploy on a resolver blip is precisely the outcome the
- * four-valued verdict exists to prevent.
- */
-export const EXIT_UNKNOWN = 2;
-
-export function exitCodeFor(result: CheckResult): number {
+export function exitCodeFor(result: Renderable): number {
   if (result.findings.some((finding) => finding.severity === "error")) {
     return EXIT_PROBLEM;
   }

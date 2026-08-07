@@ -1,0 +1,387 @@
+import { getServers } from "node:dns";
+import {
+  CHECK_KINDS,
+  type CheckKind,
+  DIAGNOSIS_REGISTRY,
+  type DiagnosisCode,
+  type DomainProfile,
+  type Finding,
+  runChecks,
+  type ServerAddress,
+  type Verdict,
+} from "@propgate/dns";
+import { parseResolver } from "../args";
+import { apiRequest } from "../client";
+import type { Command, Input } from "../command";
+import { EXIT_USAGE } from "../exit";
+import { type Context, out, reportApiError } from "../output";
+import { exitCodeFor, type Renderable, render, type Style } from "../report";
+import { looksLikeId } from "./shared";
+
+/**
+ * `propgate check <domain>`
+ *
+ * The same engine as the public checker and the API. Three surfaces, one
+ * implementation — and the local run is the one to reach for when a customer
+ * reports something odd, because it runs against whichever resolver *they* are
+ * using rather than against ours.
+ *
+ * `--remote` asks our API the same question instead, which is the right call
+ * when what you want to know is what propgate sees. Neither writes anything:
+ * this command never touches a registered domain. That is `domains check`, and
+ * the difference is deliberate — see the redirect below.
+ */
+
+/** Generous enough that a slow authority is not mistaken for a dead one. */
+const BUDGET_MS = 15_000;
+const TIMEOUT_MS = 4000;
+const MAX_LOOKUPS = 100;
+
+const TRAILING_DOT = /\.$/;
+
+/** Normalisation lives here so the local and remote paths send the same string. */
+function normaliseDomain(value: string): string {
+  return value.trim().replace(TRAILING_DOT, "").toLowerCase();
+}
+
+function usage(message: string): number {
+  process.stderr.write(`propgate: ${message}\n`);
+
+  return EXIT_USAGE;
+}
+
+/**
+ * The resolver to query when none was given.
+ *
+ * `node:dns` is read here for its *configuration* — `getServers` returns what
+ * the machine is set up with and makes no query. The package's rule is that
+ * nothing resolves through c-ares, and nothing does: every packet is still
+ * built and parsed by `@propgate/dns`.
+ */
+function systemResolver(): ServerAddress | string {
+  const [first] = getServers();
+
+  if (first === undefined) {
+    return "no resolver is configured on this machine; pass --resolver";
+  }
+
+  return parseResolver(first);
+}
+
+function profileFor(input: Input): DomainProfile {
+  const selectors = input.list("selector");
+  const only = input.list("only");
+  const caaIssuer = input.text("caa-issuer");
+  const spfInclude = input.text("spf-include");
+
+  return {
+    // `only` came through a `multiselect` whose choices are `CHECK_KINDS`, so
+    // `resolve` has already refused anything that is not one.
+    checks:
+      only.length === 0 ? [...CHECK_KINDS] : (only as readonly CheckKind[]),
+    id: "cli",
+    // Tri-state on purpose: absent makes no claim, and `false` would assert that
+    // the domain receives no mail, which is a different statement entirely.
+    ...(input.bool("receives-mail") ? { expectsMail: true } : {}),
+    ...(caaIssuer === undefined ? {} : { caaIssuer }),
+    ...(selectors.length === 0 ? {} : { dkimSelectors: selectors }),
+    ...(spfInclude === undefined ? {} : { spfInclude }),
+  };
+}
+
+/** The machine-readable form, carrying the taxonomy exactly as the API does. */
+function toJson(result: Renderable) {
+  return {
+    checks: result.checks.map((outcome) => ({
+      findings: outcome.findings.map((finding) => ({
+        code: finding.code,
+        evidence: finding.evidence,
+        severity: finding.severity,
+        slug: DIAGNOSIS_REGISTRY[finding.code as DiagnosisCode]?.slug ?? null,
+        summary:
+          DIAGNOSIS_REGISTRY[finding.code as DiagnosisCode]?.summary ?? null,
+      })),
+      kind: outcome.kind,
+      lookups: outcome.lookups.map((lookup) => ({
+        name: lookup.name,
+        purpose: lookup.purpose,
+        status: lookup.outcome.status,
+        type: lookup.type,
+      })),
+      verdict: outcome.verdict,
+    })),
+    domain: result.domain,
+    verdict: result.verdict,
+  };
+}
+
+function present(result: Renderable, input: Input, json: boolean): number {
+  if (json) {
+    out(JSON.stringify(toJson(result), null, 2));
+  } else {
+    // Colour off when stdout is not a terminal, so a pipe stays clean.
+    const style: Style = { colour: process.stdout.isTTY === true };
+
+    out(render(result, { style, trace: input.bool("trace") }).join("\n"));
+  }
+
+  return exitCodeFor(result);
+}
+
+interface RemoteFinding {
+  readonly code: string;
+  readonly evidence: Finding["evidence"];
+  readonly severity: Finding["severity"];
+}
+
+interface RemoteCheck {
+  readonly findings: readonly RemoteFinding[];
+  readonly kind: string;
+  readonly lookups: readonly {
+    readonly name: string;
+    readonly purpose: string;
+    readonly status: string;
+    readonly type: number;
+  }[];
+  readonly verdict: Verdict;
+}
+
+interface RemoteResult {
+  readonly checks: readonly RemoteCheck[];
+  readonly domain: string;
+  readonly findings: readonly RemoteFinding[];
+  readonly verdict: Verdict;
+}
+
+/**
+ * The wire shape into the one the renderer takes.
+ *
+ * `code` is the only cast, and it is the honest kind: the wire carries a string
+ * and the type is a union of the codes this build knows. An API newer than the
+ * CLI can name one that is not in the union, which is exactly why `summaryOf`
+ * falls back to printing the code rather than indexing into nothing.
+ */
+function rehydrate(payload: RemoteResult): Renderable {
+  const finding = (entry: RemoteFinding): Finding =>
+    ({
+      code: entry.code as DiagnosisCode,
+      evidence: entry.evidence,
+      severity: entry.severity,
+    }) as Finding;
+
+  return {
+    checks: payload.checks.map((outcome) => ({
+      findings: outcome.findings.map(finding),
+      kind: outcome.kind,
+      lookups: outcome.lookups.map((lookup) => ({
+        name: lookup.name,
+        outcome: { status: lookup.status },
+        purpose: lookup.purpose,
+        type: lookup.type,
+      })),
+      verdict: outcome.verdict,
+    })),
+    domain: payload.domain,
+    findings: payload.findings.map(finding),
+    verdict: payload.verdict,
+  };
+}
+
+async function remote(
+  input: Input,
+  context: Context,
+  domain: string
+): Promise<number> {
+  const selectors = input.list("selector");
+  const only = input.list("only");
+  const caaIssuer = input.text("caa-issuer");
+  const spfInclude = input.text("spf-include");
+
+  const result = await apiRequest<RemoteResult>({
+    apiUrl: context.apiUrl,
+    body: {
+      domain,
+      ...(only.length === 0 ? {} : { checks: only }),
+      ...(caaIssuer === undefined ? {} : { caaIssuer }),
+      ...(selectors.length === 0 ? {} : { dkimSelectors: selectors }),
+      ...(input.bool("receives-mail") ? { expectsMail: true } : {}),
+      ...(spfInclude === undefined ? {} : { spfInclude }),
+    },
+    method: "POST",
+    path: "/v1/checks",
+  });
+
+  if (!result.ok || result.body.data === null) {
+    return reportApiError(
+      result.status,
+      result.body.error?.message,
+      "the check could not be run"
+    );
+  }
+
+  return present(rehydrate(result.body.data), input, context.json);
+}
+
+async function local(
+  input: Input,
+  context: Context,
+  domain: string
+): Promise<number> {
+  const given = input.text("resolver");
+  const resolver =
+    given === undefined ? systemResolver() : parseResolver(given);
+
+  if (typeof resolver === "string") {
+    return usage(resolver);
+  }
+
+  const result = await runChecks({
+    domain,
+    profile: profileFor(input),
+    resolver: {
+      budgetMs: BUDGET_MS,
+      maxLookups: MAX_LOOKUPS,
+      recursionDesired: true,
+      target: resolver,
+      timeoutMs: TIMEOUT_MS,
+    },
+  });
+
+  return present(result, input, context.json);
+}
+
+async function run(input: Input, context: Context): Promise<number> {
+  const domain = normaliseDomain(input.needPositional());
+
+  /**
+   * A uuid is a registered domain's id, and re-checking one is a different
+   * operation: it writes state, spends the per-tenant check budget, and can fire
+   * a `domain.failed` webhook — which for our customers means paging theirs. So
+   * this points at the command that does it rather than doing it, and nothing
+   * goes over the wire either way.
+   */
+  if (looksLikeId(domain)) {
+    process.stderr.write(
+      `propgate: that looks like a domain id, not a domain name.\nDid you mean \`propgate domains check ${domain}\`?\n`
+    );
+
+    return EXIT_USAGE;
+  }
+
+  const wantsRemote = input.bool("remote");
+
+  if (wantsRemote && input.text("resolver") !== undefined) {
+    return usage(
+      "--resolver has no meaning with --remote; the API queries its own resolvers"
+    );
+  }
+
+  if (!wantsRemote && context.apiUrlGiven) {
+    // Silently ignoring it would let someone believe they had pointed this at a
+    // local stack when they had run a local resolution the whole time.
+    return usage("--api-url only applies with --remote");
+  }
+
+  return wantsRemote
+    ? await remote(input, context, domain)
+    : await local(input, context, domain);
+}
+
+const TWO_LABELS = /^[^.]+(\.[^.]+)+$/;
+
+export const checkCommand: Command = {
+  authenticated: false,
+  examples: [
+    "propgate check example.com --only spf,dkim --selector k1",
+    "propgate check example.com --remote",
+  ],
+  fields: [
+    {
+      describe: "A DKIM selector to check. Repeatable.",
+      flag: "selector",
+      kind: "string",
+      placeholder: "name",
+      prompt: "Which DKIM selector?",
+      repeatable: true,
+      required: false,
+    },
+    {
+      describe: "An include: token that must authorise this domain.",
+      flag: "spf-include",
+      kind: "string",
+      placeholder: "name",
+      prompt: "Which include: token must authorise this domain?",
+      required: false,
+    },
+    {
+      describe: "A certificate authority that must be authorised.",
+      flag: "caa-issuer",
+      kind: "string",
+      placeholder: "ca",
+      prompt: "Which certificate authority must be authorised?",
+      required: false,
+    },
+    {
+      describe:
+        "This domain should receive mail, so undeliverable mail is a problem. Unstated by default.",
+      flag: "receives-mail",
+      kind: "boolean",
+      prompt: "Should this domain receive mail?",
+      required: false,
+    },
+    {
+      choices: CHECK_KINDS.map((kind) => ({ value: kind })),
+      describe: "Only these checks.",
+      flag: "only",
+      kind: "multiselect",
+      prompt: "Which checks?",
+      required: false,
+    },
+    {
+      describe:
+        "Resolver to query, as address or address:port. Defaults to the system resolver.",
+      flag: "resolver",
+      kind: "string",
+      placeholder: "addr",
+      prompt: "Which resolver?",
+      required: false,
+    },
+    {
+      describe: "Print every DNS query behind the answer.",
+      flag: "trace",
+      kind: "boolean",
+      prompt: "Show every query?",
+      required: false,
+    },
+    {
+      describe:
+        "Ask the propgate API instead of resolving here. Needs no account.",
+      flag: "remote",
+      kind: "boolean",
+      prompt: "Run this against the propgate API?",
+      required: false,
+    },
+  ],
+  networked: true,
+  path: ["check"],
+  positional: {
+    describe: "The domain to check.",
+    name: "domain",
+    prompt: "Which domain?",
+    required: true,
+    validate: (value) => {
+      const trimmed = value.trim().replace(TRAILING_DOT, "").toLowerCase();
+
+      if (looksLikeId(trimmed)) {
+        return;
+      }
+
+      return TWO_LABELS.test(trimmed)
+        ? undefined
+        : `"${value}" is not a domain name`;
+    },
+  },
+  run,
+  summary:
+    "Diagnose a domain's DNS. Resolves locally by default and needs no account.",
+};

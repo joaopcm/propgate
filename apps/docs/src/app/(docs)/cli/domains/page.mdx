@@ -1,20 +1,30 @@
 import { CodeBlock } from "@/components/docs/code-block";
 import { CodeTabs } from "@/components/docs/code-tabs";
+import { Callout } from "@/components/docs/callout";
 import {
   ADD_CLI,
   ADD_CURL,
   ADD_OUTPUT,
+  CHECK_CLI,
+  DELETE_CLI,
+  GET_CLI,
+  GET_OUTPUT,
   LIST_CLI,
   LIST_CURL,
   LIST_EMPTY_OUTPUT,
   LIST_OUTPUT,
+  LIST_PAGED,
+  REDIRECT,
+  TIMELINE_CLI,
+  TIMELINE_EMPTY,
+  TIMELINE_OUTPUT,
 } from "./_snippets";
 
 # domains
 
-`domains add` and `domains list` are thin clients over `POST /v1/domains` and
-`GET /v1/domains` — the cURL beside each command issues the identical
-request, so the two references agree on the shape.
+Six commands over the six `/v1/domains` endpoints. Each is a thin client —
+the cURL beside a command issues the identical request, so the two references
+agree on the shape.
 
 ## `domains add --profile`
 
@@ -50,3 +60,75 @@ An empty result prints its own line rather than nothing at all — a blank
 terminal after a real command looks like a failure:
 
 <CodeBlock code={LIST_EMPTY_OUTPUT} lang="text" />
+
+`--external-id` filters to the domain carrying one of your own ids.
+
+### Paging
+
+<CodeBlock code={LIST_PAGED} lang="bash" />
+
+The endpoint is cursor-paged: `meta.nextCursor` names where the next page
+starts, and `--all` follows it to the end. `--all` asks for the server's
+maximum page size of 200, so a full walk is one round trip per 200 rows rather
+than per 50. It is refused alongside `--cursor`, which says where to start —
+picking one silently would be guessing at which you meant.
+
+Domains sort ascending by id, so a domain registered while a walk is in
+progress lands at the end and is included. (Deliveries sort the other way and
+miss them; the asymmetry is the endpoints', not the CLI's.)
+
+## `domains get`
+
+<CodeBlock code={GET_CLI} lang="bash" />
+<CodeBlock code={GET_OUTPUT} lang="text" />
+
+The per-requirement breakdown, which is the thing `domains list` has no room
+for. Read `satisfied` — the `ok`/`x` column — rather than the verdict alone: a
+`warn` is met, and a requirement can carry findings while still passing.
+
+## `domains check`
+
+<CodeBlock code={CHECK_CLI} lang="bash" />
+
+Runs every check the domain's profile names **and writes the result**. This is
+not the same command as [`propgate check`](/cli/check):
+
+| | reads DNS | writes state | can fire a webhook | needs a key |
+|---|---|---|---|---|
+| `propgate check <domain>` | yes | no | no | no |
+| `propgate domains check <id>` | yes | yes | yes | yes |
+
+<Callout>
+  Because those differ in what they *do* rather than only in what they take,
+  `propgate check` refuses a uuid rather than routing it:
+
+  <CodeBlock code={REDIRECT} lang="text" />
+
+  Nothing goes over the wire. Reaching a state-writing, webhook-firing call by
+  typing the wrong shape at the wrong verb is the outcome this declines.
+</Callout>
+
+Rate limited to 100 checks a minute per account, separately from the general
+request limit. Continuous re-checking is the sweeper's job and does not come
+through here.
+
+## `domains timeline`
+
+<CodeBlock code={TIMELINE_CLI} lang="bash" />
+<CodeBlock code={TIMELINE_OUTPUT} lang="text" />
+
+What actually changed, newest first. Nothing is appended for a check that
+found the same values as last time — which is why an empty timeline says so
+rather than printing nothing:
+
+<CodeBlock code={TIMELINE_EMPTY} lang="text" />
+
+"Nothing has changed" and "nothing has happened" are different statements, and
+only the first is true of a domain checked hourly for a month and never
+altered. `--limit` bounds the rows, up to 200; this endpoint has no cursor.
+
+## `domains delete`
+
+<CodeBlock code={DELETE_CLI} lang="bash" />
+
+Stops tracking the domain. The sweeper will not pick it up again.

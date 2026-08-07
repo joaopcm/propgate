@@ -116,92 +116,161 @@ export const VERDICTS: Record<Verdict, VerdictMeaning> = {
 };
 
 export interface Endpoint {
-  readonly method: "DELETE" | "GET" | "POST";
+  /** The CLI command that reaches it. Every endpoint has one. */
+  readonly cli: string;
+  readonly method: "DELETE" | "GET" | "PATCH" | "POST";
   readonly path: string;
   readonly summary: string;
 }
 
 export const ENDPOINTS: readonly Endpoint[] = [
   {
+    cli: "propgate check <domain> --remote",
+    method: "POST",
+    path: "/v1/checks",
+    summary:
+      "Diagnose any domain. Public, unauthenticated, rate limited by address. The same engine as the CLI and the web checker.",
+  },
+  {
+    cli: "propgate signup",
     method: "POST",
     path: "/v1/signup",
     summary:
       "Start an account. Sends a six-digit code, valid ten minutes. Always answers the same way, whether or not the address is known.",
   },
   {
+    cli: "propgate confirm",
     method: "POST",
     path: "/v1/signup/confirm",
     summary:
       "Confirm the address and receive an API key. The code is single-use; the key is shown once and never again.",
   },
   {
+    cli: "propgate keys create <name>",
     method: "POST",
     path: "/v1/api-keys",
     summary:
       "Create an API key. The secret is returned once and never again — only its hash is stored.",
   },
   {
+    cli: "propgate keys list",
     method: "GET",
     path: "/v1/api-keys",
     summary:
       "Your keys, oldest first, revoked ones included, each with the address that created it. Prefixes only; no endpoint returns a secret.",
   },
   {
+    cli: "propgate keys revoke <prefix|id>",
     method: "DELETE",
     path: "/v1/api-keys/:id",
     summary:
       "Revoke a key. Takes effect on the next request. Revoking your last active key is refused.",
   },
   {
+    cli: "propgate members list",
     method: "GET",
     path: "/v1/members",
     summary:
       "Who is on this account. Read-only — a member is added by proving control of a mailbox through signup.",
   },
   {
+    cli: "propgate profiles create",
     method: "POST",
     path: "/v1/profiles",
     summary:
       "Create a profile version. Editing a profile writes a new version; it never changes an existing one.",
   },
   {
+    cli: "propgate profiles get <key>",
     method: "GET",
     path: "/v1/profiles/:key",
     summary: "The current version of a profile.",
   },
   {
+    cli: "propgate domains add <domain>",
     method: "POST",
     path: "/v1/domains",
     summary:
       "Register a domain against a profile. Does not touch DNS. The domain starts pending.",
   },
   {
+    cli: "propgate domains check <id>",
     method: "POST",
     path: "/v1/domains/:id/checks",
     summary:
       "Verify the domain now. Runs the checks, updates the state, returns a result per requirement.",
   },
   {
+    cli: "propgate domains list",
     method: "GET",
     path: "/v1/domains",
     summary:
       "Your domains, oldest first. Cursor paging, filterable by state and by your own external id.",
   },
   {
+    cli: "propgate domains get <id>",
     method: "GET",
     path: "/v1/domains/:id",
     summary:
       "The last known state, per-requirement results, and every lookup behind them.",
   },
   {
+    cli: "propgate domains timeline <id>",
     method: "GET",
     path: "/v1/domains/:id/timeline",
     summary:
       "What has changed for this domain, newest first. Appended to only when an observation actually differs.",
   },
   {
+    cli: "propgate domains delete <id>",
     method: "DELETE",
     path: "/v1/domains/:id",
     summary: "Stop tracking the domain.",
+  },
+  {
+    cli: "propgate webhooks create",
+    method: "POST",
+    path: "/v1/webhooks",
+    summary:
+      "Register an endpoint. Idempotent on the URL; the signing secret is returned only on the call that creates it.",
+  },
+  {
+    cli: "propgate webhooks list",
+    method: "GET",
+    path: "/v1/webhooks",
+    summary: "Your endpoints. An empty events array means every event.",
+  },
+  {
+    cli: "propgate webhooks get <id>",
+    method: "GET",
+    path: "/v1/webhooks/:id",
+    summary: "One endpoint.",
+  },
+  {
+    cli: "propgate webhooks update <id>",
+    method: "PATCH",
+    path: "/v1/webhooks/:id",
+    summary:
+      "Change which events an endpoint receives, or disable it. Both fields are optional; omitting both changes nothing.",
+  },
+  {
+    cli: "propgate webhooks delete <id>",
+    method: "DELETE",
+    path: "/v1/webhooks/:id",
+    summary: "Remove an endpoint. Nothing further is delivered to it.",
+  },
+  {
+    cli: "propgate webhooks rotate <id>",
+    method: "POST",
+    path: "/v1/webhooks/:id/secret",
+    summary:
+      "Issue a new signing secret. The previous one keeps verifying for a window of up to 168 hours, so a deploy does not have to be instant. Zero expires it immediately.",
+  },
+  {
+    cli: "propgate webhooks deliveries <id>",
+    method: "GET",
+    path: "/v1/webhooks/:id/deliveries",
+    summary:
+      "What has been sent to this endpoint, newest first. Cursor paging, filterable by status.",
   },
 ];

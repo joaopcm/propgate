@@ -1,0 +1,112 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
+import { EndpointHeader } from "@/components/docs/endpoint-header";
+import { ParamsTable } from "@/components/docs/params-table";
+import {
+  CHECKS_CLI,
+  CHECKS_CURL,
+  CHECKS_RATE_LIMITED,
+  CHECKS_RESPONSE,
+} from "./_snippets";
+
+# Check a domain
+
+<EndpointHeader method="POST" path="/v1/checks" />
+
+Diagnose any domain, against no account and no profile. **This is the only
+endpoint that needs no API key** — it is what the checker on
+[propgate.dev](https://propgate.dev) calls, and it is the same engine as
+`propgate check` and the sweeper.
+
+It reads DNS and writes nothing. Nothing is registered, no state moves, and
+no webhook fires. If what you want is to re-check a domain you have already
+registered, that is
+[`POST /v1/domains/:id/checks`](/api/domains/verify) instead.
+
+<CodeTabs
+  items={[
+    { code: CHECKS_CURL, label: "cURL", lang: "bash" },
+    { code: CHECKS_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+
+<Callout>
+  `propgate check example.com` without `--remote` resolves on the machine it
+  runs on rather than calling this endpoint. That is usually the one you want
+  when a customer reports something odd: it answers from *their* resolver's
+  point of view rather than ours, and the disagreement between the two is
+  often the whole diagnosis.
+</Callout>
+
+## Body
+
+<ParamsTable
+  rows={[
+    {
+      description:
+        "The domain to check. Must have at least two labels and must not be a public suffix.",
+      name: "domain",
+      required: true,
+      type: "string",
+    },
+    {
+      description:
+        "Which checks to run: delegation, spf, dkim, dmarc, mx, caa. Defaults to all six.",
+      name: "checks",
+      required: false,
+      type: "string[]",
+    },
+    {
+      description:
+        "An include: token that must authorise this domain, expanded recursively the way an MTA would.",
+      name: "spfInclude",
+      required: false,
+      type: "string",
+    },
+    {
+      description: "A specific sending address to evaluate the record against.",
+      name: "spfIp",
+      required: false,
+      type: "string",
+    },
+    {
+      description: "Up to ten DKIM selectors to look up.",
+      name: "dkimSelectors",
+      required: false,
+      type: "string[]",
+    },
+    {
+      description: "A certificate authority the CAA tree must authorise.",
+      name: "caaIssuer",
+      required: false,
+      type: "string",
+    },
+    {
+      description:
+        "Tri-state, and deliberately not defaulted. Omit it and the check makes no claim; false asserts the domain receives no mail, which makes a null MX correct rather than a fault.",
+      name: "expectsMail",
+      required: false,
+      type: "boolean",
+    },
+  ]}
+/>
+
+<CodeBlock code={CHECKS_RESPONSE} lang="json" />
+
+Every finding carries a [diagnosis code](/taxonomy), what was `observed` and
+what was `expected`. `lookups` is the derivation: which queries were sent, to
+which server, and what each returned. A verdict you cannot audit is a verdict
+you have to take on faith.
+
+## Rate limit
+
+**20 checks a minute per address**, keyed on `X-Forwarded-For`. A check costs
+up to about twenty upstream queries aimed at whichever authoritative servers
+the caller names, so an unauthenticated endpoint is sized against other
+people's infrastructure rather than ours.
+
+<CodeBlock code={CHECKS_RATE_LIMITED} lang="http" />
+
+If you are checking domains on a schedule, register them instead and let the
+sweeper do it — that is what it is for, and it does not come through here.

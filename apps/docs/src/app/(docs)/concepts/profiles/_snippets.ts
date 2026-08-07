@@ -16,6 +16,11 @@ export const PROFILE_CREATE_CURL = `curl -s -X POST https://api.propgate.dev/v1/
     ]
   }'`;
 
+export const PROFILE_CREATE_CLI = `npx @propgate/cli profiles create --key sending \\
+  --require 'spf:spf:include=_spf.google.com' \\
+  --require 'dkim:dkim:selector=google' \\
+  --require 'dmarc:dmarc'`;
+
 export const PROFILE_CREATE_RESPONSE = `{
   "data": {
     "object": "profile",

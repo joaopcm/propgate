@@ -1,0 +1,88 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import {
+  CREATE_CLI,
+  CREATE_OUTPUT,
+  DELIVERIES_CLI,
+  DELIVERIES_OUTPUT,
+  LIST_CLI,
+  LIST_OUTPUT,
+  ROTATE_CLI,
+  ROTATE_OUTPUT,
+  UPDATE_CLI,
+} from "./_snippets";
+
+# webhooks
+
+Seven commands over the seven `/v1/webhooks` endpoints. See
+[Webhook payloads](/webhooks) for the event names and the shape that arrives
+at your endpoint.
+
+## `webhooks create`
+
+<CodeBlock code={CREATE_CLI} lang="bash" />
+<CodeBlock code={CREATE_OUTPUT} lang="text" />
+
+`--url` must be `https` and must not resolve to a private address; both are
+refused before the request is sent. `--events` takes any of
+`domain.degraded`, `domain.failed`, `domain.recovered`, `domain.verified`,
+comma-separated or repeated. Omit it and you get all four.
+
+<Callout>
+  The endpoint is idempotent on the URL, and the signing secret is returned
+  **only on the call that actually creates the row**. Registering the same URL
+  again says so and returns no secret — there is no second chance at it, which
+  is why `rotate` exists.
+</Callout>
+
+## `webhooks list` and `webhooks get`
+
+<CodeBlock code={LIST_CLI} lang="bash" />
+<CodeBlock code={LIST_OUTPUT} lang="text" />
+
+An empty `events` array means every event, and prints as `all events` rather
+than as a blank column.
+
+## `webhooks update`
+
+<CodeBlock code={UPDATE_CLI} lang="bash" />
+
+`--state` is one flag with three values — `enabled`, `disabled`, `unchanged` —
+rather than a `--disable` and an `--enable`. Two booleans for one two-valued
+thing lets a caller pass both, which needs a guard and an error message for a
+state that should never have been expressible; a `select` cannot contradict
+itself, and it is the shape a prompt wants anyway.
+
+The API accepts a `PATCH` with an empty body and changes nothing. The CLI
+refuses one: reporting success for a request that did nothing is worse than
+saying which flag was missing.
+
+## `webhooks rotate`
+
+<CodeBlock code={ROTATE_CLI} lang="bash" />
+<CodeBlock code={ROTATE_OUTPUT} lang="text" />
+
+`--window-hours` is how long the **previous** secret keeps verifying, 0 to
+168, defaulting to 24. A deploy is not instantaneous, and a rotation that
+invalidated the old secret the moment it ran would drop every signature in
+flight. `--window-hours 0` expires it immediately, for the case where the old
+secret is the reason you are rotating.
+
+## `webhooks deliveries`
+
+<CodeBlock code={DELIVERIES_CLI} lang="bash" />
+<CodeBlock code={DELIVERIES_OUTPUT} lang="text" />
+
+`--status` filters to `pending`, `delivered` or `failed`. `--all` follows the
+cursor to the end rather than one page at a time; it asks for the server's
+maximum page size, so a full walk is one round trip per 200 rows. It is
+refused alongside `--cursor`, which says where to start.
+
+Deliveries are recorded in Postgres, not in the queue — what is *owed* is
+never only in Redis. A flushed Redis costs in-flight attempts and no
+obligations, and this list is how you see that.
+
+## `webhooks delete`
+
+Removes the endpoint. Nothing further is delivered to it, and nothing already
+queued is retried.

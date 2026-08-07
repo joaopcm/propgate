@@ -48,6 +48,13 @@ export const PROFILE_CURL = `curl -s -X POST https://api.propgate.dev/v1/profile
     ]
   }'`;
 
+export const PROFILE_CLI = `npx @propgate/cli profiles create --key sending \\
+  --require 'ns:delegation' \\
+  --require 'spf:spf:include=_spf.google.com' \\
+  --require 'dkim:dkim:selector=google' \\
+  --require 'dmarc:dmarc' \\
+  --require 'mail:mx:expectsMail=true'`;
+
 export const REGISTER_CURL = `curl -s -X POST https://api.propgate.dev/v1/domains \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H 'content-type: application/json' \\
@@ -58,6 +65,9 @@ export const REGISTER_CLI =
 
 export const VERIFY_CURL = `curl -s -X POST https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a/checks \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
+
+export const VERIFY_CLI =
+  "npx @propgate/cli domains check 019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a";
 
 export const VERIFY_RESPONSE = `{
   "state": "failed",
