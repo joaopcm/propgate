@@ -1,4 +1,5 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CHECK_LIST } from "@/lib/counts";
 import {
   ASSERT_OUTPUT,
   ASSERT_RUN,
@@ -28,8 +29,11 @@ API.
 | `--selector <name>` | A DKIM selector to check. Repeatable: pass it once per selector in use. |
 | `--spf-include <name>` | An `include:` token that must authorise this domain, after recursive expansion. |
 | `--caa-issuer <name>` | A certificate authority that must be authorised, climbed per RFC 8659. |
+| `--token <value>` | An ownership token that must be published, compared byte for byte. |
+| `--token-at <label>` | The name the token goes at, e.g. `_pg-challenge`. The apex by default. |
+| `--cname <label=target>` | An alias that must point at a target. Repeatable: pass it once per alias. |
 | `--receives-mail` | This domain should receive mail, so undeliverable mail is a problem. Unstated by default. See "`--receives-mail`" below. |
-| `--only <kinds>` | Comma-separated subset of `delegation, spf, dkim, dmarc, mx, caa`. Runs all six when omitted. |
+| `--only <kinds>` | Comma-separated subset of `{CHECK_LIST}`. Runs every check that has something to compare against when omitted, and refuses `ownership` or `cname` named without a value. |
 | `--resolver <addr>` | Resolver to query, as `address` or `address:port`. Defaults to the system resolver, and the port is never assumed to be 53. |
 | `--trace` | Print every DNS query behind the answer: server, name, type, and outcome. |
 | `--json` | Machine-readable output. See "`--json`" below. |

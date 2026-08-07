@@ -56,7 +56,7 @@ Neither is findable with a regex over a TXT record. That is the whole argument.
 
 | | |
 |---|---|
-| [`@propgate/dns`](https://www.npmjs.com/package/@propgate/dns) | Resolver, six evaluators, the taxonomy. **Zero runtime dependencies** — Node built-ins only |
+| [`@propgate/dns`](https://www.npmjs.com/package/@propgate/dns) | Resolver, semantic evaluators, the taxonomy. **Zero runtime dependencies** — Node built-ins only |
 | [`@propgate/cli`](https://www.npmjs.com/package/@propgate/cli) | `npx @propgate/cli check example.com` |
 | [propgate.dev](https://propgate.dev) | The free public checker |
 | [api.propgate.dev](https://docs.propgate.dev/api) | Register domains against a versioned profile, verify them, read per-requirement results and a change timeline |

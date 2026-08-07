@@ -110,7 +110,7 @@ swapping a value:
 2. `PATCH` the domain onto it, supplying both keys.
 3. Retire the old requirement in a third version once DNS has caught up.
 
-Both keys are legitimately correct while the old TTL expires, and `dkim` is the one
+Both keys are legitimately correct while the old TTL expires, and `dkim` is a
 repeatable requirement type precisely so this works. Swapping in place is simpler
 and usually fine — the reset above means it costs a re-verification rather than a
 false alarm — but it does mean the domain reads `pending` until the zone catches

@@ -1,4 +1,5 @@
 import { Callout } from "@/components/docs/callout";
+import { CHECK_LIST } from "@/lib/counts";
 import { CodeBlock } from "@/components/docs/code-block";
 import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
@@ -52,7 +53,7 @@ registered, that is
     },
     {
       description:
-        "Which checks to run: delegation, spf, dkim, dmarc, mx, caa. Defaults to all six.",
+        `Which checks to run: ${CHECK_LIST}. Defaults to all of them; a check with nothing to compare against is skipped rather than reported.`,
       name: "checks",
       required: false,
       type: "string[]",
@@ -81,6 +82,20 @@ registered, that is
       name: "caaIssuer",
       required: false,
       type: "string",
+    },
+    {
+      description:
+        "Up to five ownership tokens, each { token, label? }. The token is compared byte for byte; omit the label for the apex.",
+      name: "ownership",
+      required: false,
+      type: "object[]",
+    },
+    {
+      description:
+        "Up to five aliases, each { label, target }. The target is resolved, so a provider that flattened the alias into address records passes rather than failing.",
+      name: "cnames",
+      required: false,
+      type: "object[]",
     },
     {
       description:
