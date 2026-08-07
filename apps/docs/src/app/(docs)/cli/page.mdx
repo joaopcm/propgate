@@ -1,6 +1,13 @@
 import { CodeBlock } from "@/components/docs/code-block";
 import { CodeTabs } from "@/components/docs/code-tabs";
-import { CONFIG_PATH, INSTALL_GLOBAL, INSTALL_NPX, PRECEDENCE } from "./_snippets";
+import {
+  CONFIG_PATH,
+  GUIDED,
+  INSTALL_GLOBAL,
+  INSTALL_NPX,
+  NON_INTERACTIVE,
+  PRECEDENCE,
+} from "./_snippets";
 
 # CLI
 
@@ -16,11 +23,14 @@ using rather than against ours.
   ]}
 />
 
-Published as `@propgate/cli`, MIT licensed, zero runtime dependencies beyond
-[`@propgate/dns`](https://www.npmjs.com/package/@propgate/dns), which has none
-of its own. `propgate --version` prints the version out of `package.json`
-rather than a constant baked in at build time, so it never drifts from what
-was actually published. Requires Node 20 or later.
+Published as `@propgate/cli`, MIT licensed, built on
+[`@propgate/dns`](https://www.npmjs.com/package/@propgate/dns), which has zero
+runtime dependencies of its own — that claim is about the resolver, and it is
+the one that matters. The CLI adds `@clack/prompts` for the guided flow below,
+loaded only when there is a person to prompt: `propgate check` never reaches
+it. `propgate --version` prints the version out of `package.json` rather than a
+constant baked in at build time, so it never drifts from what was actually
+published. Requires Node 20 or later.
 
 ## The split that matters
 
@@ -30,13 +40,50 @@ The CLI has two halves, and they do not touch:
   beyond DNS. It resolves against whichever server you point it at — the
   system resolver by default — and never talks to propgate's API. A machine
   that has never run `signup` loses nothing.
-- **Everything else** — `signup`, `confirm`, `keys`, `domains` — is a client
-  of [api.propgate.dev](https://api.propgate.dev). These are the commands
-  that need a key.
+- **Everything else** — `signup`, `confirm`, `keys`, `members`, `profiles`,
+  `domains`, `webhooks` — is a client of
+  [api.propgate.dev](https://api.propgate.dev). These are the commands that
+  need a key.
+
+`propgate check --remote` is the seam between the two: same command, same
+output, but the question goes to our API instead of to your resolver.
+
+Every endpoint the API has is reachable from here — a spec in the package
+asserts it both ways, so a route without a command fails a test rather than
+going unnoticed.
 
 See [`check`](/cli/check) for the diagnostic half, and
-[`accounts`](/cli/accounts) and [`domains`](/cli/domains) for the half that
+[`accounts`](/cli/accounts), [`profiles`](/cli/profiles),
+[`domains`](/cli/domains) and [`webhooks`](/cli/webhooks) for the half that
 manages a tenant.
+
+## Two ways to run anything
+
+Every command takes its arguments as flags. Leave a required one out and, if
+there is a terminal to ask in, it asks:
+
+<CodeBlock code={GUIDED} lang="text" />
+
+That is the same declaration behind both paths — one list of fields per
+command generates the flag and the question — so the two cannot describe
+different arguments.
+
+When there is nobody to ask, it does not wait. **A CLI that blocks on stdin
+because a flag was missing is worse than one that errors**: it hangs a build
+until the runner's timeout with nothing on stderr saying why. So it names
+every missing flag at once and exits `64`:
+
+<CodeBlock code={NON_INTERACTIVE} lang="text" />
+
+Prompting is off whenever any of these is true, and each is checked because
+the others miss a real case:
+
+| Condition | Why |
+|---|---|
+| stdin or stdout is not a TTY | The usual pipe or redirect |
+| `--json` was passed | Asking for machine-readable output says nobody is reading |
+| `CI=true` | Some runners allocate a pty, so the TTY check alone is not enough |
+| `PROPGATE_NO_INPUT=1` | A wrapper script started from an interactive shell |
 
 ## The config file
 

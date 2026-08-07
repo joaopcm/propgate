@@ -1,90 +1,104 @@
 import { describe, expect, it } from "vitest";
-import { parse, parseResolver } from "./args";
+import {
+  optionsFor,
+  parseResolver,
+  readArgs,
+  signature,
+  usageFor,
+} from "./args";
+import { checkCommand } from "./commands/check";
+import { domainsCommands } from "./commands/domains";
+import { confirmCommand } from "./commands/signup";
+import { webhooksCommands } from "./commands/webhooks";
 
 /** Argument parsing, with no DNS anywhere near it. */
 
-function run(...argv: string[]) {
-  return parse(argv);
-}
+const domainsAdd = domainsCommands.find((command) => command.path[1] === "add");
+const webhooksRotate = webhooksCommands.find(
+  (command) => command.path[1] === "rotate"
+);
 
-describe("parse", () => {
-  it("reads a domain", () => {
-    const parsed = run("check", "example.com");
-
-    expect(parsed.kind).toBe("run");
-
-    if (parsed.kind === "run") {
-      expect(parsed.options.domain).toBe("example.com");
-    }
-  });
-
-  it("shows help with no arguments", () => {
-    expect(parse([]).kind).toBe("help");
-    expect(run("--help").kind).toBe("help");
-  });
-
-  it("reports the version, which also takes no positionals", () => {
-    // The regression this exists for: `--version` and "no arguments" look
-    // identical to a positional count, so a help branch checked first ate it and
-    // `propgate --version` printed usage in every release that shipped.
-    expect(run("--version").kind).toBe("version");
-    expect(run("-v").kind).toBe("version");
-  });
-
-  it("collects repeated selectors", () => {
-    const parsed = run(
-      "check",
-      "example.com",
-      "--selector",
-      "a",
-      "--selector",
-      "b"
+describe("optionsFor", () => {
+  it("keeps every pair of commands disjoint", () => {
+    /**
+     * The property the two hand-written option tables used to provide, now that
+     * there is a table per command instead of one per module. Losing it would let
+     * `propgate check example.com --code 123456` parse as something.
+     */
+    const check = readArgs(
+      ["check", "example.com", "--code", "123456"],
+      optionsFor(checkCommand)
     );
 
-    if (parsed.kind !== "run") {
-      throw new Error("expected a run");
-    }
+    expect(check.ok).toBe(false);
 
-    expect(parsed.options.selectors).toEqual(["a", "b"]);
+    const confirm = readArgs(
+      ["confirm", "--email", "a@b.co", "--resolver", "1.1.1.1"],
+      optionsFor(confirmCommand)
+    );
+
+    expect(confirm.ok).toBe(false);
   });
 
-  it("leaves the mail intent unstated unless the flag is given", () => {
-    // Three states, not two. Defaulting to "this domain receives mail" would
-    // report every sending-only domain as broken, and defaulting the other way
-    // would miss a mail domain that cannot receive anything.
-    const silent = run("check", "example.com");
-    const stated = run("check", "example.com", "--receives-mail");
-
-    if (silent.kind !== "run" || stated.kind !== "run") {
-      throw new Error("expected runs");
-    }
-
-    expect(silent.options.expectsMail).toBeUndefined();
-    expect(stated.options.expectsMail).toBe(true);
+  it("offers --api-url only where there is an API to point at", () => {
+    // `check` is networked because `--remote` exists; the command itself refuses
+    // the flag without it, which is a better answer than the flag not existing.
+    expect(optionsFor(checkCommand)["api-url"]).toBeDefined();
+    expect(optionsFor(checkCommand).json).toBeDefined();
+    expect(optionsFor(checkCommand).help).toBeDefined();
   });
 
-  it("rejects an unknown check", () => {
-    const parsed = run("check", "example.com", "--only", "spf,whois");
-
-    expect(parsed.kind).toBe("error");
-
-    if (parsed.kind === "error") {
-      expect(parsed.message).toContain("whois");
-    }
+  it("makes repeatable and multiselect fields collect", () => {
+    expect(optionsFor(checkCommand).selector).toEqual({
+      multiple: true,
+      type: "string",
+    });
+    expect(optionsFor(checkCommand).only).toEqual({
+      multiple: true,
+      type: "string",
+    });
+    expect(optionsFor(checkCommand).trace).toEqual({ type: "boolean" });
   });
 
   it("rejects an unknown flag rather than ignoring it", () => {
     // Silently ignoring a mistyped flag is how someone comes to believe they
     // ran a stricter check than they did.
-    expect(run("check", "example.com", "--stritc").kind).toBe("error");
+    const read = readArgs(
+      ["check", "example.com", "--stritc"],
+      optionsFor(checkCommand)
+    );
+
+    expect(read.ok).toBe(false);
   });
 
-  it("rejects more than one domain", () => {
-    expect(run("check", "a.example.com", "b.example.com").kind).toBe("error");
+  it("collects repeated selectors", () => {
+    const read = readArgs(
+      ["check", "example.com", "--selector", "a", "--selector", "b"],
+      optionsFor(checkCommand)
+    );
+
+    expect(read.ok).toBe(true);
+
+    if (read.ok) {
+      expect(read.values.selector).toEqual(["a", "b"]);
+    }
+  });
+});
+
+describe("usage", () => {
+  it("names the required flags in the signature", () => {
+    expect(signature(domainsAdd as never)).toBe(
+      "propgate domains add <domain> --profile <key> [options]"
+    );
   });
 
-  it("rejects an unknown command", () => {
-    expect(run("inspect", "example.com").kind).toBe("error");
+  it("describes every field it accepts", () => {
+    const text = usageFor(webhooksRotate as never);
+
+    expect(text).toContain("--window-hours <hours>");
+    expect(text).toContain("--json");
+    // Generated from the command, so a field cannot exist without a usage line.
+    expect(text).toContain("<id>");
   });
 });
 

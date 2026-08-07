@@ -11,6 +11,8 @@ import {
   KEYS_LIST_CLI,
   KEYS_LIST_CURL,
   KEYS_LIST_OUTPUT,
+  MEMBERS_CLI,
+  MEMBERS_OUTPUT,
   REVOKE_AMBIGUOUS,
   REVOKE_CLI,
   REVOKE_CURL,
@@ -100,3 +102,12 @@ afterwards.
 
 If a prefix matches more than one key, the command refuses and prints every
 id it matched instead of picking one.
+
+## `members list`
+
+<CodeBlock code={MEMBERS_CLI} lang="bash" />
+<CodeBlock code={MEMBERS_OUTPUT} lang="text" />
+
+Read-only, and there is no `members add`. Membership is granted by proving
+control of a mailbox through `signup`, so a command that added someone would
+be a command that added someone who proved nothing.

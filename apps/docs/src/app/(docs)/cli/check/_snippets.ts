@@ -8,33 +8,31 @@
  * not fabricated.
  */
 
-export const CHECK_USAGE = `propgate — DNS diagnosis from the terminal
+export const CHECK_USAGE = `propgate check <domain> [options]
 
-  propgate check <domain> [options]
+Diagnose a domain's DNS. Resolves locally by default and needs no account.
 
-Account and domains (see \`propgate signup --help\`)
-  propgate signup --email <address>
-  propgate confirm --email <address> --code <code>
-  propgate keys list | create <name> | revoke <prefix>
-  propgate domains add <domain> --profile <key> | list
+Argument
+  <domain>  The domain to check.
 
 Options
   --selector <name>     A DKIM selector to check. Repeatable.
   --spf-include <name>  An include: token that must authorise this domain.
-  --caa-issuer <name>   A certificate authority that must be authorised.
-  --receives-mail       This domain should receive mail, so undeliverable
-                        mail is a problem. Unstated by default.
-  --only <kinds>        Comma-separated: delegation, spf, dkim, dmarc, mx, caa.
-  --resolver <addr>     Resolver to query, as address or address:port.
-                        Defaults to the system resolver.
+  --caa-issuer <ca>     A certificate authority that must be authorised.
+  --receives-mail       This domain should receive mail, so undeliverable mail
+                        is a problem. Unstated by default.
+  --only <values>       Only these checks. One of: delegation, spf, dkim, dmarc,
+                        mx, caa.
+  --resolver <addr>     Resolver to query, as address or address:port. Defaults
+                        to the system resolver.
   --trace               Print every DNS query behind the answer.
-  --json                Machine-readable output.
-  --help, --version
+  --remote              Ask the propgate API instead of resolving here. Needs no
+                        account.
+  --json                Machine-readable output. Implies no prompting.
 
-Exit codes
-  0  nothing to fix
-  1  something is wrong
-  2  a check could not be completed — which is not the same as a failure`;
+Examples
+  propgate check example.com --only spf,dkim --selector k1
+  propgate check example.com --remote`;
 
 export const SPF_RUN = "npx @propgate/cli check github.com --only spf";
 
@@ -96,3 +94,9 @@ export const JSON_OUTPUT = `{
 
 export const CI_GATE_RUN =
   "npx @propgate/cli check example.com --only spf,dkim --selector app || exit $?";
+
+export const REMOTE_RUN = "npx @propgate/cli check example.com --remote";
+
+export const REDIRECT = `$ propgate check 019fcf4f-2b3c-7d4e-9f5a-6b7c8d9e0f1a
+propgate: that looks like a domain id, not a domain name.
+Did you mean \`propgate domains check 019fcf4f-2b3c-7d4e-9f5a-6b7c8d9e0f1a\`?`;

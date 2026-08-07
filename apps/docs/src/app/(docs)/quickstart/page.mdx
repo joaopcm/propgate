@@ -5,11 +5,13 @@ import {
   CHECK_CURL,
   CONFIRM_CLI,
   CONFIRM_CURL,
+  PROFILE_CLI,
   PROFILE_CURL,
   REGISTER_CLI,
   REGISTER_CURL,
   SIGNUP_CLI,
   SIGNUP_CURL,
+  VERIFY_CLI,
   VERIFY_CURL,
   VERIFY_RESPONSE,
 } from "./_snippets";
@@ -158,9 +160,12 @@ not fire ten thousand DNS runs as a side effect of a bulk insert.
 
 ### A profile: what you expect of a domain
 
-<CodeBlock code={PROFILE_CURL} lang="bash" />
-
-The CLI has no equivalent yet — a profile is created over the API only.
+<CodeTabs
+  items={[
+    { code: PROFILE_CURL, label: "cURL", lang: "bash" },
+    { code: PROFILE_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
 
 Editing a profile writes a **new version**; it never changes the old one, and
 domains stay pinned to the version they were registered against. Otherwise
@@ -183,9 +188,12 @@ not keep.
 Triggering a check needs the domain's id, here the one a fresh registration
 above would return:
 
-<CodeBlock code={VERIFY_CURL} lang="bash" />
-
-The CLI has no equivalent yet — triggering a check is API-only.
+<CodeTabs
+  items={[
+    { code: VERIFY_CURL, label: "cURL", lang: "bash" },
+    { code: VERIFY_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
 
 <CodeBlock code={VERIFY_RESPONSE} lang="json" />
 

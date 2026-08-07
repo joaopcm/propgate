@@ -6,6 +6,8 @@ import {
   CI_GATE_RUN,
   JSON_OUTPUT,
   JSON_RUN,
+  REDIRECT,
+  REMOTE_RUN,
   SPF_OUTPUT,
   SPF_RUN,
 } from "./_snippets";
@@ -81,6 +83,30 @@ anything.
 
 Pass the flag and that same null MX becomes `MX_MAIL_NOT_ACCEPTED`, an error:
 the check now knows mail was expected and cannot be delivered.
+
+## `--remote`
+
+<CodeBlock code={REMOTE_RUN} lang="bash" />
+
+Asks [`POST /v1/checks`](/api/checks) the same question instead of resolving
+here, and renders the answer identically. Still no account: that endpoint is
+public.
+
+Local is the default because it is usually the more useful answer. When a
+customer reports something odd, running against *their* resolver is what finds
+a stale cache or a split-horizon view — and the disagreement between local and
+`--remote` is often the whole diagnosis.
+
+`--resolver` is refused with `--remote`, since the API queries its own; so is
+`--api-url` without `--remote`, because accepting it would let someone believe
+they had pointed the command at a local stack when it had resolved locally the
+whole time.
+
+This command never writes anything. Re-checking a domain you have already
+registered is [`domains check`](/cli/domains), which does — so a uuid here is
+redirected rather than routed:
+
+<CodeBlock code={REDIRECT} lang="text" />
 
 ## `--json`
 

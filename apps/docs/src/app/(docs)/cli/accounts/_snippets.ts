@@ -68,3 +68,8 @@ export const REVOKE_OUTPUT =
 export const REVOKE_AMBIGUOUS = `propgate: "pg_live_A" matches 2 keys. Revoke by id instead:
   019fcf4f-...  ci
   019fcf51-...  staging`;
+
+export const MEMBERS_CLI = "propgate members list";
+
+export const MEMBERS_OUTPUT = `you@example.com       joined 2026-08-01 09:12
+colleague@example.com  joined 2026-08-03 14:40`;
