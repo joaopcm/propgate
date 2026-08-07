@@ -256,3 +256,85 @@ describe("a per-domain DKIM key against the zone that publishes it", () => {
     expect(compiled.kind).toBe("incomplete");
   });
 });
+
+/**
+ * The shape every sending platform issues, as one profile.
+ *
+ * This is the case the two-domain workaround existed for: Resend, SES and
+ * Postmark all put DKIM and DMARC on the domain and SPF and MX on a bounce host
+ * beneath it. Before `label` there was no way to say that, so a partner
+ * registered two domains and reassembled one answer out of two states.
+ *
+ * `customer.test` publishes exactly that layout — a null MX at the apex, a
+ * deliverable one at `send` — so this asserts the whole thing end to end rather
+ * than the label mechanism on its own.
+ */
+const RETURN_PATH: ProfileDefinition = {
+  requirements: [
+    { check: "dkim", key: "dkim", selector: "pg1" },
+    { check: "dmarc", key: "dmarc" },
+    { check: "mx", expectsMail: false, key: "apex-mail" },
+    { check: "spf", include: "one.spf.test", key: "bounce-spf", label: "send" },
+    { check: "mx", expectsMail: true, key: "bounce-mx", label: "send" },
+  ],
+};
+
+describe("a platform that sends from a bounce host", () => {
+  it("satisfies every requirement from one profile and one domain", async () => {
+    const attributed = await evaluate("customer.test", RETURN_PATH);
+
+    expect(attributed.map((entry) => entry.key)).toEqual([
+      "dkim",
+      "dmarc",
+      "apex-mail",
+      "bounce-spf",
+      "bounce-mx",
+    ]);
+    expect(attributed.every((entry) => entry.satisfied)).toBe(true);
+  });
+
+  it("files each name's answer against the requirement that asked for it", async () => {
+    /**
+     * The half that cannot be checked by looking at the verdict.
+     *
+     * Two `mx` requirements assert opposite things about two names. If
+     * attribution keyed them by kind instead of by label, both would receive the
+     * first outcome — and the second would read `satisfied` for a name nothing
+     * checked, which is the false pass this file's header calls the worst thing
+     * it can produce.
+     */
+    const attributed = await evaluate("customer.test", {
+      requirements: [
+        // Wrong on purpose: the apex publishes a null MX, so demanding mail
+        // there fails — and it must fail *there* rather than on the bounce host
+        // asking the identical question one name down.
+        { check: "mx", expectsMail: true, key: "apex-mail" },
+        { check: "mx", expectsMail: true, key: "bounce-mx", label: "send" },
+      ],
+    });
+
+    expect(attributed.find((entry) => entry.key === "apex-mail")).toMatchObject(
+      { satisfied: false }
+    );
+    expect(attributed.find((entry) => entry.key === "bounce-mx")).toMatchObject(
+      { satisfied: true }
+    );
+  });
+
+  it("names the labelled record in the finding, not the domain", async () => {
+    // What a partner renders for their customer. "SPF is missing" is not
+    // actionable; "SPF is missing at send.customer.test" is the whole answer.
+    const attributed = await evaluate("customer.test", {
+      requirements: [
+        {
+          check: "spf",
+          include: "one.spf.test",
+          key: "bounce-spf",
+          label: "nothing-here",
+        },
+      ],
+    });
+
+    expect(attributed[0]?.findings[0]?.name).toBe("nothing-here.customer.test");
+  });
+});

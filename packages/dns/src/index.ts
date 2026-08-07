@@ -11,14 +11,17 @@ export type {
   CnameTarget,
   DkimSelector,
   DomainProfile,
+  MxLabel,
   OwnershipToken,
   RepeatableCheckKind,
+  SpfLabel,
 } from "./check/profile";
 export {
   CHECK_KINDS,
   dkimSelectorName,
   fullMail,
   isRepeatable,
+  nameAt,
   ownershipLabel,
   REPEATABLE_CHECK_KINDS,
   sendingOnly,

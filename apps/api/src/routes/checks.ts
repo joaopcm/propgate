@@ -97,15 +97,34 @@ function profileFrom(input: z.infer<typeof requestSchema>): DomainProfile {
     // report every sending-only domain as broken.
     ...(input.expectsMail === undefined
       ? {}
-      : { expectsMail: input.expectsMail }),
+      : { mx: [{ expectsMail: input.expectsMail }] }),
     ...(input.caaIssuer === undefined ? {} : { caaIssuer: input.caaIssuer }),
     ...(input.cnames === undefined ? {} : { cnames: input.cnames }),
     ...(input.dkimSelectors === undefined
       ? {}
       : { dkimSelectors: input.dkimSelectors }),
     ...(input.ownership === undefined ? {} : { ownership: input.ownership }),
-    ...(input.spfInclude === undefined ? {} : { spfInclude: input.spfInclude }),
-    ...(input.spfIp === undefined ? {} : { spfIp: input.spfIp }),
+    /**
+     * The wire keeps `spfInclude` and `spfIp` as flat fields, unlabelled.
+     *
+     * This endpoint answers "diagnose this one name", which is what a public
+     * checker asks — nobody pastes a domain into it wanting a report about a
+     * bounce host they have not mentioned. Labels belong to a stored profile,
+     * where the platform already knows the shape it issues. Keeping the request
+     * body flat also means this is not a breaking change for anyone calling it.
+     */
+    ...(input.spfInclude === undefined && input.spfIp === undefined
+      ? {}
+      : {
+          spf: [
+            {
+              ...(input.spfInclude === undefined
+                ? {}
+                : { include: input.spfInclude }),
+              ...(input.spfIp === undefined ? {} : { ip: input.spfIp }),
+            },
+          ],
+        }),
   };
 }
 

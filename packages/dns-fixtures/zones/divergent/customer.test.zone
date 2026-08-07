@@ -26,6 +26,19 @@ $TTL 300
 ; RFC 7505: this domain sends and does not receive, and says so.
 @                   IN MX   0 .
 
+; The return-path host, which is what makes the labelled `spf` and `mx` checks
+; testable against real DNS.
+;
+; This is the shape every sending platform issues and the reason `label` exists:
+; the apex above declares a null MX because the domain sends and does not
+; receive, while this name declares a deliverable one because bounces have to
+; land somewhere. Both are correct, they are opposite assertions, and they are
+; about two different names — so one domain has to be able to hold both.
+;
+; Keep in step with the counterpart zone, serial included.
+send                IN TXT  "v=spf1 include:one.spf.test -all"
+send                IN MX   10 mail1.mx.test.
+
 ; Enforcing, with reports going to the domain itself so no external
 ; authorisation is needed.
 _dmarc              IN TXT  "v=DMARC1; p=reject; rua=mailto:dmarc@customer.test"

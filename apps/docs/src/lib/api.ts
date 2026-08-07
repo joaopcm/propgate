@@ -109,15 +109,19 @@ export const REQUIREMENT_TYPES: Record<CheckKind, RequirementType> = {
     fields: [
       {
         name: "expectsMail",
-        note: "Optional, and tri-state. Omit it if you do not know. false asserts the domain receives no mail, which makes a null MX correct rather than a fault.",
+        note: "Optional, and tri-state. Omit it if you do not know. false asserts the name receives no mail, which makes a null MX correct rather than a fault.",
+      },
+      {
+        name: "label",
+        note: "Optional. The name to ask about, relative to the domain — omit it for the apex. A sending-only domain asserts expectsMail: false at its apex and true at its bounce host, which is why this requirement may appear more than once.",
       },
     ],
-    // Deliberately empty. `expectsMail` asserts what the domain is *for*, which
-    // is what a profile is; it is not a value a platform issues per domain.
-    perDomain: [],
-    repeatable: false,
+    // `expectsMail` is deliberately absent: it asserts what the name is *for*,
+    // which is what a profile is, and not a value a platform issues per domain.
+    perDomain: ["label"],
+    repeatable: true,
     summary:
-      "Mail is deliverable, or correctly declared undeliverable. Whether a null MX is right depends entirely on intent, which no amount of looking at DNS reveals.",
+      "Mail is deliverable, or correctly declared undeliverable. Whether a null MX is right depends entirely on intent, which no amount of looking at DNS reveals — and intent differs between a domain and the bounce host beneath it, so this may be asked of more than one name.",
   },
   ownership: {
     fields: [
@@ -141,11 +145,15 @@ export const REQUIREMENT_TYPES: Record<CheckKind, RequirementType> = {
         name: "include",
         note: "Optional. The include: token you publish. Expanded recursively, the way an MTA would, with the RFC 7208 ten-lookup and two-void-lookup limits enforced.",
       },
+      {
+        name: "label",
+        note: "Optional. The name to ask about, relative to the domain — omit it for the apex. This is what puts the check on a return-path host: a platform publishes SPF at a name like send.customer.com, which is the envelope sender receivers check for alignment, while the apex governs the From header. Both are real requirements about one domain, so this may appear more than once.",
+      },
     ],
-    perDomain: ["include"],
-    repeatable: false,
+    perDomain: ["include", "label"],
+    repeatable: true,
     summary:
-      "The SPF record authorises your sending infrastructure and is within the RFC limits.",
+      "The SPF record authorises your sending infrastructure and is within the RFC limits. Askable at more than one name, because a sending domain and its bounce host each publish one.",
   },
 };
 

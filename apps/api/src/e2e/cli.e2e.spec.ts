@@ -423,12 +423,22 @@ describe("a partner onboarding a domain from the terminal", () => {
   it("goes from no account to a verified domain and a signed webhook", async () => {
     await onboard();
     await subscribe();
+    /**
+     * The shape a sending platform actually issues, as one profile.
+     *
+     * DKIM and DMARC on the domain, SPF and MX on the bounce host beneath it,
+     * and opposite MX assertions about the two names. Before `label` this took
+     * two registered domains and two profiles, which meant two states and two
+     * webhook streams for what a customer thinks of as one domain — so this
+     * being a single `domains add` below is the assertion, not an incidental.
+     */
     await profile(
       "sending",
-      "spf:spf:include=one.spf.test",
       "dkim:dkim:selector=pg1,requiredPerDomain=expectedPublicKey",
       "dmarc:dmarc",
-      "mail:mx:expectsMail=false"
+      "apex:mx:expectsMail=false",
+      "bounce-spf:spf:include=one.spf.test,label=send",
+      "bounce-mx:mx:expectsMail=true,label=send"
     );
 
     /**
