@@ -46,8 +46,15 @@ the domain and re-verify it, which is a no-op with a side effect.
 
 ## What it does to the domain
 
-The domain returns to `pending` and its consecutive-failure count resets to zero.
-`state` in the response says so.
+The domain returns to `pending`, its consecutive-failure count resets to zero,
+and it becomes **due immediately**. `state` in the response says the first part;
+the third is why you do not have to do anything else.
+
+That last one is not incidental. A `verified` domain is scheduled a day out, so
+leaving its schedule alone would make the reset cosmetic — the row would read
+`pending` while nothing looked at the value you just sent for up to
+twenty-four hours. The next tick picks it up instead, on the 30-second pending
+cadence, because the fast-pending window is measured from this change.
 
 Both are deliberate, and both are about not lying. The previous verdict answered a
 different question, so it is not evidence about this one — and `pending` is

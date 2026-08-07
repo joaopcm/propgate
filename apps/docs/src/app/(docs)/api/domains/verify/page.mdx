@@ -50,8 +50,11 @@ against the new values) with `meta.superseded: true`. Reporting the computed
 verdict instead would be this endpoint announcing a state for a configuration
 nothing has checked.
 
-Nothing needs retrying. The update already left the domain due, so the sweeper
-picks it up on the pending cadence — or call this endpoint again.
+Nothing needs retrying. An update sets `next_check_at` to now as well as
+resetting the state, so the domain is already due and the next tick picks it up
+on the pending cadence — within 30 seconds, since the fast-pending window is
+measured from the configuration change. Calling this endpoint again is the
+impatient option, not the necessary one.
 
 ## Rate limit
 
