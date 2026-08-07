@@ -100,7 +100,10 @@ variable:
 
 - `DEGRADED_AFTER_FAILURES` — default **1**. The conservative choice for a
   warning: it costs a possibly-noisy event and buys the shortest time to
-  notice.
+  notice. It applies only to a domain that was `verified`, because `degraded`
+  means a regression and a domain nobody has verified yet has not regressed —
+  see [the state machine](/concepts/verdicts). A failing `pending` domain stays
+  `pending` until it reaches the threshold below.
 - `FAILED_AFTER_FAILURES` — default **3**. The number that reaches a
   customer's pager. At the degraded cadence of five minutes, three consecutive
   failures is roughly ten minutes of sustained failure: long enough to outlast

@@ -9,7 +9,7 @@
 export const CREATE_CLI = `propgate profiles create --key sending \\
   --require 'ns:delegation' \\
   --require 'spf:spf:include=_spf.google.com' \\
-  --require 'dkim:dkim:selector=google' \\
+  --require 'dkim:dkim:selector=google,requiredPerDomain=expectedPublicKey' \\
   --require 'dmarc:dmarc' \\
   --require 'mail:mx:expectsMail=true'`;
 
@@ -20,7 +20,12 @@ export const CREATE_CURL = `curl -s -X POST https://api.propgate.dev/v1/profiles
     "requirements": [
       { "key": "ns", "check": "delegation" },
       { "key": "spf", "check": "spf", "include": "_spf.google.com" },
-      { "key": "dkim", "check": "dkim", "selector": "google" },
+      {
+        "key": "dkim",
+        "check": "dkim",
+        "selector": "google",
+        "requiredPerDomain": ["expectedPublicKey"]
+      },
       { "key": "dmarc", "check": "dmarc" },
       { "key": "mail", "check": "mx", "expectsMail": true }
     ]
@@ -32,7 +37,7 @@ sending  version 1
 
   ns     delegation
   spf    spf         include=_spf.google.com
-  dkim   dkim        selector=google
+  dkim   dkim        selector=google, per domain: expectedPublicKey
   dmarc  dmarc
   mail   mx          expectsMail=true`;
 
@@ -55,12 +60,13 @@ export const GUIDED = `$ propgate profiles create
 │  Which DKIM selector?
 │  google
 │
-│  The public key you issued (enter to skip)
+│  Is the public key different for every domain?
+│  ● Yes / ○ No
 │
 │  Add another requirement?
 │  ● No / ○ Yes`;
 
 export const REJECTED = `$ propgate profiles create --key sending --require 'k1:dkim'
-propgate: k1: dkim needs a selector, as k1:dkim:selector=<name>`;
+propgate: k1: dkim needs a selector, as k1:dkim:selector=<name>, or requiredPerDomain=selector`;
 
 export const GET_CLI = "propgate profiles get sending";

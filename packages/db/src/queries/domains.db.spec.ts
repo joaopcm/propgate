@@ -352,6 +352,32 @@ describe("updateDomainConfig", () => {
     expect(updated?.configChangedAt).toBeInstanceOf(Date);
   });
 
+  it("makes the domain due, so the reset is not merely cosmetic", async () => {
+    /**
+     * A verified domain is scheduled a day out.
+     *
+     * Without moving `next_check_at`, going back to `pending` changes a word in
+     * the row and nothing else: the sweeper would not look at the rotated key for
+     * up to twenty-four hours, and a fleet rotation would leave every domain
+     * unverified for a day while the dashboard showed `pending`. Registration
+     * makes a new domain immediately due for exactly this reason.
+     */
+    const { id, tenantId } = await verified();
+    const before = await domainById(db, tenantId, id);
+
+    expect((before?.nextCheckAt?.getTime() ?? 0) - Date.now()).toBeGreaterThan(
+      23 * 3600 * 1000
+    );
+
+    const updated = await updateDomainConfig(db, tenantId, id, {
+      expectations: { dkim: { expectedPublicKey: "rotated" } },
+    });
+
+    expect((updated?.nextCheckAt?.getTime() ?? 0) - Date.now()).toBeLessThan(
+      1000
+    );
+  });
+
   it("re-points to another profile version and resets the same way", async () => {
     // A tenant moving a customer to a different profile is saying "judge this
     // against something else now", exactly as a rotation does.

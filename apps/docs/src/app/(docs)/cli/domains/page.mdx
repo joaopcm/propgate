@@ -20,11 +20,14 @@ import {
   TIMELINE_CLI,
   TIMELINE_EMPTY,
   TIMELINE_OUTPUT,
+  UPDATE_CLI,
+  UPDATE_CURL,
+  UPDATE_OUTPUT,
 } from "./_snippets";
 
 # domains
 
-Six commands over the six `/v1/domains` endpoints. Each is a thin client —
+Seven commands over the seven `/v1/domains` endpoints. Each is a thin client —
 the cURL beside a command issues the identical request, so the two references
 agree on the shape.
 
@@ -67,10 +70,32 @@ genuine second value look identical here, and silently dropping one of two keys 
 how a domain ends up verified against the wrong one.
 
 See [Profiles and versions](/concepts/profiles) for why a key belongs on the domain
-rather than in the profile. Rotating one afterwards is
-[`PATCH /v1/domains/:id`](/api/domains/update), which has no CLI equivalent yet.
+rather than in the profile.
 
-## `domains list --state`
+## `domains update` for rotating one
+
+<CodeTabs
+  items={[
+    { code: UPDATE_CURL, label: "cURL", lang: "bash" },
+    { code: UPDATE_CLI, label: "CLI", lang: "bash" },
+  ]}
+/>
+<CodeBlock code={UPDATE_OUTPUT} lang="text" />
+
+`--expect` replaces the whole set, so send every value the profile requires and
+not only the one that moved. `--profile <key>` re-points the domain at another
+profile instead, and the two can be combined. One of them is required — a call
+that changes nothing would still reset the domain and re-verify it, so the CLI
+refuses it rather than making that a silent side effect.
+
+The domain goes back to `pending` and **no webhook fires**. The value being
+compared changed because you changed it, not because your customer's DNS moved,
+and a `domain.failed` across a fleet mid-rotation would page every one of your
+customers for nothing.
+
+Re-sending `domains add` with the same `--external-id` does **not** rotate
+anything: that path is idempotent by design and answers `200` having written
+nothing. Rotation is this command.
 
 <CodeTabs
   items={[

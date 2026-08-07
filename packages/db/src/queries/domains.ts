@@ -165,6 +165,13 @@ export async function registerDomain(
  * the false page invariant 2 exists to prevent. `pending` is also simply true:
  * we issued a new credential and nothing has verified the domain against it.
  *
+ * `next_check_at` moves to now for the same reason, and forgetting it makes the
+ * reset cosmetic: a verified domain is scheduled a day out, so it would sit at
+ * `pending` for up to twenty-four hours before anything looked at the value the
+ * customer just gave us. Registration already works this way — the column
+ * defaults to `now()` so a new domain is immediately due — and a configuration
+ * change is the same event on an existing row.
+ *
  * Returns the updated row, or undefined when no such domain exists for the
  * tenant, so a route can answer 404 without a second read.
  */
@@ -186,6 +193,7 @@ export async function updateDomainConfig(
       ...(changes.expectations === undefined
         ? {}
         : { expectations: changes.expectations }),
+      nextCheckAt: now,
       ...(changes.profileVersionId === undefined
         ? {}
         : { profileVersionId: changes.profileVersionId }),

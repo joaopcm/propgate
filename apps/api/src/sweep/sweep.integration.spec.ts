@@ -454,9 +454,6 @@ describe("the sweeper and per-domain expectations", () => {
     expect(reset?.state).toBe("pending");
     expect(reset?.consecutiveFailures).toBe(0);
 
-    await db.execute(
-      `update domains set next_check_at = now() - interval '1 second' where id = '${domainId}'`
-    );
     await sweepOnce(testPrefix("sweep-rotate-second"));
 
     const after = await domainById(db, tenantId, domainId);
@@ -493,9 +490,6 @@ describe("the sweeper and per-domain expectations", () => {
         dkim: { expectedPublicKey: "MIIBIjANBgkqhkiG9w0NOTYET" },
       },
     });
-    await db.execute(
-      `update domains set next_check_at = now() - interval '1 second' where id = '${domainId}'`
-    );
     await sweepOnce(testPrefix("sweep-timeline-second"));
 
     // Still one entry: the first observation. Nothing appended for the check whose
@@ -620,9 +614,6 @@ describe("the sweeper and per-domain expectations", () => {
     await updateDomainConfig(db, tenantId, domainId, {
       profileVersionId: moved.id,
     });
-    await db.execute(
-      `update domains set next_check_at = now() - interval '1 second' where id = '${domainId}'`
-    );
     await sweepOnce(testPrefix("sweep-repoint-second"));
 
     const after = (await domainById(db, tenantId, domainId))?.lastResult

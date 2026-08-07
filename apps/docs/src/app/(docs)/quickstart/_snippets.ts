@@ -42,7 +42,8 @@ export const PROFILE_CURL = `curl -s -X POST https://api.propgate.dev/v1/profile
     "requirements": [
       { "key": "ns", "check": "delegation" },
       { "key": "spf", "check": "spf", "include": "_spf.google.com" },
-      { "key": "dkim", "check": "dkim", "selector": "google" },
+      { "key": "dkim", "check": "dkim", "selector": "google",
+        "requiredPerDomain": ["expectedPublicKey"] },
       { "key": "dmarc", "check": "dmarc" },
       { "key": "mail", "check": "mx", "expectsMail": true }
     ]
@@ -51,17 +52,24 @@ export const PROFILE_CURL = `curl -s -X POST https://api.propgate.dev/v1/profile
 export const PROFILE_CLI = `npx @propgate/cli profiles create --key sending \\
   --require 'ns:delegation' \\
   --require 'spf:spf:include=_spf.google.com' \\
-  --require 'dkim:dkim:selector=google' \\
+  --require 'dkim:dkim:selector=google,requiredPerDomain=expectedPublicKey' \\
   --require 'dmarc:dmarc' \\
   --require 'mail:mx:expectsMail=true'`;
 
 export const REGISTER_CURL = `curl -s -X POST https://api.propgate.dev/v1/domains \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
-  -H 'content-type: application/json' \\
-  -d '{"name":"yourdomain.dev","profile":"sending","externalId":"cust_1"}'`;
+  -H 'content-type: application/json' -d '{
+    "name": "yourdomain.dev",
+    "profile": "sending",
+    "externalId": "cust_1",
+    "expectations": {
+      "dkim": { "expectedPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A..." }
+    }
+  }'`;
 
-export const REGISTER_CLI =
-  "npx @propgate/cli domains add yourdomain.dev --profile sending --external-id cust_1";
+export const REGISTER_CLI = `npx @propgate/cli domains add yourdomain.dev \\
+  --profile sending --external-id cust_1 \\
+  --expect dkim.expectedPublicKey=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...`;
 
 export const VERIFY_CURL = `curl -s -X POST https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a/checks \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;

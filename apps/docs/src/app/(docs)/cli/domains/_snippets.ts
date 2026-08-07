@@ -88,3 +88,25 @@ export const DELETE_CLI =
 export const REDIRECT = `$ propgate check 019fcf4f-2b3c-7d4e-9f5a-6b7c8d9e0f1a
 propgate: that looks like a domain id, not a domain name.
 Did you mean \`propgate domains check 019fcf4f-2b3c-7d4e-9f5a-6b7c8d9e0f1a\`?`;
+
+export const UPDATE_CLI = `npx @propgate/cli domains update 019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a \\
+  --expect dkim.expectedPublicKey=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...NEW`;
+
+export const UPDATE_CURL = `curl -X PATCH https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
+  -H "content-type: application/json" -d '{
+    "expectations": {
+      "dkim": { "expectedPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...NEW" }
+    }
+  }'`;
+
+export const UPDATE_OUTPUT = `yourdomain.dev  pending
+
+  id             019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a
+  external id    cust_1
+  registered     2026-08-03 12:00
+  last checked   2026-08-05 09:14
+  verdict        pass
+
+Back to pending, and no webhook was sent — the value we compare changed
+because you changed it. The next check verifies against it.`;
