@@ -1,0 +1,38 @@
+; CNAME_RECORD_MISSING, CNAME_TARGET_MISMATCH and PROVIDER_FLATTENED_CNAME.
+;
+; The record behind every custom subdomain: one alias at a name the customer
+; owns, pointing at a host the platform issued. The reason it needs an evaluator
+; rather than a lookup is `flat` below — Cloudflare and others resolve the alias
+; when it is saved and serve address records in its place, so the customer did
+; exactly what they were told and `dig CNAME` returns nothing at all.
+;
+; Telling that apart from `wrong` is only possible by resolving the target we
+; issued and comparing addresses, which is why propgate-fixture.test exists.
+; Keep 198.51.100.20 here in step with track.propgate-fixture.test, or `flat`
+; silently stops testing flattening and starts testing a wrong address.
+$ORIGIN cname.test.
+$TTL 300
+
+@       IN SOA  ns1.test. hostmaster.propgate.invalid. (
+                1 7200 3600 1209600 300 )
+@       IN NS   ns1.test.
+
+; Published exactly as issued.
+track.ok        IN CNAME  track.propgate-fixture.test.
+
+; Flattened. The address is track.propgate-fixture.test's own, so this domain is
+; configured correctly and must not be reported as broken — only as no longer
+; following the target if the target's addresses change.
+track.flat      IN A      198.51.100.20
+
+; An address record that is not ours. Indistinguishable from `flat` without the
+; target's addresses to compare against, and the opposite verdict.
+track.wrong     IN A      203.0.113.5
+
+; An alias, pointed at somebody else. Left over from the provider the customer
+; migrated off, which is the usual way this happens.
+track.stale     IN CNAME  track.competitor.invalid.
+
+; The alias name does not exist. The subdomain does, so this is a live host
+; missing one record.
+missing         IN A      198.51.100.41

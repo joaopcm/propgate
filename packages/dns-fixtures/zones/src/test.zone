@@ -35,6 +35,8 @@ caa-child           IN NS   ns1.test.
 reports             IN NS   ns1.test.
 unauth-reports      IN NS   ns1.test.
 propgate-fixture    IN NS   ns1.test.
+ownership           IN NS   ns1.test.
+cname               IN NS   ns1.test.
 wildcard            IN NS   ns1.test.
 txt-split           IN NS   ns1.test.
 tcp                 IN NS   ns1.test.

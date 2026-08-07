@@ -1,5 +1,5 @@
 import { PER_DOMAIN_FIELDS_BY_CHECK } from "@propgate/db/src/schema/profiles";
-import { CHECK_KINDS } from "@propgate/dns";
+import { CHECK_KINDS, REPEATABLE_CHECK_KINDS } from "@propgate/dns";
 import { describe, expect, it } from "vitest";
 import { ENDPOINTS, REQUIREMENT_TYPES, VERDICTS } from "./api";
 
@@ -18,15 +18,17 @@ describe("requirement types", () => {
     );
   });
 
-  it("documents exactly one repeatable requirement", () => {
-    // DKIM answers a question per selector; everything else answers one per
-    // domain. If a second kind becomes repeatable, `rejectDefinition` in the
-    // API has to change with it.
+  it("documents the repeatable requirements, and only those", () => {
+    // Three kinds answer a question per record: DKIM per selector, ownership and
+    // cname per label. Everything else answers one per domain. `rejectDefinition`
+    // in the API and `REPEATABLE_CHECK_KINDS` in the resolver both encode the
+    // same fact, so a page that disagrees with them is a page that lies.
     const repeatable = Object.entries(REQUIREMENT_TYPES)
       .filter(([, type]) => type.repeatable)
-      .map(([kind]) => kind);
+      .map(([kind]) => kind)
+      .toSorted();
 
-    expect(repeatable).toEqual(["dkim"]);
+    expect(repeatable).toEqual([...REPEATABLE_CHECK_KINDS].toSorted());
   });
 
   it("says something about each one", () => {

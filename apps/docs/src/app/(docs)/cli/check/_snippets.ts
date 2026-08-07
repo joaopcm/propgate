@@ -16,19 +16,24 @@ Argument
   <domain>  The domain to check.
 
 Options
-  --selector <name>     A DKIM selector to check. Repeatable.
-  --spf-include <name>  An include: token that must authorise this domain.
-  --caa-issuer <ca>     A certificate authority that must be authorised.
-  --receives-mail       This domain should receive mail, so undeliverable mail
-                        is a problem. Unstated by default.
-  --only <values>       Only these checks. One of: delegation, spf, dkim, dmarc,
-                        mx, caa.
-  --resolver <addr>     Resolver to query, as address or address:port. Defaults
-                        to the system resolver.
-  --trace               Print every DNS query behind the answer.
-  --remote              Ask the propgate API instead of resolving here. Needs no
-                        account.
-  --json                Machine-readable output. Implies no prompting.
+  --selector <name>       A DKIM selector to check. Repeatable.
+  --spf-include <name>    An include: token that must authorise this domain.
+  --caa-issuer <ca>       A certificate authority that must be authorised.
+  --token <value>         An ownership token that must be published.
+  --token-at <label>      The name the token goes at, e.g. _pg-challenge. The
+                          apex by default.
+  --cname <label=target>  An alias that must point at a target, as label=target.
+                          Repeatable.
+  --receives-mail         This domain should receive mail, so undeliverable mail
+                          is a problem. Unstated by default.
+  --only <values>         Only these checks. One of: delegation, spf, dkim,
+                          dmarc, mx, caa, ownership, cname.
+  --resolver <addr>       Resolver to query, as address or address:port.
+                          Defaults to the system resolver.
+  --trace                 Print every DNS query behind the answer.
+  --remote                Ask the propgate API instead of resolving here. Needs
+                          no account.
+  --json                  Machine-readable output. Implies no prompting.
 
 Examples
   propgate check example.com --only spf,dkim --selector k1

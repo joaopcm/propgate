@@ -24,6 +24,16 @@ const MAX_KEY_LENGTH = 64;
 const MAX_VALUE_LENGTH = 253;
 const MAX_SELECTOR_LENGTH = 63;
 const MAX_PUBLIC_KEY_LENGTH = 4096;
+/**
+ * One TXT character-string, per RFC 1035 §3.3.14.
+ *
+ * A tripwire rather than a constraint. The evaluator reads a token split across
+ * several character-strings and rejoined, because providers do that to long
+ * values — so this is not the longest token that can *work*, it is well past the
+ * longest anybody issues. A token that hits it is a key or a URL pasted into the
+ * wrong field.
+ */
+const MAX_TOKEN_LENGTH = 255;
 
 const requirementSchema = z.object({
   caaIssuer: z.string().min(1).max(MAX_VALUE_LENGTH).optional(),
@@ -32,6 +42,7 @@ const requirementSchema = z.object({
   expectsMail: z.boolean().optional(),
   include: z.string().min(1).max(MAX_VALUE_LENGTH).optional(),
   key: z.string().min(1).max(MAX_KEY_LENGTH),
+  label: z.string().min(1).max(MAX_VALUE_LENGTH).optional(),
   /**
    * Which of this requirement's values the domain supplies instead.
    *
@@ -41,6 +52,8 @@ const requirementSchema = z.object({
    */
   requiredPerDomain: z.array(z.enum(PER_DOMAIN_FIELDS)).min(1).optional(),
   selector: z.string().min(1).max(MAX_SELECTOR_LENGTH).optional(),
+  target: z.string().min(1).max(MAX_VALUE_LENGTH).optional(),
+  token: z.string().min(1).max(MAX_TOKEN_LENGTH).optional(),
 });
 
 const createSchema = z.object({

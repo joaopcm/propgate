@@ -41,6 +41,22 @@ export const REQUIREMENT_TYPES: Record<CheckKind, RequirementType> = {
     summary:
       "The CAA tree authorises a named certificate authority. Rejected without an issuer, from either side: the evaluator has nothing to compare against, so the requirement could never be reported on.",
   },
+  cname: {
+    fields: [
+      {
+        name: "label",
+        note: "Required, unless named in requiredPerDomain. The part of the name before the domain, e.g. track. There is no apex form: RFC 1034 §3.6.2 forbids an alias alongside the SOA and NS records every apex has.",
+      },
+      {
+        name: "target",
+        note: "Required, unless named in requiredPerDomain. The host you issued, e.g. acme.track.example.net. Compared after resolving, so a provider that flattens the alias into address records passes rather than failing.",
+      },
+    ],
+    perDomain: ["label", "target"],
+    repeatable: true,
+    summary:
+      "An alias points at the host you issued. Repeatable, because a platform issuing a tracking host and a bounce host is issuing two aliases and a merged verdict cannot say which one is missing.",
+  },
   delegation: {
     fields: [],
     perDomain: [],
@@ -84,6 +100,22 @@ export const REQUIREMENT_TYPES: Record<CheckKind, RequirementType> = {
     repeatable: false,
     summary:
       "Mail is deliverable, or correctly declared undeliverable. Whether a null MX is right depends entirely on intent, which no amount of looking at DNS reveals.",
+  },
+  ownership: {
+    fields: [
+      {
+        name: "token",
+        note: "Required, unless named in requiredPerDomain — and almost always named there, because a token minted for one domain means nothing on another. Compared byte-for-byte, which is what makes this check immune to a wildcard: a zone answering every name still has to answer with your value.",
+      },
+      {
+        name: "label",
+        note: "Optional. The part of the name before the domain, e.g. _pg-challenge. Omit it for the apex, where the token shares a name with SPF and every other vendor's token — which is fine, because one value among many still has to match.",
+      },
+    ],
+    perDomain: ["label", "token"],
+    repeatable: true,
+    summary:
+      "A token you minted is published at a name you chose, and publishing it is the proof the customer controls the zone. Nothing here is parsed: the value is opaque, so a near miss is reported as a mangled token rather than as a wrong one.",
   },
   spf: {
     fields: [

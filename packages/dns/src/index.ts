@@ -6,11 +6,21 @@ export type {
   VantageResult,
 } from "./check/consensus";
 export { runChecksAcrossVantagePoints } from "./check/consensus";
-export type { CheckKind, DkimSelector, DomainProfile } from "./check/profile";
+export type {
+  CheckKind,
+  CnameTarget,
+  DkimSelector,
+  DomainProfile,
+  OwnershipToken,
+  RepeatableCheckKind,
+} from "./check/profile";
 export {
   CHECK_KINDS,
   dkimSelectorName,
   fullMail,
+  isRepeatable,
+  ownershipLabel,
+  REPEATABLE_CHECK_KINDS,
   sendingOnly,
   webOnly,
 } from "./check/profile";
@@ -18,6 +28,7 @@ export type {
   CheckOutcome,
   CheckResult,
   DkimSelectorOutcome,
+  RecordOutcome,
   RunOptions,
 } from "./check/run";
 export { outcomeFor, runChecks } from "./check/run";
@@ -52,6 +63,8 @@ export {
   parseCaaIssuer,
   parseCaaPolicy,
 } from "./evaluate/caa-record";
+export type { CnameCheck } from "./evaluate/cname";
+export { cnameRecordName, evaluateCname } from "./evaluate/cname";
 export type { EvaluationContextOptions } from "./evaluate/context";
 export { createEvaluationContext, EvaluationContext } from "./evaluate/context";
 export type { DelegationCheck } from "./evaluate/delegation";
@@ -84,6 +97,12 @@ export {
 } from "./evaluate/dmarc-record";
 export type { MxCheck } from "./evaluate/mx";
 export { evaluateMx } from "./evaluate/mx";
+export type { OwnershipCheck, TokenNearMiss } from "./evaluate/ownership";
+export {
+  evaluateOwnership,
+  nearMissFor,
+  ownershipRecordName,
+} from "./evaluate/ownership";
 export type { SpfCheck } from "./evaluate/spf";
 export { evaluateSpf } from "./evaluate/spf";
 export type { IpAddress, IpFamily } from "./evaluate/spf-ip";

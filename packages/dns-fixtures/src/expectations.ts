@@ -46,16 +46,34 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
   {
     codes: ["PROVIDER_APPENDED_ZONE_NAME"],
     reason:
-      "Record sits at selector1._domainkey.appended.test.appended.test; the correct name is NXDOMAIN.",
+      "Record sits at selector1._domainkey.appended.test.appended.test; the correct name is NXDOMAIN. Carries the same fault for an ownership token and a CNAME owner, plus the two spellings of it applied to a CNAME *target* — our target with its own zone appended, and our target with the customer's zone appended — because a doubled target is a value the customer pasted correctly and must not read as pointing somewhere else on purpose.",
     role: "auth",
     zone: "appended.test",
   },
   {
-    codes: ["PROVIDER_FLATTENED_CNAME"],
+    codes: [],
     reason:
-      "Stands in for our own infrastructure, so a flattened CNAME can be told apart from a genuinely wrong target by comparing addresses.",
+      "Stands in for our own infrastructure, so a flattened CNAME can be told apart from a genuinely wrong target by comparing addresses. The finding itself belongs to cname.test, which is the zone doing the flattening; this one only has to resolve.",
     role: "auth",
     zone: "propgate-fixture.test",
+  },
+  {
+    codes: [
+      "CNAME_RECORD_MISSING",
+      "CNAME_TARGET_MISMATCH",
+      "PROVIDER_FLATTENED_CNAME",
+    ],
+    reason:
+      "The alias behind every custom subdomain, and the reason it needs an evaluator rather than a lookup: `flat` publishes an address record carrying track.propgate-fixture.test's own address, which is what a provider that resolves aliases at edit time leaves behind. It is correct configuration and indistinguishable from the wrong address next to it without resolving the target we issued. Keep the two addresses in step or `flat` stops testing flattening.",
+    role: "auth",
+    zone: "cname.test",
+  },
+  {
+    codes: ["OWNERSHIP_TOKEN_MISSING", "OWNERSHIP_TOKEN_MISMATCH"],
+    reason:
+      "An opaque token has nothing to parse, so every case here is a token the customer genuinely held and something spent on the way to the zone: stored with its quotes, split and rejoined with whitespace, truncated by a length-limited field, case-folded. The apex name carries SPF and another vendor's token alongside ours, which is what fails a checker asking whether the name has a record instead of whether our value is among them.",
+    role: "auth",
+    zone: "ownership.test",
   },
   {
     codes: ["WILDCARD_FALSE_POSITIVE"],

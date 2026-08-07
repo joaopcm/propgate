@@ -68,7 +68,97 @@ function systemResolver(): ServerAddress | string {
   return parseResolver(first);
 }
 
-function profileFor(input: Input): DomainProfile {
+/**
+ * `--cname track=track.example.net` into the pair it names.
+ *
+ * Split on the first `=`. Unambiguous because the right-hand side is a hostname
+ * and a hostname cannot contain one — unlike `--token`, whose value routinely
+ * does, which is why the label there is a flag of its own rather than a prefix.
+ */
+function parseCname(value: string): { label: string; target: string } | string {
+  const at = value.indexOf("=");
+
+  if (at < 1 || at === value.length - 1) {
+    return `--cname takes <label>=<target>, e.g. track=track.example.net (got "${value}")`;
+  }
+
+  return { label: value.slice(0, at), target: value.slice(at + 1) };
+}
+
+/** Tokens and aliases, or the first one that could not be read. */
+function recordsFor(input: Input):
+  | {
+      readonly cnames: readonly { label: string; target: string }[];
+      readonly ok: true;
+      readonly ownership: readonly { label?: string; token: string }[];
+    }
+  | { readonly message: string; readonly ok: false } {
+  const cnames: { label: string; target: string }[] = [];
+
+  for (const value of input.list("cname")) {
+    const parsed = parseCname(value);
+
+    if (typeof parsed === "string") {
+      return { message: parsed, ok: false };
+    }
+
+    cnames.push(parsed);
+  }
+
+  const token = input.text("token");
+  const label = input.text("token-at");
+
+  if (token === undefined && label !== undefined) {
+    return {
+      message: "--token-at names where a token goes, but no --token was given",
+      ok: false,
+    };
+  }
+
+  return {
+    cnames,
+    ok: true,
+    ownership:
+      token === undefined
+        ? []
+        : [{ token, ...(label === undefined ? {} : { label }) }],
+  };
+}
+
+/**
+ * A check named explicitly with nothing to check it against.
+ *
+ * Only fires for `--only`, and only for the two kinds that cannot run without a
+ * value. Asking for everything is a different statement — the default runs each
+ * check that has something to work with and stays quiet about the rest, which is
+ * what makes `propgate check example.com` useful with no flags at all.
+ *
+ * DKIM and CAA have the same hole and are deliberately left alone here: changing
+ * what `--only dkim` does today is a decision of its own, not a consequence of
+ * adding two evaluators.
+ */
+function unfeedable(
+  input: Input,
+  records: { cnames: readonly unknown[]; ownership: readonly unknown[] }
+): string | undefined {
+  const only = input.list("only");
+
+  if (only.includes("ownership") && records.ownership.length === 0) {
+    return "--only ownership needs a --token to compare against";
+  }
+
+  if (only.includes("cname") && records.cnames.length === 0) {
+    return "--only cname needs a --cname <label>=<target> to compare against";
+  }
+}
+
+function profileFor(
+  input: Input,
+  records: {
+    cnames: readonly { label: string; target: string }[];
+    ownership: readonly { label?: string; token: string }[];
+  }
+): DomainProfile {
   const selectors = input.list("selector");
   const only = input.list("only");
   const caaIssuer = input.text("caa-issuer");
@@ -84,7 +174,9 @@ function profileFor(input: Input): DomainProfile {
     // the domain receives no mail, which is a different statement entirely.
     ...(input.bool("receives-mail") ? { expectsMail: true } : {}),
     ...(caaIssuer === undefined ? {} : { caaIssuer }),
+    ...(records.cnames.length === 0 ? {} : { cnames: records.cnames }),
     ...(selectors.length === 0 ? {} : { dkimSelectors: selectors }),
+    ...(records.ownership.length === 0 ? {} : { ownership: records.ownership }),
     ...(spfInclude === undefined ? {} : { spfInclude }),
   };
 }
@@ -190,7 +282,11 @@ function rehydrate(payload: RemoteResult): Renderable {
 async function remote(
   input: Input,
   context: Context,
-  domain: string
+  domain: string,
+  records: {
+    cnames: readonly { label: string; target: string }[];
+    ownership: readonly { label?: string; token: string }[];
+  }
 ): Promise<number> {
   const selectors = input.list("selector");
   const only = input.list("only");
@@ -203,8 +299,12 @@ async function remote(
       domain,
       ...(only.length === 0 ? {} : { checks: only }),
       ...(caaIssuer === undefined ? {} : { caaIssuer }),
+      ...(records.cnames.length === 0 ? {} : { cnames: records.cnames }),
       ...(selectors.length === 0 ? {} : { dkimSelectors: selectors }),
       ...(input.bool("receives-mail") ? { expectsMail: true } : {}),
+      ...(records.ownership.length === 0
+        ? {}
+        : { ownership: records.ownership }),
       ...(spfInclude === undefined ? {} : { spfInclude }),
     },
     method: "POST",
@@ -225,7 +325,11 @@ async function remote(
 async function local(
   input: Input,
   context: Context,
-  domain: string
+  domain: string,
+  records: {
+    cnames: readonly { label: string; target: string }[];
+    ownership: readonly { label?: string; token: string }[];
+  }
 ): Promise<number> {
   const given = input.text("resolver");
   const resolver =
@@ -237,7 +341,7 @@ async function local(
 
   const result = await runChecks({
     domain,
-    profile: profileFor(input),
+    profile: profileFor(input, records),
     resolver: {
       budgetMs: BUDGET_MS,
       maxLookups: MAX_LOOKUPS,
@@ -268,6 +372,18 @@ async function run(input: Input, context: Context): Promise<number> {
     return EXIT_USAGE;
   }
 
+  const records = recordsFor(input);
+
+  if (!records.ok) {
+    return usage(records.message);
+  }
+
+  const empty = unfeedable(input, records);
+
+  if (empty !== undefined) {
+    return usage(empty);
+  }
+
   const wantsRemote = input.bool("remote");
 
   if (wantsRemote && input.text("resolver") !== undefined) {
@@ -283,8 +399,8 @@ async function run(input: Input, context: Context): Promise<number> {
   }
 
   return wantsRemote
-    ? await remote(input, context, domain)
-    : await local(input, context, domain);
+    ? await remote(input, context, domain, records)
+    : await local(input, context, domain, records);
 }
 
 const TWO_LABELS = /^[^.]+(\.[^.]+)+$/;
@@ -319,6 +435,33 @@ export const checkCommand: Command = {
       kind: "string",
       placeholder: "ca",
       prompt: "Which certificate authority must be authorised?",
+      required: false,
+    },
+    {
+      describe: "An ownership token that must be published.",
+      flag: "token",
+      kind: "string",
+      placeholder: "value",
+      prompt: "Which ownership token must be published?",
+      required: false,
+    },
+    {
+      describe:
+        "The name the token goes at, e.g. _pg-challenge. The apex by default.",
+      flag: "token-at",
+      kind: "string",
+      placeholder: "label",
+      prompt: "At which name?",
+      required: false,
+    },
+    {
+      describe:
+        "An alias that must point at a target, as label=target. Repeatable.",
+      flag: "cname",
+      kind: "string",
+      placeholder: "label=target",
+      prompt: "Which alias, as label=target?",
+      repeatable: true,
       required: false,
     },
     {

@@ -26,7 +26,10 @@ export const PER_DOMAIN_FIELDS = [
   "caaIssuer",
   "expectedPublicKey",
   "include",
+  "label",
   "selector",
+  "target",
+  "token",
 ] as const;
 
 export type PerDomainField = (typeof PER_DOMAIN_FIELDS)[number];
@@ -42,11 +45,32 @@ export type PerDomainField = (typeof PER_DOMAIN_FIELDS)[number];
  */
 export interface ProfileRequirement {
   readonly caaIssuer?: string;
-  readonly check: "caa" | "delegation" | "dkim" | "dmarc" | "mx" | "spf";
+  readonly check:
+    | "caa"
+    | "cname"
+    | "delegation"
+    | "dkim"
+    | "dmarc"
+    | "mx"
+    | "ownership"
+    | "spf";
   readonly expectedPublicKey?: string;
   readonly expectsMail?: boolean;
   readonly include?: string;
   readonly key: string;
+  /**
+   * The label the record goes at, e.g. `_pg-challenge` or `track`.
+   *
+   * Shared by `ownership` and `cname` because it means the same thing in both:
+   * the part of the name before the domain. Optional for a token, which a good
+   * half of the industry publishes at the apex; required for an alias, which RFC
+   * 1034 §3.6.2 forbids there.
+   *
+   * Usually a profile literal — a platform picks one name and every customer
+   * uses it. Deferrable anyway, because the ones that embed an account id in the
+   * label are exactly the ones with too many domains to version per domain.
+   */
+  readonly label?: string;
   /**
    * Fields this requirement takes from the domain instead of from here.
    *
@@ -57,24 +81,37 @@ export interface ProfileRequirement {
    */
   readonly requiredPerDomain?: readonly PerDomainField[];
   readonly selector?: string;
+  /** The alias target, e.g. `acme.track.propgate.com`. */
+  readonly target?: string;
+  /** The ownership token, compared byte-for-byte. */
+  readonly token?: string;
 }
 
 /**
  * Which fields each check kind can defer.
  *
- * Typed against the check union rather than `string`, so adding a seventh check
- * kind fails `tsc` here until somebody decides what it can defer. The zod enum,
- * the validator and the published reference all read this, so none of them can
+ * Typed against the check union rather than `string`, so adding a check kind
+ * fails `tsc` here until somebody decides what it can defer. The zod enum, the
+ * validator and the published reference all read this, so none of them can
  * drift from the others.
+ *
+ * `token` and `target` are the two that most need deferring, and for opposite
+ * reasons. A token is *only ever* per-domain — a value minted for one domain and
+ * meaningless on another — so a profile that carried one as a literal would be a
+ * profile with exactly one domain in it. A target is usually a literal and
+ * sometimes not, because a platform that puts the account in the hostname issues
+ * a different one to everybody.
  */
 export const PER_DOMAIN_FIELDS_BY_CHECK: Readonly<
   Record<ProfileRequirement["check"], readonly PerDomainField[]>
 > = {
   caa: ["caaIssuer"],
+  cname: ["label", "target"],
   delegation: [],
   dkim: ["expectedPublicKey", "selector"],
   dmarc: [],
   mx: [],
+  ownership: ["label", "token"],
   spf: ["include"],
 };
 

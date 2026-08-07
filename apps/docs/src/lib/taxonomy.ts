@@ -90,6 +90,20 @@ const FAMILIES: ReadonlyArray<{
   },
   {
     blurb:
+      "Whether a token you minted is published where you asked for it. The proof that a customer controls the zone, and the one check with nothing to parse.",
+    id: "ownership",
+    prefixes: ["OWNERSHIP_"],
+    title: "Ownership",
+  },
+  {
+    blurb:
+      "Whether an alias points at the host you issued — including when a provider resolved it away and left address records in its place.",
+    id: "cname",
+    prefixes: ["CNAME_"],
+    title: "Custom subdomains",
+  },
+  {
+    blurb:
       "Faults in how the answer arrived rather than in what it said — truncation, negative caching, DNSSEC state.",
     id: "resolution",
     prefixes: [
