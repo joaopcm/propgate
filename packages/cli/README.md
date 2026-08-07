@@ -76,9 +76,14 @@ propgate check <domain> [options]
   --selector <name>     A DKIM selector to check. Repeatable.
   --spf-include <name>  An include: token that must authorise this domain.
   --caa-issuer <ca>     A certificate authority that must be authorised.
+  --token <value>       An ownership token that must be published.
+  --token-at <label>    The name the token goes at. The apex by default.
+  --cname <label=target>
+                        An alias that must point at a target. Repeatable.
   --receives-mail       This domain should receive mail, so undeliverable mail
                         is a problem. Unstated by default.
-  --only <values>       One of: delegation, spf, dkim, dmarc, mx, caa.
+  --only <values>       One of: delegation, spf, dkim, dmarc, mx, caa,
+                        ownership, cname.
   --resolver <addr>     Resolver to query, as address or address:port.
                         Defaults to the system resolver.
   --trace               Print every DNS query behind the answer.

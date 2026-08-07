@@ -12,6 +12,24 @@ import type { CheckKind, Verdict } from "@propgate/dns";
  * code cannot disagree, because one is derived from the other.
  */
 
+/**
+ * One evaluator's entry on `/dns/evaluators`.
+ *
+ * Declared here rather than inline on the page so the table there can be typed
+ * `Record<CheckKind, EvaluatorEntry>`, which is the whole point of it existing.
+ * Two check kinds shipped while that table was a bare object literal; the page
+ * still compiled, still type-checked, and died at prerender reading `nonObvious`
+ * of `undefined` — a failure only `next build` could see. `REQUIREMENT_TYPES`
+ * below was keyed by `CheckKind` and failed `tsc` immediately, which is the
+ * behaviour worth copying.
+ */
+export interface EvaluatorEntry {
+  /** A runnable sample, from the page's own `_snippets`. */
+  readonly code: string;
+  /** The thing a reader would get wrong having read only the summary. */
+  readonly nonObvious: string;
+}
+
 export interface RequirementType {
   /** What the tenant states, beyond the check name. */
   readonly fields: readonly { readonly name: string; readonly note: string }[];

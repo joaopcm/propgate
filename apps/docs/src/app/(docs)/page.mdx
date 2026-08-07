@@ -1,3 +1,4 @@
+import { DIAGNOSIS_COUNT } from "@/lib/counts";
 import { CodeTabs } from "@/components/docs/code-tabs";
 import { CHECK_CLI, CHECK_CURL } from "./_snippets";
 
@@ -40,7 +41,7 @@ argument.
 
 ## What you get
 
-- **73 diagnosis codes**, each a stable contract you can switch on, each
+- **{DIAGNOSIS_COUNT} diagnosis codes**, each a stable contract you can switch on, each
   either reproduced by a fixture in the test harness or carrying a written
   reason why it cannot be. `PROVIDER_APPENDED_ZONE_NAME` deflects a support
   ticket; "record not found" creates one.

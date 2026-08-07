@@ -5,9 +5,10 @@ taxonomy. **Zero runtime dependencies** — Node built-ins only.
 
 MIT licensed. Part of [propgate](https://github.com/joaopcm/propgate).
 
-> **Status:** shipped. Resolver, six evaluators (delegation, SPF, DKIM, DMARC,
-> MX, CAA) and a 73-code diagnosis taxonomy, every code either produced by a
-> fixture in the test harness or carrying a written reason why it cannot be. The
+> **Status:** shipped. Resolver, eight evaluators (delegation, SPF, DKIM, DMARC,
+> MX, CAA, ownership, cname) and a 78-code diagnosis taxonomy, every code either
+> produced by a fixture in the test harness or carrying a written reason why it
+> cannot be. The
 > [RFC conformance ledger](https://docs.propgate.dev/conformance) says which
 > parts of which specifications are asserted by a named test.
 

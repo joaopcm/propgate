@@ -203,12 +203,26 @@ asserting "this domain publishes *the* key we issued it" cost one profile versio
 per domain. The mechanism above is the correction, and it is a gap being closed
 rather than scope being added: no new check kind, nothing new the resolver can do.
 
-Two check kinds that the problem statement at the top of this document names and
-this document then never picks up remain unbuilt: an **ownership TXT** token and a
+The two check kinds the problem statement at the top of this document names and
+then never picks up have since shipped: an **ownership TXT** token and a
 **tracking CNAME** target. Both are expected-value checks, and the token is one
-that can only ever be per-domain — which is why the mechanism had to come first.
-Neither is new scope for the same reason expected values were not; they are the
-rest of the record set on line 13.
+that can only ever be per-domain — which is why the mechanism above had to come
+first. Neither was new scope, for the same reason expected values were not; they
+are the rest of the record set on line 13.
+
+Two things they changed rather than merely added, both worth recording:
+
+- **The product is no longer email-only.** Every other check asks a question
+  about mail. An ownership token and an alias are what a platform issuing *any*
+  custom subdomain needs, so the addressable integrator stopped being "a sender"
+  and became "anyone who asks a customer to edit DNS". No infrastructure moved.
+- **Repeatability stopped being a DKIM quirk.** Three kinds now answer a question
+  per record rather than per domain, which turned a special case in the profile
+  compiler into a rule — and surfaced a latent fault in the old one: two
+  requirements resolving to the same selector were both attributed the first's
+  outcome, so a domain could read verified for a key nobody published. A check
+  that repeats needs a discriminator that is unique *after* per-domain values are
+  resolved, not just as written.
 
 ## Roadmap
 

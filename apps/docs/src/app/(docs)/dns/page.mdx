@@ -1,6 +1,8 @@
+import { CHECK_COUNT, CHECK_LIST, DIAGNOSIS_COUNT } from "@/lib/counts";
+
 # @propgate/dns
 
-The resolver, the six evaluators, and the diagnosis taxonomy are one MIT
+The resolver, the evaluators, and the diagnosis taxonomy are one MIT
 package with **zero runtime dependencies**, Node built-ins only. It is not a
 simplified extract of what runs behind the API: it is the exact same code,
 `workspace:*`-linked into `apps/api` and this docs site. Nothing about the
@@ -14,7 +16,7 @@ pnpm add @propgate/dns
 
 - **No API key, no network call to us.** `query` and the evaluators talk
   straight to whatever resolver you point them at.
-- **The taxonomy is the point.** 73 diagnosis codes, each either produced by a
+- **The taxonomy is the point.** {DIAGNOSIS_COUNT} diagnosis codes, each either produced by a
   fixture in the test harness or carrying a written reason it cannot be. Useful
   on its own if you are building diagnostics rather than a full checker.
 - **MIT, forever.** `packages/db`, `packages/jobs`, and everything else in this
@@ -122,7 +124,7 @@ in exchange for being able to see everything on the wire. See
 - [The resolver](/dns/resolver): `query`, `QueryOutcome`, port awareness,
   truncation and the TCP fallback.
 - [The evaluators](/dns/evaluators): `runChecks`, a `DomainProfile`, and the
-  six checks: delegation, SPF, DKIM, DMARC, MX, CAA.
+  {CHECK_COUNT} checks: {CHECK_LIST}.
 - [Recipes](/dns/recipes): three complete files: check a domain and switch on
   the verdict, query a specific resolver on a non-standard port, and read the
   lookups behind a finding.
