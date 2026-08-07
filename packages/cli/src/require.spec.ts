@@ -100,6 +100,55 @@ describe("parseRequirement", () => {
   });
 });
 
+describe("every field the parser accepts reaches the requirement", () => {
+  /**
+   * The regression this exists for.
+   *
+   * `parseRequirement` built its result from a hand-written list that never
+   * learned about `label`, `target` or `token`: they parsed, they validated as
+   * known field names, and then they were dropped on the floor. The header of
+   * `require.ts` documented the syntax the whole time. Only the server's 422
+   * made it visible, and only for the kinds that cannot run without them —
+   * a labelled `spf` would have been silently checked at the apex instead,
+   * passing a domain nobody looked at the right name for.
+   */
+  it("carries a label through, which is what puts a check on a bounce host", () => {
+    expect(
+      parseRequirement("bounce:spf:include=amazonses.com,label=send")
+    ).toEqual({
+      check: "spf",
+      include: "amazonses.com",
+      key: "bounce",
+      label: "send",
+    });
+  });
+
+  it("carries a cname target and an ownership token through", () => {
+    expect(
+      parseRequirement("track:cname:label=track,target=t.propgate.dev")
+    ).toEqual({
+      check: "cname",
+      key: "track",
+      label: "track",
+      target: "t.propgate.dev",
+    });
+    expect(parseRequirement("own:ownership:token=abc123")).toEqual({
+      check: "ownership",
+      key: "own",
+      token: "abc123",
+    });
+  });
+
+  it("keeps a label alongside a boolean, which parse separately", () => {
+    expect(parseRequirement("bounce:mx:expectsMail=true,label=send")).toEqual({
+      check: "mx",
+      expectsMail: true,
+      key: "bounce",
+      label: "send",
+    });
+  });
+});
+
 describe("parseRequirements", () => {
   it("returns the first complaint rather than a list of them", () => {
     expect(parseRequirements(["root:delegation", "x:whois"])).toContain(

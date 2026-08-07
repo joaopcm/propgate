@@ -28,18 +28,26 @@ export const CHECK_KINDS = [
 export type CheckKind = (typeof CHECK_KINDS)[number];
 
 /**
- * The kinds that answer a question per record rather than per domain.
- *
- * DKIM repeats per selector; ownership and cname repeat per name, because a
- * platform issuing a tracking host and a bounce host is issuing two aliases and
- * a merged verdict cannot say which one is missing. Everything else answers once
- * for the whole domain.
+ * Kinds a profile may name more than once.
  *
  * Named here rather than inferred at each call site because three places depend
  * on the same fact — the profile, the outcome shape, and the API's rule about
  * which requirements may be written twice — and they must not drift.
+ *
+ * DKIM repeats per selector; the other four repeat per label, because they are
+ * the checks that answer a question about a *name* rather than about the domain
+ * as a whole. `delegation`, `dmarc` and `caa` are absent and stay absent: all
+ * three are properties of the zone, and asking them at a label either means
+ * nothing or asks the same question twice — a subdomain nobody delegated has no
+ * NS records, which is a fail no customer can act on.
  */
-export const REPEATABLE_CHECK_KINDS = ["dkim", "ownership", "cname"] as const;
+export const REPEATABLE_CHECK_KINDS = [
+  "dkim",
+  "ownership",
+  "cname",
+  "spf",
+  "mx",
+] as const;
 
 export type RepeatableCheckKind = (typeof REPEATABLE_CHECK_KINDS)[number];
 
@@ -87,6 +95,54 @@ export interface CnameTarget {
   readonly target: string;
 }
 
+/**
+ * One SPF question, and the label to ask it at.
+ *
+ * Named for its discriminator the way `DkimSelector` is, and for the same
+ * reason: the label is what tells one of these from its siblings in a profile.
+ *
+ * `label` is what makes a return-path host expressible. Every sending platform
+ * publishes SPF twice — once at the apex, which authorises mail whose From
+ * header carries the domain, and once at a bounce host like `send`, which
+ * authorises the envelope sender receivers actually check for SPF alignment.
+ * They are the same check kind asking about different names, so one profile has
+ * to be able to hold both.
+ */
+export interface SpfLabel {
+  /** The `include:` token the platform publishes, if authorisation matters. */
+  readonly include?: string;
+  /** A specific sending address to evaluate against. */
+  readonly ip?: string;
+  /** The label to evaluate at, e.g. `send`. Omit for the apex. */
+  readonly label?: string;
+}
+
+/** One MX question, and the label to ask it at. */
+export interface MxLabel {
+  /**
+   * Whether this name is meant to receive mail.
+   *
+   * Omit when the caller does not know. Undeliverable mail is only a fault if
+   * someone said the name should receive it — and on a send-only apex the
+   * honest answer is `false`, while on the bounce host beneath it, it is `true`.
+   */
+  readonly expectsMail?: boolean;
+  /** The label to evaluate at, e.g. `send`. Omit for the apex. */
+  readonly label?: string;
+}
+
+/**
+ * The name a labelled check evaluates, which is the whole of what a label does.
+ *
+ * One function rather than a template literal at four call sites, because the
+ * empty string and `undefined` both mean the apex and a missed case appends a
+ * bare dot — producing `.example.com`, an NXDOMAIN, and a failure the customer
+ * cannot act on.
+ */
+export function nameAt(label: string | undefined, domain: string): string {
+  return label === undefined || label === "" ? domain : `${label}.${domain}`;
+}
+
 /** How a repeated outcome is keyed back to the requirement that asked for it. */
 export function ownershipLabel(token: OwnershipToken): string {
   return token.label ?? "";
@@ -107,21 +163,20 @@ export interface DomainProfile {
   readonly cnames?: readonly CnameTarget[];
   /** Selectors the platform issued. Empty means DKIM is not expected here. */
   readonly dkimSelectors?: readonly DkimSelector[];
-  /**
-   * Whether this domain is meant to receive mail.
-   *
-   * Omit when the caller does not know. Undeliverable mail is only a fault if
-   * someone said the domain should receive it.
-   */
-  readonly expectsMail?: boolean;
   /** Stable identifier, stored alongside the domain and reported in results. */
   readonly id: string;
+  /**
+   * The names to evaluate MX at. Empty asks the apex and asserts nothing.
+   *
+   * Repeatable because the two questions a sending platform asks are opposite
+   * and both true: the apex of a send-only domain must have no deliverable MX,
+   * and the bounce host hanging off it must have one.
+   */
+  readonly mx?: readonly MxLabel[];
   /** Tokens the platform minted. Empty means ownership is not asserted here. */
   readonly ownership?: readonly OwnershipToken[];
-  /** The `include:` token the platform publishes, if SPF authorisation matters. */
-  readonly spfInclude?: string;
-  /** A specific sending address to evaluate SPF against. */
-  readonly spfIp?: string;
+  /** The names to evaluate SPF at. Empty asks the apex with no include. */
+  readonly spf?: readonly SpfLabel[];
 }
 
 /**
@@ -136,14 +191,14 @@ export function sendingOnly(options: {
 }): DomainProfile {
   return {
     checks: ["delegation", "spf", "dkim", "dmarc", "mx"],
-    expectsMail: false,
     id: "sending-only",
+    mx: [{ expectsMail: false }],
     ...(options.dkimSelectors === undefined
       ? {}
       : { dkimSelectors: options.dkimSelectors }),
     ...(options.spfInclude === undefined
       ? {}
-      : { spfInclude: options.spfInclude }),
+      : { spf: [{ include: options.spfInclude }] }),
   };
 }
 
@@ -154,8 +209,8 @@ export function fullMail(options: {
 }): DomainProfile {
   return {
     ...sendingOnly(options),
-    expectsMail: true,
     id: "full-mail",
+    mx: [{ expectsMail: true }],
   };
 }
 
@@ -170,7 +225,6 @@ export function webOnly(options: { caaIssuer?: string }): DomainProfile {
   return {
     checks:
       options.caaIssuer === undefined ? ["delegation"] : ["delegation", "caa"],
-    expectsMail: false,
     id: "web-only",
     ...(options.caaIssuer === undefined
       ? {}

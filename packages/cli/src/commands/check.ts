@@ -172,12 +172,14 @@ function profileFor(
     id: "cli",
     // Tri-state on purpose: absent makes no claim, and `false` would assert that
     // the domain receives no mail, which is a different statement entirely.
-    ...(input.bool("receives-mail") ? { expectsMail: true } : {}),
+    ...(input.bool("receives-mail") ? { mx: [{ expectsMail: true }] } : {}),
     ...(caaIssuer === undefined ? {} : { caaIssuer }),
     ...(records.cnames.length === 0 ? {} : { cnames: records.cnames }),
     ...(selectors.length === 0 ? {} : { dkimSelectors: selectors }),
     ...(records.ownership.length === 0 ? {} : { ownership: records.ownership }),
-    ...(spfInclude === undefined ? {} : { spfInclude }),
+    // Unlabelled, like the API's public checker: `propgate check` diagnoses the
+    // name it was given. A bounce host is a name of its own — check it directly.
+    ...(spfInclude === undefined ? {} : { spf: [{ include: spfInclude }] }),
   };
 }
 

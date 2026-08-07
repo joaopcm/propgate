@@ -14,6 +14,7 @@ import { CHECK_KINDS, type CheckKind } from "@propgate/dns";
  *   k1:dkim:selector=resend
  *   ca:caa:caaIssuer=letsencrypt.org
  *   inbox:mx:expectsMail=true
+ *   bounce:spf:include=amazonses.com,label=send
  *   own:ownership:label=_pg-challenge,requiredPerDomain=token
  *   track:cname:label=track,target=track.propgate.com
  */
@@ -192,17 +193,32 @@ export function parseRequirement(value: string): Requirement | string {
   }
 
   const { lists, scalars } = parsed;
+
+  /**
+   * Copied from `STRING_FIELDS` rather than field by field.
+   *
+   * The hand-written version dropped every field added after it: `label`,
+   * `target` and `token` were accepted by the parser above, validated as known
+   * names, and then never reached the requirement — so `--require
+   * 'track:cname:label=track,target=…'` sent a cname with neither. The server's
+   * 422 made it loud rather than silent, which is the only reason it was not
+   * worse. Built from the list means a field cannot be known here and missing
+   * here at the same time.
+   */
+  const strings: Partial<Record<StringField, string>> = {};
+
+  for (const field of STRING_FIELDS) {
+    const assigned = scalars[field];
+
+    if (assigned !== undefined) {
+      strings[field] = assigned;
+    }
+  }
+
   const requirement: Requirement = {
     check: kind as CheckKind,
     key: trimmedKey,
-    ...(scalars.caaIssuer === undefined
-      ? {}
-      : { caaIssuer: scalars.caaIssuer }),
-    ...(scalars.expectedPublicKey === undefined
-      ? {}
-      : { expectedPublicKey: scalars.expectedPublicKey }),
-    ...(scalars.include === undefined ? {} : { include: scalars.include }),
-    ...(scalars.selector === undefined ? {} : { selector: scalars.selector }),
+    ...strings,
     ...(lists.requiredPerDomain === undefined
       ? {}
       : { requiredPerDomain: lists.requiredPerDomain }),

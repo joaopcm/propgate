@@ -13,7 +13,9 @@ import type {
   DkimSelector,
   DomainProfile,
   Finding,
+  MxLabel,
   OwnershipToken,
+  SpfLabel,
   Verdict,
 } from "@propgate/dns";
 import { outcomeFor, worstVerdict } from "@propgate/dns";
@@ -90,17 +92,35 @@ const REQUIRED_FIELDS_BY_CHECK: Readonly<
 /**
  * How a repeated requirement is told apart from its siblings.
  *
- * DKIM repeats per selector, ownership and cname per label. Two requirements of
- * the same kind sharing a discriminator would evaluate the same name twice and
- * be attributed the same outcome, so the write is refused instead.
+ * DKIM repeats per selector; the four per-label kinds repeat per label, with the
+ * apex spelled as an absent one. Two requirements of the same kind sharing a
+ * discriminator would evaluate the same name twice and be attributed the same
+ * outcome, so the write is refused instead — which is what stops a profile from
+ * asserting `expectsMail` both ways about one name.
  */
 const DISCRIMINATOR_BY_CHECK: Readonly<
   Partial<Record<CheckKind, PerDomainField>>
 > = {
   cname: "label",
   dkim: "selector",
+  mx: "label",
   ownership: "label",
+  spf: "label",
 };
+
+/**
+ * The kinds whose outcome is keyed by a label rather than by the check itself.
+ *
+ * Derived from the table above rather than listed a second time: the two
+ * questions — "may this kind repeat, and on what" and "how is its outcome filed
+ * back" — have one answer, and writing it twice is how they drift into a result
+ * attributed to the wrong requirement.
+ */
+const LABELLED_CHECKS = new Set(
+  Object.entries(DISCRIMINATOR_BY_CHECK)
+    .filter(([, field]) => field === "label")
+    .map(([check]) => check as CheckKind)
+);
 
 /** What has already been claimed, as the requirements are walked. */
 interface Claimed {
@@ -494,6 +514,28 @@ function cnameTargetFor(requirement: MergedRequirement): CnameTarget {
   };
 }
 
+/** Every field optional, unlike the three above: SPF asks a question either way. */
+function spfLabelFor(requirement: MergedRequirement): SpfLabel {
+  return {
+    ...(requirement.include === undefined
+      ? {}
+      : { include: requirement.include }),
+    ...(requirement.label === undefined ? {} : { label: requirement.label }),
+  };
+}
+
+function mxLabelFor(requirement: MergedRequirement): MxLabel {
+  return {
+    // Tri-state all the way down: a tenant who did not say has not asserted the
+    // name receives mail, and inventing the assertion reports every sending-only
+    // domain as broken.
+    ...(requirement.expectsMail === undefined
+      ? {}
+      : { expectsMail: requirement.expectsMail }),
+    ...(requirement.label === undefined ? {} : { label: requirement.label }),
+  };
+}
+
 /** Every merged requirement of one kind, in the order the profile listed them. */
 function ofKind(
   merged: readonly MergedRequirement[],
@@ -530,16 +572,13 @@ export function compileProfile(
     return { kind: "incomplete", missing };
   }
 
-  const find = (check: CheckKind) =>
-    merged.find((requirement) => requirement.check === check);
+  const caa = merged.find((requirement) => requirement.check === "caa");
 
   const dkimSelectors = ofKind(merged, "dkim").map(dkimSelectorFor);
   const ownership = ofKind(merged, "ownership").map(ownershipTokenFor);
   const cnames = ofKind(merged, "cname").map(cnameTargetFor);
-
-  const spf = find("spf");
-  const caa = find("caa");
-  const mx = find("mx");
+  const spf = ofKind(merged, "spf").map(spfLabelFor);
+  const mx = ofKind(merged, "mx").map(mxLabelFor);
 
   return {
     fingerprint: fingerprintOf(merged),
@@ -549,13 +588,10 @@ export function compileProfile(
       id,
       ...(cnames.length === 0 ? {} : { cnames }),
       ...(dkimSelectors.length === 0 ? {} : { dkimSelectors }),
+      ...(mx.length === 0 ? {} : { mx }),
       ...(ownership.length === 0 ? {} : { ownership }),
-      ...(spf?.include === undefined ? {} : { spfInclude: spf.include }),
+      ...(spf.length === 0 ? {} : { spf }),
       ...(caa?.caaIssuer === undefined ? {} : { caaIssuer: caa.caaIssuer }),
-      // Tri-state all the way down: a tenant who did not say has not asserted the
-      // domain receives mail, and inventing the assertion reports every
-      // sending-only domain as broken.
-      ...(mx?.expectsMail === undefined ? {} : { expectsMail: mx.expectsMail }),
     },
   };
 }
@@ -623,7 +659,7 @@ function sourceFor(
     );
   }
 
-  if (requirement.check === "ownership" || requirement.check === "cname") {
+  if (LABELLED_CHECKS.has(requirement.check)) {
     // `?? ""` is the apex, matching `ownershipLabel` in `@propgate/dns`. The two
     // spellings of "no label" have to agree or an apex token is filed against
     // nothing and reads `indeterminate` forever.

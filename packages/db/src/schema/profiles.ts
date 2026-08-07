@@ -59,12 +59,19 @@ export interface ProfileRequirement {
   readonly include?: string;
   readonly key: string;
   /**
-   * The label the record goes at, e.g. `_pg-challenge` or `track`.
+   * The label the record goes at, e.g. `_pg-challenge`, `track` or `send`.
    *
-   * Shared by `ownership` and `cname` because it means the same thing in both:
-   * the part of the name before the domain. Optional for a token, which a good
-   * half of the industry publishes at the apex; required for an alias, which RFC
-   * 1034 §3.6.2 forbids there.
+   * Shared by `ownership`, `cname`, `spf` and `mx` because it means the same
+   * thing in all four: the part of the name before the domain. Required for an
+   * alias, which RFC 1034 §3.6.2 forbids at an apex; optional everywhere else,
+   * where absent means the apex.
+   *
+   * On `spf` and `mx` it is what makes a return-path host expressible. Every
+   * sending platform publishes SPF twice — at the apex for the From domain, and
+   * at a bounce host like `send` for the envelope sender receivers actually
+   * check — and asserts opposite things about MX at the two names. Without a
+   * label those are two domains to register and two states to reconcile for what
+   * a customer thinks of as one.
    *
    * Usually a profile literal — a platform picks one name and every customer
    * uses it. Deferrable anyway, because the ones that embed an account id in the
@@ -110,9 +117,9 @@ export const PER_DOMAIN_FIELDS_BY_CHECK: Readonly<
   delegation: [],
   dkim: ["expectedPublicKey", "selector"],
   dmarc: [],
-  mx: [],
+  mx: ["label"],
   ownership: ["label", "token"],
-  spf: ["include"],
+  spf: ["include", "label"],
 };
 
 export interface ProfileDefinition {

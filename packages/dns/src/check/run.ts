@@ -17,7 +17,7 @@ import type {
 import { worstVerdict } from "../evaluate/types";
 import { probeWildcard } from "../evaluate/wildcard";
 import type { CheckKind, DomainProfile } from "./profile";
-import { dkimSelectorName, ownershipLabel } from "./profile";
+import { dkimSelectorName, nameAt, ownershipLabel } from "./profile";
 
 /**
  * One domain, one answer.
@@ -76,11 +76,14 @@ export interface CheckOutcome {
   readonly kind: CheckKind;
   readonly lookups: readonly Lookup[];
   /**
-   * Per-name detail. Present on the `ownership` and `cname` outcomes.
+   * Per-name detail. Present on every outcome that repeats per label —
+   * `ownership`, `cname`, `spf` and `mx`.
    *
    * There for the same reason `selectors` is: a platform that issues a tracking
    * host and a bounce host has two requirements, and a merged verdict cannot
-   * tell it which of the two aliases is missing.
+   * tell it which of the two names is missing. An unlabelled check produces a
+   * single record keyed by the empty string, so the shape does not depend on
+   * whether anyone used a label.
    */
   readonly records?: readonly RecordOutcome[];
   /**
@@ -130,7 +133,7 @@ interface RecordRun extends EvaluationResult {
 }
 
 /**
- * Several names, one outcome — the shape `ownership` and `cname` share.
+ * Several names, one outcome — the shape every per-label check shares.
  *
  * Each entry gets its own context, so nothing about how many aliases a platform
  * issues affects any one of their budgets, and the wall clock stays the slowest
@@ -158,6 +161,28 @@ async function runPerRecord<T>(
     records,
     verdict: worstVerdict(records.map((record) => record.verdict)),
   };
+}
+
+/** The apex, spelled the way `RecordOutcome` keys it. */
+function apexOrLabel(entry: { readonly label?: string }): string {
+  return entry.label ?? "";
+}
+
+/**
+ * An empty list still asks the question, at the apex, asserting nothing.
+ *
+ * `spf` and `mx` differ from the other repeatable kinds here, and the asymmetry
+ * is not an oversight. No DKIM selector means the platform issued none, so there
+ * is nothing to look for — but SPF and MX are properties every domain has, and
+ * `checks: ["spf"]` with no configuration is the public checker's question:
+ * "is this record valid", rather than "does it authorise us". Returning nothing
+ * would turn that into a skipped check and drop it off the report.
+ */
+function atLeastOne<T>(
+  entries: readonly T[] | undefined,
+  apex: T
+): readonly T[] {
+  return entries === undefined || entries.length === 0 ? [apex] : entries;
 }
 
 /**
@@ -215,13 +240,17 @@ function runOne(
       return evaluateDelegation(context(), { domain });
 
     case "spf":
-      return evaluateSpf(context(), {
-        domain,
-        ...(profile.spfInclude === undefined
-          ? {}
-          : { include: profile.spfInclude }),
-        ...(profile.spfIp === undefined ? {} : { ip: profile.spfIp }),
-      });
+      return runPerRecord(
+        atLeastOne(profile.spf, {}),
+        apexOrLabel,
+        resolver,
+        (evaluation, entry) =>
+          evaluateSpf(evaluation, {
+            domain: nameAt(entry.label, domain),
+            ...(entry.include === undefined ? {} : { include: entry.include }),
+            ...(entry.ip === undefined ? {} : { ip: entry.ip }),
+          })
+      );
 
     case "dkim":
       // No selectors means the platform issued none, so there is nothing to
@@ -234,12 +263,18 @@ function runOne(
       return evaluateDmarc(context(), { domain });
 
     case "mx":
-      return evaluateMx(context(), {
-        domain,
-        ...(profile.expectsMail === undefined
-          ? {}
-          : { expectsMail: profile.expectsMail }),
-      });
+      return runPerRecord(
+        atLeastOne(profile.mx, {}),
+        apexOrLabel,
+        resolver,
+        (evaluation, entry) =>
+          evaluateMx(evaluation, {
+            domain: nameAt(entry.label, domain),
+            ...(entry.expectsMail === undefined
+              ? {}
+              : { expectsMail: entry.expectsMail }),
+          })
+      );
 
     case "caa":
       return profile.caaIssuer === undefined

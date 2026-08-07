@@ -62,6 +62,12 @@ function describe(requirement: Requirement): string {
     requirement.caaIssuer === undefined
       ? null
       : `caaIssuer=${requirement.caaIssuer}`,
+    // Rendered for the same reason `requiredPerDomain` is: a profile whose spf
+    // sits on a bounce host and one whose spf sits on the apex are different
+    // contracts, and nothing else on this line tells them apart.
+    requirement.label === undefined ? null : `label=${requirement.label}`,
+    requirement.target === undefined ? null : `target=${requirement.target}`,
+    requirement.token === undefined ? null : "token set",
     requirement.expectsMail === undefined
       ? null
       : `expectsMail=${requirement.expectsMail}`,
@@ -254,15 +260,41 @@ async function caaFields(key: string): Promise<Requirement | typeof CANCELLED> {
   return caaIssuer === CANCELLED ? CANCELLED : { caaIssuer, check: "caa", key };
 }
 
+/**
+ * The label question both mail checks ask.
+ *
+ * Optional, and the placeholder is `send` because that is what the answer almost
+ * always is: a platform's return-path host. Skipping it means the apex, which is
+ * the other half of the same profile rather than a lesser answer.
+ */
+async function labelField(
+  prompt: string
+): Promise<string | undefined | typeof CANCELLED> {
+  return await optionalText(prompt, "send");
+}
+
 async function spfFields(key: string): Promise<Requirement | typeof CANCELLED> {
   const include = await optionalText(
     "An include: token that must authorise this domain",
     "_spf.resend.com"
   );
 
-  return include === CANCELLED
+  if (include === CANCELLED) {
+    return CANCELLED;
+  }
+
+  const label = await labelField(
+    "Which label publishes it? Enter for the apex"
+  );
+
+  return label === CANCELLED
     ? CANCELLED
-    : { check: "spf", key, ...(include === undefined ? {} : { include }) };
+    : {
+        check: "spf",
+        key,
+        ...(include === undefined ? {} : { include }),
+        ...(label === undefined ? {} : { label }),
+      };
 }
 
 async function mxFields(key: string): Promise<Requirement | typeof CANCELLED> {
@@ -282,7 +314,7 @@ async function mxFields(key: string): Promise<Requirement | typeof CANCELLED> {
     describe: "",
     flag: "expectsMail",
     kind: "select",
-    prompt: "Should this domain receive mail?",
+    prompt: "Should this name receive mail?",
     required: true,
   });
 
@@ -290,10 +322,17 @@ async function mxFields(key: string): Promise<Requirement | typeof CANCELLED> {
     return CANCELLED;
   }
 
+  const label = await labelField("Which label? Enter for the apex");
+
+  if (label === CANCELLED) {
+    return CANCELLED;
+  }
+
   return {
     check: "mx",
     key,
     ...(answer === "unstated" ? {} : { expectsMail: answer === "yes" }),
+    ...(label === undefined ? {} : { label }),
   };
 }
 

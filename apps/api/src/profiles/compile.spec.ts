@@ -63,9 +63,34 @@ function fingerprint(
   return compiled.fingerprint;
 }
 
+/**
+ * A run, shaped the way `runChecks` shapes one.
+ *
+ * The per-label kinds always come back with `records`, even unlabelled — one
+ * entry keyed by the empty string — so a hand-written outcome that omits them is
+ * a shape the resolver cannot produce, and a spec built on it would pass while
+ * the real attribution path returned `indeterminate`. Filled in here rather than
+ * at each call site so no spec can forget.
+ */
+const PER_LABEL: readonly string[] = ["spf", "mx", "ownership", "cname"];
+
 function result(checks: CheckResult["checks"]): CheckResult {
   return {
-    checks,
+    checks: checks.map((check) =>
+      PER_LABEL.includes(check.kind) && check.records === undefined
+        ? {
+            ...check,
+            records: [
+              {
+                findings: check.findings,
+                label: "",
+                lookups: check.lookups,
+                verdict: check.verdict,
+              },
+            ],
+          }
+        : check
+    ),
     domain: "example.com",
     findings: checks.flatMap((check) => check.findings),
     lookups: [],
@@ -106,7 +131,7 @@ describe("rejectDefinition", () => {
           { check: "spf", include: "b.example", key: "spf-b" },
         ],
       })
-    ).toContain("only one requirement may check spf");
+    ).toContain("only one spf requirement may sit at the apex");
   });
 
   it("allows several dkim requirements, which is the whole point", () => {
@@ -307,15 +332,22 @@ describe("rejectDefinition", () => {
 });
 
 describe("compileProfile", () => {
-  it("compiles a profile that defers nothing exactly as it always did", () => {
-    // The back-compat guard. Every profile written before per-domain values
-    // existed must produce a byte-identical `DomainProfile` from a null domain.
+  it("compiles an unlabelled profile to a single apex entry per kind", () => {
+    /**
+     * The back-compat guard, restated for the labelled shape.
+     *
+     * Every profile written before labels existed asks about exactly one name,
+     * so each per-label kind compiles to a one-entry list carrying no label —
+     * which is what `nameAt` reads as the apex. The assertion is the whole
+     * object rather than a field, because the failure worth catching is an
+     * extra entry appearing from somewhere.
+     */
     expect(runnable(SENDING)).toEqual({
       checks: ["spf", "dkim", "dmarc", "mx"],
       dkimSelectors: ["pg1", "pg2"],
-      expectsMail: false,
       id: "version-1",
-      spfInclude: "_spf.partner.example",
+      mx: [{ expectsMail: false }],
+      spf: [{ include: "_spf.partner.example" }],
     });
   });
 
@@ -358,7 +390,7 @@ describe("compileProfile", () => {
   it("passes a stated expectsMail of false through rather than dropping it", () => {
     // `false` is an assertion, not an absence. Dropping it reports every
     // sending-only domain as broken.
-    expect(runnable(SENDING).expectsMail).toBe(false);
+    expect(runnable(SENDING).mx).toEqual([{ expectsMail: false }]);
   });
 });
 
@@ -445,7 +477,7 @@ describe("compileProfile with per-domain values", () => {
       }
     );
 
-    expect(compiled.spfInclude).toBe("send.acme.com");
+    expect(compiled.spf).toEqual([{ include: "send.acme.com" }]);
     expect(compiled.caaIssuer).toBe("letsencrypt.org");
   });
 
@@ -459,9 +491,9 @@ describe("compileProfile with per-domain values", () => {
   it("ignores a value for a field the profile did not defer", () => {
     // `spf` here carries a literal include. A domain overriding it would be
     // choosing what it is checked against, which is the tenant's decision.
-    expect(
-      runnable(SENDING, { spf: { include: "evil.example" } }).spfInclude
-    ).toBe("_spf.partner.example");
+    expect(runnable(SENDING, { spf: { include: "evil.example" } }).spf).toEqual(
+      [{ include: "_spf.partner.example" }]
+    );
   });
 
   it("does not let a stale value enable a check the profile dropped", () => {
