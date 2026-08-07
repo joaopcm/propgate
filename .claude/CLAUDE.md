@@ -95,6 +95,7 @@ packages/jobs          BullMQ queue names, payload types, connection. Private.
 packages/emails        Resend client and the confirmation message. Private.
 packages/webhooks      Webhook signing and payload shapes. Private.
 packages/cli           @propgate/cli. MIT.
+packages/sdk           @propgate/sdk — the API from Node. MIT.
 ```
 
 `apps/api` also builds `dist/worker.js` — the background process, run as a second
@@ -104,9 +105,14 @@ dependency, and customer traffic should not share a process with it.
 
 `packages/db` and the authenticated routes in `apps/api` arrived with Phase 2
 milestone 1; `packages/jobs` and `packages/webhooks` with milestone 2;
-`packages/emails` with self-serve accounts. `sdk` and `ui` have not. Do not add them early — the phasing exists so a control plane
-that may never ship is not pre-built, and that reasoning still holds for
-everything on that list.
+`packages/emails` with self-serve accounts; `packages/sdk` once the API it wraps
+was complete enough that wrapping it was transcription rather than design. `ui`
+has not. Do not add it early — the phasing exists so a control plane that may
+never ship is not pre-built, and that reasoning still holds.
+
+`packages/sdk` covers every route except signup, and `apps/api/src/sdk-coverage.spec.ts`
+is what keeps that true: it reads the app's own router, so a route added without
+a method to reach it fails there rather than in a customer's integration.
 
 ## Commands
 

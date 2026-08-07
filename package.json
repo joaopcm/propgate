@@ -17,7 +17,7 @@
     "lint": "turbo lint",
     "redis:down": "docker compose stop redis",
     "redis:up": "docker compose up -d --wait redis",
-    "release": "turbo run build --filter=@propgate/dns --filter=@propgate/cli && changeset publish",
+    "release": "turbo run build --filter=@propgate/dns --filter=@propgate/cli --filter=@propgate/sdk && changeset publish",
     "test": "turbo test"
   },
   "devDependencies": {
