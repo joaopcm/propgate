@@ -70,10 +70,18 @@ export type Answer =
  * of how long it is allowed to block.
  *
  * So the worst case for one call is bounded and statable: `timeoutMs * (1 +
- * maxRetries)` of request time plus at most `maxRetries * 5s` of waiting — 65
- * seconds at the defaults, and only if every attempt times out.
+ * maxRetries)` of request time plus at most `maxRetries * 5s` of waiting. At
+ * the defaults — a 30-second timeout and two retries — that is 3 × 30s plus
+ * 2 × 5s, so **100 seconds**, and only if every attempt runs out its budget.
+ * The realistic ceiling is 90.75s: waiting the full 5s needs a `Retry-After`
+ * that long, and a request that timed out never carries one, so those waits are
+ * the 250ms and 500ms backoff instead.
+ *
+ * Exported because it is a number a caller schedules around: it is what decides
+ * whether a rate limit is ridden out here or handed back as
+ * `retryAfterSeconds`, and the documented worst case is computed from it.
  */
-const MAX_RETRY_WAIT_MS = 5000;
+export const MAX_RETRY_WAIT_MS = 5000;
 
 /**
  * The first backoff step, doubling per attempt: 250ms, then 500ms.

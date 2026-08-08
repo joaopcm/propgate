@@ -9,7 +9,9 @@ are not. We do not render instructions for your customers — you already have
 a UI for that, and being wrong about a provider's naming conventions is
 visible to your customer, not to us.
 
-Base URL `https://api.propgate.dev`.
+Base URL `https://api.propgate.dev`. Every page below shows the call three
+ways: `curl`, the [CLI](/cli), and [`@propgate/sdk`](/sdk), which has a method
+for every route here except signup.
 
 ## The envelope
 
@@ -50,7 +52,8 @@ integration.
 
 Start with [starting a signup](/api/accounts/signup) if you don't have a key
 yet, or [authentication](/authentication) for how to use one you already
-have.
+have. From Node, [the SDK](/sdk) is the same surface with types and one
+unwrap path.
 
 ## Rate limits
 

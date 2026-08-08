@@ -3,16 +3,22 @@ import { CodeTabs } from "@/components/docs/code-tabs";
 import {
   CHECK_CLI,
   CHECK_CURL,
+  CHECK_SDK,
   CONFIRM_CLI,
   CONFIRM_CURL,
   PROFILE_CLI,
   PROFILE_CURL,
+  PROFILE_SDK,
+  READ_BACK_CURL,
+  READ_BACK_SDK,
   REGISTER_CLI,
   REGISTER_CURL,
+  REGISTER_SDK,
   SIGNUP_CLI,
   SIGNUP_CURL,
   VERIFY_CLI,
   VERIFY_CURL,
+  VERIFY_SDK,
   VERIFY_RESPONSE,
 } from "./_snippets";
 
@@ -29,6 +35,7 @@ including the unflattering ones.
   items={[
     { code: CHECK_CURL, label: "cURL", lang: "bash" },
     { code: CHECK_CLI, label: "CLI", lang: "bash" },
+    { code: CHECK_SDK, label: "SDK", lang: "ts" },
   ]}
 />
 
@@ -164,6 +171,7 @@ not fire ten thousand DNS runs as a side effect of a bulk insert.
   items={[
     { code: PROFILE_CURL, label: "cURL", lang: "bash" },
     { code: PROFILE_CLI, label: "CLI", lang: "bash" },
+    { code: PROFILE_SDK, label: "SDK", lang: "ts" },
   ]}
 />
 
@@ -182,6 +190,7 @@ not keep.
   items={[
     { code: REGISTER_CURL, label: "cURL", lang: "bash" },
     { code: REGISTER_CLI, label: "CLI", lang: "bash" },
+    { code: REGISTER_SDK, label: "SDK", lang: "ts" },
   ]}
 />
 
@@ -192,6 +201,7 @@ above would return:
   items={[
     { code: VERIFY_CURL, label: "cURL", lang: "bash" },
     { code: VERIFY_CLI, label: "CLI", lang: "bash" },
+    { code: VERIFY_SDK, label: "SDK", lang: "ts" },
   ]}
 />
 
@@ -204,12 +214,12 @@ conventions is visible to your customer rather than to us.
 
 ### Read it back, and watch it change
 
-```bash
-curl -s https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a \
-  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"          # stored, no re-check
-curl -s https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a/timeline \
-  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-```
+<CodeTabs
+  items={[
+    { code: READ_BACK_CURL, label: "cURL", lang: "bash" },
+    { code: READ_BACK_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
 
 Check twice in a row and the timeline does not grow. An entry is appended
 **only when an observation actually differs.**
@@ -225,5 +235,6 @@ Fix the missing record, wait for the TTL, check again, and one entry appears:
 
 ## Next
 
-Full reference at [the API reference](/api). Every diagnosis code is
-documented at [the taxonomy](/taxonomy).
+Full reference at [the API reference](/api), or the same calls from Node in
+[the SDK](/sdk). Every diagnosis code is documented at
+[the taxonomy](/taxonomy).

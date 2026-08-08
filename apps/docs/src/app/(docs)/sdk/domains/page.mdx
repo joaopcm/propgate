@@ -1,0 +1,87 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import {
+  DOMAINS_CHECK,
+  DOMAINS_CREATE,
+  DOMAINS_LIST,
+  DOMAINS_READ,
+  DOMAINS_RECONCILE,
+  DOMAINS_UPDATE,
+} from "./_snippets";
+
+# Domains
+
+Register, verify, read, delete. Registering and verifying are separate calls,
+and the separation is what keeps a bulk import from being a DNS storm.
+
+<CodeBlock code={DOMAINS_CREATE} lang="ts" />
+
+`externalId` is your retry key. Sending one you already used returns the domain
+that exists rather than erroring, and `meta.created` tells "the customer I
+already had" from "a new one" without a mapping table of your own. Because that
+branch writes nothing, it is also **not** how you rotate a value.
+
+## Verifying
+
+<CodeBlock code={DOMAINS_CHECK} lang="ts" />
+
+`propgate.domains.check()` runs the checks now and stores what it found. It is
+limited to 100 a minute per account, because each call aims real queries at
+somebody else's authoritative servers — see
+[rate limits you have to schedule around](/sdk/errors#rate-limits-you-have-to-schedule-around).
+Continuous re-checking is [the sweeper's job](/concepts/monitoring) and does not
+come through here.
+
+<Callout>
+  `meta.superseded` is the case worth handling: the domain's configuration
+  changed while the check was in flight, so its answer described an expectation
+  set that no longer applies and was thrown away. The domain comes back as it now
+  stands — `pending`, against the values you just wrote.
+</Callout>
+
+## Changing what a domain is judged against
+
+<CodeBlock code={DOMAINS_UPDATE} lang="ts" />
+
+`propgate.domains.update()` takes `expectations`, `profile`, or both — a request
+that changes neither is refused, because it would still reset the domain to
+`pending` and re-verify it for nothing.
+
+Re-pointing to another profile is the same operation: both say "judge this
+domain against something else now", and both invalidate the previous verdict.
+Neither fires a webhook. The domain going back to `pending` is news about you,
+not about the customer's DNS, and paging ten thousand people over a key *you*
+rotated is exactly the failure [hysteresis](/concepts/monitoring) exists to
+prevent.
+
+## Listing, and reconciling
+
+<CodeBlock code={DOMAINS_LIST} lang="ts" />
+
+`propgate.domains.listAll()` follows `meta.nextCursor` to the end at the largest
+page the server will give — 200 rows a request, so ten thousand domains is fifty
+round trips, comfortably inside the per-account rate limit.
+
+It returns a failure mid-walk rather than the pages it managed to collect. A
+short list with no error is indistinguishable from an account with three
+domains, which is the kind of wrong answer a reconciliation loop acts on.
+
+<CodeBlock code={DOMAINS_RECONCILE} lang="ts" />
+
+Domains sort ascending by id, so a row created while the walk is in progress
+lands at the end and *is* included.
+
+## Reading one, and what changed
+
+<CodeBlock code={DOMAINS_READ} lang="ts" />
+
+`propgate.domains.get()` is a read against storage, never a fresh DNS run —
+`lookups` is the derivation behind whatever the last check concluded, which is
+what answers "why did you say that" about a disputed verdict.
+
+`propgate.domains.timeline()` is what *changed*, not a log of every check. A
+value that stays the same appends nothing, which is what keeps this a timeline
+rather than 360,000 rows a day.
+
+`propgate.domains.remove()` stops tracking. Without it the sweeper inherits
+every domain your account ever had.

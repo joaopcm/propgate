@@ -19,3 +19,12 @@ export const MEMBERS_RESPONSE = `{
   "error": null,
   "meta": null
 }`;
+
+/**
+ * The SDK calls assume a client constructed once, as `/sdk` shows:
+ * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
+ * name and shape here is checked against `@propgate/sdk` itself by
+ * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
+ */
+
+export const MEMBERS_SDK = "const { data } = await propgate.members.list();";

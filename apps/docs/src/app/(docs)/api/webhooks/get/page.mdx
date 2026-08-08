@@ -1,6 +1,7 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
-import { GET_CURL, GET_NOT_FOUND, GET_RESPONSE } from "./_snippets";
+import { GET_CURL, GET_NOT_FOUND, GET_RESPONSE, GET_SDK } from "./_snippets";
 
 # Get a webhook endpoint
 
@@ -9,7 +10,13 @@ import { GET_CURL, GET_NOT_FOUND, GET_RESPONSE } from "./_snippets";
 One endpoint's configuration: its URL, which events it subscribes to, and
 whether it is currently disabled.
 
-<CodeBlock code={GET_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: GET_CURL, label: "cURL", lang: "bash" },
+    { code: GET_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={GET_RESPONSE} lang="json" />
 
 An id that does not exist, or belongs to a different account, is a `404` —

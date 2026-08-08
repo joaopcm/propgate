@@ -1,8 +1,9 @@
 import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
 import { ParamsTable } from "@/components/docs/params-table";
-import { TIMELINE_CURL, TIMELINE_RESPONSE } from "./_snippets";
+import { TIMELINE_CURL, TIMELINE_RESPONSE, TIMELINE_SDK } from "./_snippets";
 
 # Domain timeline
 
@@ -23,7 +24,13 @@ import { TIMELINE_CURL, TIMELINE_RESPONSE } from "./_snippets";
   QUICKSTART.md.
 </Callout>
 
-<CodeBlock code={TIMELINE_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: TIMELINE_CURL, label: "cURL", lang: "bash" },
+    { code: TIMELINE_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={TIMELINE_RESPONSE} lang="json" />
 
 Newest first. An entry is appended **only when an observation actually

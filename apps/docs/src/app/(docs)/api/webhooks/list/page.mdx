@@ -1,6 +1,7 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
-import { LIST_CURL, LIST_RESPONSE } from "./_snippets";
+import { LIST_CURL, LIST_RESPONSE, LIST_SDK } from "./_snippets";
 
 # List webhook endpoints
 
@@ -8,7 +9,13 @@ import { LIST_CURL, LIST_RESPONSE } from "./_snippets";
 
 Every endpoint on the account, disabled ones included.
 
-<CodeBlock code={LIST_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: LIST_CURL, label: "cURL", lang: "bash" },
+    { code: LIST_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={LIST_RESPONSE} lang="json" />
 
 **No item here carries a `secret`.** A secret is returned once, when the

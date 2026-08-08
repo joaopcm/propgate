@@ -1,0 +1,111 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import {
+  SDK_ANONYMOUS,
+  SDK_CLIENT,
+  SDK_ENVELOPE,
+  SDK_INSTALL,
+  SDK_OPTIONS,
+  SDK_PER_CALL,
+  SDK_TYPES,
+} from "./_snippets";
+
+# SDK
+
+`@propgate/sdk` is the API from Node, typed. Every route this reference
+documents has a method here, except signup — see
+[below](#opening-an-account).
+
+<CodeBlock code={SDK_INSTALL} lang="bash" />
+
+<CodeBlock code={SDK_CLIENT} lang="ts" />
+
+Published as `@propgate/sdk`, MIT licensed, and requires Node 20 or later. Its
+only dependency is [`@propgate/dns`](/dns), and only for types: the diagnosis
+taxonomy is a public contract, so the codes you switch on are the same union the
+evaluators produce rather than a copy that drifts. Nothing else is installed —
+requests go over the global `fetch`.
+
+## Nothing throws
+
+Every method returns `{ data, error, meta }`, the same envelope the API puts on
+the wire. A failed call is a value, not an exception.
+
+<CodeBlock code={SDK_ENVELOPE} lang="ts" />
+
+The reason is narrower than a style preference: a `catch` binds `unknown`, so
+the compiler cannot tell you that you forgot to handle a `409`. Narrowing on
+`error` makes the failure path type-checked, and makes `data` non-null for the
+rest of the function without a cast.
+
+`PropgateError` is still an `Error` subclass. If your codebase prefers
+exceptions, `throw result.error` keeps a stack and `instanceof PropgateError`
+works wherever it lands. See [Errors and retries](/sdk/errors) for what the
+error carries.
+
+`meta` stays beside the data rather than being folded into it, because that is
+where the answers live that are *about* the call rather than in it:
+`nextCursor` on a page, `created` on an idempotent register, `resolver` on a
+check, `previousSecretExpiresAt` on a rotation. Each method types its own.
+
+## Configuration
+
+<CodeBlock code={SDK_OPTIONS} lang="ts" />
+
+The key falls back to `PROPGATE_API_KEY`. A missing key is not an error at
+construction — `checks.run` and `health` do not need one — but every other call
+fails immediately with `code: "missing_api_key"`, naming the two ways to supply
+one, rather than spending a round trip to be told `401`.
+
+`fetch` is injectable for a proxy agent, a custom TLS setup, or to record what
+the client sends. `baseUrl` is what points a test suite at a local stack.
+
+Both `timeoutMs` and an `AbortSignal` are also per call, and per call wins:
+
+<CodeBlock code={SDK_PER_CALL} lang="ts" />
+
+## The public checker needs no key
+
+<CodeBlock code={SDK_ANONYMOUS} lang="ts" />
+
+`propgate.checks.run()` is the same engine as
+[propgate.dev](https://propgate.dev) and `propgate check --remote`. It stores
+nothing and schedules nothing — a domain you want watched over time is
+[`domains.create`](/sdk/domains) and then
+[`domains.check`](/sdk/domains). `propgate.health()` is the other keyless call,
+and the only route that answers something other than the envelope; the client
+wraps it in one anyway, so you never have to know which routes are enveloped.
+
+## Types
+
+Every resource shape is exported, written against the API's serialisers rather
+than against the database rows behind them. Timestamps are ISO 8601 strings and
+not `Date` objects, deliberately: this is the JSON that arrived, and reviving
+some fields into objects would make `JSON.stringify(domain)` produce something
+different from what came in.
+
+<CodeBlock code={SDK_TYPES} lang="ts" />
+
+## What is covered
+
+| | |
+|---|---|
+| [Domains](/sdk/domains) | `domains.create`, `list`, `listAll`, `get`, `update`, `check`, `timeline`, `remove` |
+| [Profiles](/sdk/profiles) | `profiles.create`, `profiles.get` |
+| [Webhooks](/sdk/webhooks) | `webhooks.create`, `list`, `get`, `update`, `remove`, `rotateSecret`, `listDeliveries`, `listAllDeliveries` |
+| [Keys and members](/sdk/accounts) | `apiKeys.create`, `apiKeys.list`, `apiKeys.revoke`, `members.list` |
+| Checks | `checks.run`, `health` |
+
+<Callout>
+  A spec in the repository builds the API's own router and fails when a route
+  exists that no method reaches. "Full coverage" is a test rather than a claim
+  in a paragraph.
+</Callout>
+
+## Opening an account
+
+There is no signup call here, and that is deliberate. Signup is a mailbox flow —
+a six-digit code goes out and comes back to mint the first key — and by the time
+you are holding a server-side SDK you already have a key. Use the
+[CLI](/cli/accounts) or [`POST /v1/signup`](/api/accounts/signup) once, then
+keep the key in `PROPGATE_API_KEY`.

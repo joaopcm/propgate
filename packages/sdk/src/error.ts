@@ -25,15 +25,15 @@
  * refused and re-sending it unchanged will be refused again — and `statusCode`
  * still carries the exact answer for anyone who needs it.
  */
-export type PropgateErrorCode =
+export const PROPGATE_ERROR_CODES = [
   /** The request was cancelled through the `signal` the caller passed. */
-  | "aborted"
+  "aborted",
   /** A status this SDK has no more specific name for. */
-  | "api_error"
-  | "conflict"
+  "api_error",
+  "conflict",
   /** The request never reached an API: DNS, TLS, or a refused connection. */
-  | "connection_error"
-  | "forbidden"
+  "connection_error",
+  "forbidden",
   /**
    * An option this client was given cannot be used, so nothing was sent.
    *
@@ -42,18 +42,29 @@ export type PropgateErrorCode =
    * no method throws holds for every input, and the message names the option and
    * the value it was given.
    */
-  | "invalid_option"
-  | "invalid_request"
+  "invalid_option",
+  "invalid_request",
   /** Something answered, and it was not this API. */
-  | "invalid_response"
+  "invalid_response",
   /** No key was configured, on a call that requires one. Never sent. */
-  | "missing_api_key"
-  | "not_found"
-  | "rate_limited"
-  | "server_error"
+  "missing_api_key",
+  "not_found",
+  "rate_limited",
+  "server_error",
   /** No response within `timeoutMs`. */
-  | "timeout"
-  | "unauthorized";
+  "timeout",
+  "unauthorized",
+] as const;
+
+/**
+ * An array rather than a bare union, so the list exists at runtime.
+ *
+ * The type is derived from it, so the two cannot disagree — the same shape
+ * `CHECK_KINDS` and `WEBHOOK_EVENTS` use elsewhere in this repository. What it
+ * buys: the documented table of codes is checked against this, so a code a
+ * consumer can receive and cannot look up fails a test.
+ */
+export type PropgateErrorCode = (typeof PROPGATE_ERROR_CODES)[number];
 
 const STATUS_CODES: Readonly<Record<number, PropgateErrorCode>> = {
   400: "invalid_request",

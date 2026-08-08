@@ -51,3 +51,15 @@ export const CREATE_LIMIT_422 = `{
   },
   "meta": null
 }`;
+
+/**
+ * The SDK calls assume a client constructed once, as `/sdk` shows:
+ * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
+ * name and shape here is checked against `@propgate/sdk` itself by
+ * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
+ */
+
+export const CREATE_SDK = `const { data, error } = await propgate.apiKeys.create({ name: "staging" });
+
+// The only time the secret is readable. Store it now or mint another.
+console.log(data?.key);`;

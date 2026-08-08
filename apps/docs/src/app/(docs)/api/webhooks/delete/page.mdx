@@ -1,6 +1,7 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
-import { DELETE_CURL, DELETE_RESPONSE } from "./_snippets";
+import { DELETE_CURL, DELETE_RESPONSE, DELETE_SDK } from "./_snippets";
 
 # Delete a webhook endpoint
 
@@ -10,7 +11,13 @@ Removes the endpoint. Nothing is sent to it again, and its secret stops being
 valid. To pause an endpoint you intend to bring back, use
 [`disabled`](/api/webhooks/update) instead — there is no undo here.
 
-<CodeBlock code={DELETE_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: DELETE_CURL, label: "cURL", lang: "bash" },
+    { code: DELETE_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={DELETE_RESPONSE} lang="json" />
 
 Deleting an endpoint does not delete its past deliveries. "Why did this

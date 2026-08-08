@@ -1,10 +1,12 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
 import { ParamsTable } from "@/components/docs/params-table";
 import {
   PROFILE_GET_CURL,
   PROFILE_GET_NOT_FOUND,
   PROFILE_GET_RESPONSE,
+  PROFILE_GET_SDK,
 } from "./_snippets";
 
 # Get a profile
@@ -28,7 +30,13 @@ versioning. See [Profiles and versions](/concepts/profiles).
   ]}
 />
 
-<CodeBlock code={PROFILE_GET_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: PROFILE_GET_CURL, label: "cURL", lang: "bash" },
+    { code: PROFILE_GET_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={PROFILE_GET_RESPONSE} lang="json" />
 
 A `key` with no version yet is a `404`, quoted from the same route:

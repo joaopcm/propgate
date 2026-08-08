@@ -61,3 +61,22 @@ export const REGISTER_NAME_TAKEN = `{
   },
   "meta": null
 }`;
+
+/**
+ * The SDK calls assume a client constructed once, as `/sdk` shows:
+ * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
+ * name and shape here is checked against `@propgate/sdk` itself by
+ * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
+ */
+
+export const REGISTER_SDK = `const { data, error, meta } = await propgate.domains.create({
+  name: "yourdomain.dev",
+  profile: "sending",
+  externalId: "cust_1",
+  expectations: {
+    dkim: { expectedPublicKey: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A..." },
+  },
+});
+
+// False means this external id was already registered, and nothing was written.
+meta?.created;`;

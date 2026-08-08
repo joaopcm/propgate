@@ -153,6 +153,17 @@ export const navigation: readonly NavSection[] = [
   },
   {
     items: [
+      { href: "/sdk", title: "Overview" },
+      { href: "/sdk/errors", title: "Errors and retries" },
+      { href: "/sdk/profiles", title: "profiles" },
+      { href: "/sdk/domains", title: "domains" },
+      { href: "/sdk/webhooks", title: "webhooks" },
+      { href: "/sdk/accounts", title: "keys and members" },
+    ],
+    title: "SDK",
+  },
+  {
+    items: [
       { href: "/dns", title: "Overview" },
       { href: "/dns/resolver", title: "The resolver" },
       { href: "/dns/evaluators", title: "The evaluators" },

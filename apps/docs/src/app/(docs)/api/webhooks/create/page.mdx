@@ -1,8 +1,9 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
 import { ParamsTable } from "@/components/docs/params-table";
 import { EVENT_NAMES } from "@/lib/webhooks";
-import { CREATE_CURL, CREATE_REJECTED, CREATE_RESPONSE } from "./_snippets";
+import { CREATE_CURL, CREATE_REJECTED, CREATE_RESPONSE, CREATE_SDK } from "./_snippets";
 
 # Create a webhook endpoint
 
@@ -28,7 +29,13 @@ signature, see [Webhooks](/webhooks).
   ]}
 />
 
-<CodeBlock code={CREATE_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: CREATE_CURL, label: "cURL", lang: "bash" },
+    { code: CREATE_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={CREATE_RESPONSE} lang="json" />
 
 Creating is idempotent on `(account, url)` — posting the same URL again

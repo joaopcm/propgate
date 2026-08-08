@@ -1,0 +1,56 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import {
+  PROFILES_CREATE,
+  PROFILES_GET,
+  PROFILES_PER_DOMAIN,
+  PROFILES_TYPED,
+} from "./_snippets";
+
+# Profiles
+
+A profile is what you expect of a domain's records. Domains pin the *version*
+they were registered against, so a profile is append-only from the outside:
+there is no update method, and writing a key that exists creates a new version.
+
+<CodeBlock code={PROFILES_CREATE} lang="ts" />
+
+Existing domains keep being judged by the version they hold until something
+re-points them — see [`domains.update`](/sdk/domains#changing-what-a-domain-is-judged-against).
+That is the whole reason versions exist: editing a profile in place would
+silently re-judge every domain on it, and a customer who was verified on Tuesday
+would fail on Wednesday without their DNS having changed.
+
+See [Profiles and versions](/concepts/profiles) for the model, and
+[create a profile](/api/profiles/create) for every field a requirement takes.
+
+## Values the domain supplies
+
+A profile states the shape; a domain can supply the value. Name a field in
+`requiredPerDomain` and every domain registered against the profile must send
+it in `expectations`:
+
+<CodeBlock code={PROFILES_PER_DOMAIN} lang="ts" />
+
+Without this a platform with ten thousand customers needs ten thousand profiles
+and the versioning stops meaning anything. `label` is what lets one profile
+describe two names — the domain itself and a bounce host beneath it — so a
+customer's setup is one registered domain and one state rather than two.
+
+A domain registered without a required value is refused at write time, naming
+the path. See [register a domain](/api/domains/register).
+
+## Reading one back
+
+`propgate.profiles.get()` returns the **current** version, which is not
+necessarily the one a given domain is pinned to. `domain.profileVersionId` is
+the id that was in force when it was registered.
+
+<CodeBlock code={PROFILES_GET} lang="ts" />
+
+## Typed requirements
+
+<CodeBlock code={PROFILES_TYPED} lang="ts" />
+
+`ProfileRequirement["check"]` is `CheckKind` from
+[`@propgate/dns`](/dns/evaluators) — the same union the evaluators are written
+against. A check kind that does not exist fails `tsc` rather than the request.

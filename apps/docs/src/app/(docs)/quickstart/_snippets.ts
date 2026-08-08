@@ -102,3 +102,63 @@ export const VERIFY_RESPONSE = `{
     }
   ]
 }`;
+
+/**
+ * The SDK half of each step.
+ *
+ * Signup and confirm have no SDK equivalent — the flow ends in a mailbox, and a
+ * server-side client is on the wrong side of it — so those two steps keep the
+ * cURL and CLI pair they had. `src/lib/sdk.spec.ts` checks every method named
+ * here against `@propgate/sdk`.
+ */
+
+export const CHECK_SDK = `import { Propgate } from "@propgate/sdk";
+
+// The public checker needs no key.
+const { data } = await new Propgate().checks.run({ domain: "example.com" });`;
+
+export const PROFILE_SDK = `const propgate = new Propgate(process.env.PROPGATE_API_KEY);
+
+await propgate.profiles.create({
+  key: "sending",
+  requirements: [
+    { key: "ns", check: "delegation" },
+    { key: "spf", check: "spf", include: "_spf.google.com" },
+    {
+      key: "dkim",
+      check: "dkim",
+      selector: "google",
+      requiredPerDomain: ["expectedPublicKey"],
+    },
+    { key: "dmarc", check: "dmarc" },
+    { key: "mail", check: "mx", expectsMail: true },
+  ],
+});`;
+
+export const REGISTER_SDK = `const { data } = await propgate.domains.create({
+  name: "yourdomain.dev",
+  profile: "sending",
+  externalId: "cust_1",
+  expectations: {
+    dkim: { expectedPublicKey: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A..." },
+  },
+});`;
+
+export const VERIFY_SDK = `const { data, error } = await propgate.domains.check(
+  "019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a"
+);
+
+data?.requirementsMet; // 3 of 5, with the unmet ones named in data.requirements`;
+
+export const READ_BACK_CURL = `curl -s https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"          # stored, no re-check
+curl -s https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a/timeline \\
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
+
+export const READ_BACK_SDK = `// Stored, never a re-check.
+const { data } = await propgate.domains.get("019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a");
+
+// What changed, newest first. Two identical checks add nothing to it.
+const timeline = await propgate.domains.timeline(
+  "019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a"
+);`;
