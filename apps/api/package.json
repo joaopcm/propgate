@@ -27,6 +27,7 @@
   "devDependencies": {
     "@propgate/cli": "workspace:*",
     "@propgate/dns-fixtures": "workspace:*",
+    "@propgate/sdk": "workspace:*",
     "@types/node": "^24.13.3",
     "tsup": "^8.5.1",
     "tsx": "^4",

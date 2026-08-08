@@ -56,7 +56,7 @@ Redis — and get projects of their own rather than a flag on one of the others 
 that running with a single tier up cannot silently skip them. CI sets both after
 `docker compose up --wait`, so every PR runs them.
 
-## `*.e2e.spec.ts` — the CLI against the real API
+## `*.e2e.spec.ts` — the published clients against the real API
 
 The one thing `*.integration.spec.ts` structurally cannot catch. Those specs call
 `app.request`, so the API's response shapes are never compared against what the
@@ -73,6 +73,16 @@ signature. Two rules keep it worth its runtime, which is the highest in the repo
   file covers what happens *between* layers, not within one.
 - **Nothing in it is a stand-in** except `createRecordingMailer`, which exists
   because the OTP is hashed before storage and no spec can read it otherwise.
+
+`sdk.e2e.spec.ts` is the same argument for `@propgate/sdk`, and stops one step
+short: it needs no queue and no receiver, because a transition writes the
+delivery row whether or not Redis is there to schedule an attempt. It covers the
+wire — envelope, cursor, error codes, `meta` — and leaves hysteresis and signing
+to the CLI file above. What keeps its *surface* honest is a separate and much
+cheaper spec, `sdk-coverage.spec.ts`, which reads `app.routes` and fails when a
+route exists that no SDK method reaches. Together they answer the two questions a
+client can get wrong: whether it can call everything, and whether what it calls
+answers what it expects.
 
 The one production affordance it needs is `createApp({ webhookUrlPolicy })`:
 webhook URLs are https-only and refuse private addresses, and a receiver a test

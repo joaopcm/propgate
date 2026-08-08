@@ -33,6 +33,8 @@ jobs:
             filter: "@propgate/dns"
           - name: CLI
             filter: "@propgate/cli"
+          - name: SDK
+            filter: "@propgate/sdk"
 
     steps:
       - uses: actions/checkout@v4
