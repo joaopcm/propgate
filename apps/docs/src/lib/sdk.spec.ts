@@ -1,6 +1,12 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { PROPGATE_ERROR_CODES, Propgate } from "@propgate/sdk";
+import {
+  DEFAULT_MAX_RETRIES,
+  DEFAULT_TIMEOUT_MS,
+  MAX_RETRY_WAIT_MS,
+  PROPGATE_ERROR_CODES,
+  Propgate,
+} from "@propgate/sdk";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -35,7 +41,7 @@ function walk(directory: string): string[] {
  * reading the file gets the TypeScript around the strings too, and every
  * explanatory header comment becomes a phantom example.
  */
-async function examplesIn(directory: string): Promise<string> {
+async function snippetsIn(directory: string): Promise<readonly string[]> {
   const modules = await Promise.all(
     walk(directory)
       .filter((path) => path.endsWith("_snippets.ts"))
@@ -46,8 +52,11 @@ async function examplesIn(directory: string): Promise<string> {
 
   return modules
     .flatMap((module) => Object.values(module))
-    .filter((value): value is string => typeof value === "string")
-    .join("\n");
+    .filter((value): value is string => typeof value === "string");
+}
+
+async function examplesIn(directory: string): Promise<string> {
+  return (await snippetsIn(directory)).join("\n");
 }
 
 function proseIn(directory: string): string {
@@ -117,6 +126,43 @@ describe("the SDK pages", () => {
     const undocumented = methods().filter((method) => !shown.has(method));
 
     expect(undocumented).toEqual([]);
+  });
+
+  it("checks the timestamp in every example that verifies a signature", async () => {
+    /**
+     * `verifyPayload` validates the HMAC and nothing else — freshness is the
+     * receiver's job, which is why `TOLERANCE_SECONDS` is exported rather than
+     * enforced. An example that calls it and skips the comparison publishes a
+     * handler that accepts a captured request forever, and it is the kind of
+     * thing readers paste verbatim.
+     *
+     * Asserted on the rendered snippets rather than the prose: an admonition
+     * beside a vulnerable example is not a fix.
+     */
+    const examples = (await snippetsIn(SDK_DOCS)).filter((snippet) =>
+      snippet.includes("verifyPayload")
+    );
+
+    expect(examples.length).toBeGreaterThan(0);
+
+    for (const example of examples) {
+      expect(example).toContain("TOLERANCE_SECONDS");
+    }
+  });
+
+  it("states a worst case that the client's own defaults produce", () => {
+    /**
+     * The number this page quotes is arithmetic over three constants, and it was
+     * wrong on the first draft — 65 seconds, for a client whose defaults give
+     * 100. A reader who wraps a call in a deadline sized from it gets a timeout
+     * that fires before the retries finish, which is exactly the failure a
+     * receipt is supposed to prevent.
+     */
+    const worstCaseMs =
+      DEFAULT_TIMEOUT_MS * (1 + DEFAULT_MAX_RETRIES) +
+      DEFAULT_MAX_RETRIES * MAX_RETRY_WAIT_MS;
+
+    expect(SDK_TEXT).toContain(`${worstCaseMs / 1000} seconds`);
   });
 
   it("names every error code a consumer can receive", () => {

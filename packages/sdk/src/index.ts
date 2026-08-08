@@ -12,6 +12,7 @@ export type { PropgateResult } from "./envelope";
 export type { PropgateErrorCode } from "./error";
 export { PROPGATE_ERROR_CODES, PropgateError } from "./error";
 export type { FetchLike } from "./http";
+export { MAX_RETRY_WAIT_MS } from "./http";
 export type { ApiKeyCreateInput, RevocationMeta } from "./resources/api-keys";
 export type { CheckRequest, ResolverMeta } from "./resources/checks";
 export type {

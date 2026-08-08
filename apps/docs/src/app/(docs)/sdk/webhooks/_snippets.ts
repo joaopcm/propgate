@@ -1,9 +1,17 @@
+import { TIMESTAMP_TOLERANCE_SECONDS } from "@/lib/webhooks";
+
 /**
  * Webhook endpoints and their deliveries, from Node.
  *
  * The verification example uses `@propgate/webhooks`, which is the package the
  * receiving side wants — see the note on the page. Method names are checked
  * against `@propgate/sdk` by `src/lib/sdk.spec.ts`.
+ *
+ * The tolerance is interpolated from the signing code rather than typed here,
+ * the same way `/webhooks` does it: `verifyPayload` deliberately does not
+ * enforce freshness — the receiver does — so an example that omits the check
+ * publishes a handler a captured request can replay forever. `sdk.spec.ts`
+ * asserts that every verification example on these pages performs it.
  */
 
 const ID = "019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b";
@@ -49,18 +57,26 @@ for (const delivery of data ?? []) {
 // Every page of them.
 const all = await propgate.webhooks.listAllDeliveries("${ID}", { status: "failed" });`;
 
-export const WEBHOOKS_VERIFY = `import { verifyPayload } from "@propgate/webhooks";
+export const WEBHOOKS_VERIFY = `import { TOLERANCE_SECONDS, verifyPayload } from "@propgate/webhooks";
 import type { WebhookPayload } from "@propgate/sdk";
 
 export async function handler(request: Request): Promise<Response> {
   const body = await request.text();
+  const timestamp = Number(request.headers.get("webhook-timestamp"));
+
+  // The signature covers the timestamp but says nothing about how old it is.
+  // Without this, a captured request replays forever. ${TIMESTAMP_TOLERANCE_SECONDS} seconds is the
+  // window every stock Svix-compatible library already enforces.
+  if (Math.abs(Date.now() / 1000 - timestamp) > TOLERANCE_SECONDS) {
+    return new Response("stale", { status: 400 });
+  }
 
   const verified = verifyPayload({
     body,
     header: request.headers.get("webhook-signature") ?? "",
     id: request.headers.get("webhook-id") ?? "",
     secret: process.env.PROPGATE_WEBHOOK_SECRET ?? "",
-    timestamp: Number(request.headers.get("webhook-timestamp")),
+    timestamp,
   });
 
   if (!verified) {

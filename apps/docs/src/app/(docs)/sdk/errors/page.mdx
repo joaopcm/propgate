@@ -85,9 +85,15 @@ the number, and how long your process may block is your decision.
 
 <Callout>
   So the worst case for a single call is statable: `timeoutMs * (1 + maxRetries)`
-  of request time plus at most `maxRetries * 5s` of waiting — 65 seconds at the
-  defaults, and only if every attempt times out.
+  of request time plus at most `maxRetries * 5s` of waiting. At the defaults —
+  30 seconds and two retries — that is **100 seconds**, and only if every
+  attempt runs out its full budget. Size any deadline you wrap this in against
+  that number, not against `timeoutMs`.
 </Callout>
+
+In practice the ceiling is 90.75 seconds: waiting the full five needs a
+`Retry-After` that long, and a request that timed out never carries one, so
+those two waits are the 250ms and 500ms backoff instead.
 
 Aborting mid-backoff returns `aborted` immediately rather than at the end of the
 wait, so a cancelled request stops being your problem when you cancel it.
