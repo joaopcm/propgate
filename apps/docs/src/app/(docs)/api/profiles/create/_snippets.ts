@@ -71,3 +71,28 @@ export const PROFILE_REJECTED_RESPONSE = `{
   },
   "meta": null
 }`;
+
+/**
+ * The SDK calls assume a client constructed once, as `/sdk` shows:
+ * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
+ * name and shape here is checked against `@propgate/sdk` itself by
+ * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
+ */
+
+export const PROFILE_CREATE_SDK = `const { data, error } = await propgate.profiles.create({
+  key: "sending",
+  requirements: [
+    { key: "ns", check: "delegation" },
+    { key: "spf", check: "spf", include: "_spf.google.com" },
+    { key: "dkim", check: "dkim", selector: "google" },
+    { key: "dmarc", check: "dmarc" },
+    { key: "mail", check: "mx", expectsMail: true },
+  ],
+});`;
+
+export const PROFILE_REJECTED_SDK = `const { error } = await propgate.profiles.create({
+  key: "sending",
+  requirements: [{ key: "dkim", check: "dkim" }],
+});
+
+error?.code; // "invalid_request"`;

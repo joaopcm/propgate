@@ -57,3 +57,16 @@ export const CHECKS_RATE_LIMITED = `HTTP/1.1 429 Too Many Requests
 retry-after: 43
 
 {"data":null,"error":{"message":"too many checks; try again in 43s"},"meta":null}`;
+
+/**
+ * The SDK calls assume a client constructed once, as `/sdk` shows:
+ * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
+ * name and shape here is checked against `@propgate/sdk` itself by
+ * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
+ */
+
+export const CHECKS_SDK = `const { data, error } = await propgate.checks.run({
+  domain: "example.com",
+  checks: ["spf"],
+  spfInclude: "_spf.google.com",
+});`;

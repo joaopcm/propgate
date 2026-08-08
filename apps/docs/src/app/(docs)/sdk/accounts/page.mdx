@@ -1,0 +1,65 @@
+import { CodeBlock } from "@/components/docs/code-block";
+import {
+  ACCOUNTS_CREATE_KEY,
+  ACCOUNTS_LIST_KEYS,
+  ACCOUNTS_MEMBERS,
+  ACCOUNTS_ROTATE,
+} from "./_snippets";
+
+# Keys and members
+
+Managing the credentials you are authenticating with, from the same client.
+
+<CodeBlock code={ACCOUNTS_CREATE_KEY} lang="ts" />
+
+Only a hash of the key is stored, so `data.key` is the one moment it exists in
+readable form anywhere. Every later call shows `prefix` instead — which is not a
+policy, it is the only thing there is to show.
+
+`propgate.apiKeys.create()` is the one call this client never retries on a
+transport failure. It mints a key every time it is invoked, so repeating a
+request that may already have succeeded is a second key nobody knows about. If
+it returns `connection_error`, list your keys before trying again.
+
+<CodeBlock code={ACCOUNTS_LIST_KEYS} lang="ts" />
+
+`createdBy` is the address of the member the key is attributed to, or null when
+nobody is on record — an operator-minted key has no creator, and it inherits
+that honestly rather than being attributed to whoever holds it.
+
+## Rotating
+
+<CodeBlock code={ACCOUNTS_ROTATE} lang="ts" />
+
+Authenticating this call with the key you are revoking is fine — that *is* the
+rotation move, and nothing special-cases the presented key. What is refused is
+revoking your **last active** key: there is no un-revoke, so it would lock the
+account out of the API with no way back in. That comes back as `conflict`.
+
+`meta.alreadyRevoked` is not a failure either way. The key is revoked when the
+call returns; the flag says whether this call was the one that did it, which is
+what a cleanup script re-running itself wants to know.
+
+Any member of an account can revoke any of its keys. That is deliberate for now:
+the obvious gate — only the creator may revoke — locks an account out of a
+departed colleague's key at exactly the moment revoking it matters most. Doing it
+properly needs roles.
+
+## Members
+
+<CodeBlock code={ACCOUNTS_MEMBERS} lang="ts" />
+
+`propgate.members.list()` is read-only, and the only account call that is not
+about keys. A member is added exactly one way — by proving control of a mailbox
+through signup — and removing one needs roles, which do not exist yet.
+
+## Signing up
+
+Not here. The first key comes from a six-digit code sent to an address, and by
+the time you are holding this SDK you already have a key. Use the
+[CLI](/cli/accounts), or [`POST /v1/signup`](/api/accounts/signup) directly:
+
+```sh
+npx @propgate/cli signup --email you@example.com
+npx @propgate/cli confirm --email you@example.com --code 123456
+```

@@ -1,6 +1,7 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
-import { DELETE_CURL, DELETE_NOT_FOUND, DELETE_RESPONSE } from "./_snippets";
+import { DELETE_CURL, DELETE_NOT_FOUND, DELETE_RESPONSE, DELETE_SDK } from "./_snippets";
 
 # Delete a domain
 
@@ -13,7 +14,13 @@ undo; register it again to resume tracking, starting from `pending`.
 
 The request below is quoted verbatim from QUICKSTART.md.
 
-<CodeBlock code={DELETE_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: DELETE_CURL, label: "cURL", lang: "bash" },
+    { code: DELETE_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={DELETE_RESPONSE} lang="json" />
 
 An id that does not exist, or belongs to a different account, is a `404`:

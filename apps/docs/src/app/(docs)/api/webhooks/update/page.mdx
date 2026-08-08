@@ -1,7 +1,8 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
 import { ParamsTable } from "@/components/docs/params-table";
-import { UPDATE_CURL, UPDATE_RESPONSE } from "./_snippets";
+import { UPDATE_CURL, UPDATE_RESPONSE, UPDATE_SDK } from "./_snippets";
 
 # Update a webhook endpoint
 
@@ -26,7 +27,13 @@ editable — a different URL is a different endpoint, so
   ]}
 />
 
-<CodeBlock code={UPDATE_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: UPDATE_CURL, label: "cURL", lang: "bash" },
+    { code: UPDATE_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={UPDATE_RESPONSE} lang="json" />
 
 Disabling is the reversible option: the endpoint stops receiving events but

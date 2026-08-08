@@ -1,6 +1,7 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
-import { MEMBERS_CURL, MEMBERS_RESPONSE } from "./_snippets";
+import { MEMBERS_CURL, MEMBERS_RESPONSE, MEMBERS_SDK } from "./_snippets";
 
 # List members
 
@@ -8,7 +9,13 @@ import { MEMBERS_CURL, MEMBERS_RESPONSE } from "./_snippets";
 
 Who is on this account.
 
-<CodeBlock code={MEMBERS_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: MEMBERS_CURL, label: "cURL", lang: "bash" },
+    { code: MEMBERS_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={MEMBERS_RESPONSE} lang="json" />
 
 **This endpoint is read-only, and deliberately so.** A member is added

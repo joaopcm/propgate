@@ -1,11 +1,14 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
 import { ParamsTable } from "@/components/docs/params-table";
 import {
   UPDATE_CURL,
   UPDATE_EMPTY,
   UPDATE_REPOINT_CURL,
+  UPDATE_REPOINT_SDK,
   UPDATE_RESPONSE,
+  UPDATE_SDK,
   UPDATE_UNSATISFIED,
 } from "./_snippets";
 
@@ -41,7 +44,13 @@ the domain and re-verify it, which is a no-op with a side effect.
   ]}
 />
 
-<CodeBlock code={UPDATE_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: UPDATE_CURL, label: "cURL", lang: "bash" },
+    { code: UPDATE_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={UPDATE_RESPONSE} lang="json" />
 
 ## What it does to the domain
@@ -79,7 +88,12 @@ compared, so a `pass` recorded before the rotation has a different one.
 
 ## Re-pointing to another profile
 
-<CodeBlock code={UPDATE_REPOINT_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: UPDATE_REPOINT_CURL, label: "cURL", lang: "bash" },
+    { code: UPDATE_REPOINT_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
 
 An upgrade from sending-only to full mail is the same operation as a rotation —
 "judge this domain against something else now" — so it takes the same path and the

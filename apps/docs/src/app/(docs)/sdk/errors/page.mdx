@@ -1,0 +1,93 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import {
+  ERRORS_RATE_LIMIT,
+  ERRORS_RETRIES,
+  ERRORS_SHAPE,
+  ERRORS_SWITCH,
+  ERRORS_THROWING,
+} from "./_snippets";
+
+# Errors and retries
+
+Every failure — a `404`, a refused connection, a cancelled call, a key that was
+never configured — arrives the same way: as `error`, with `data` null.
+
+<CodeBlock code={ERRORS_SHAPE} lang="ts" />
+
+`message` is the API's own sentence, which is written to be acted on rather
+than parsed: `active key limit of 50 reached, and you hold 50; revoke one before
+creating another` names the budget, the limit and the ask. Switch on `code`, log
+`message`.
+
+## Codes
+
+`error.code` is a union, and a public contract in the same way the
+[diagnosis taxonomy](/concepts/diagnosis) is: adding a member is additive,
+changing or removing one is a breaking change.
+
+| Code | Status | What happened |
+|---|---|---|
+| `invalid_request` | 400, 422 | The request was refused. `message` names the field. Re-sending it unchanged will be refused again |
+| `unauthorized` | 401 | No key, a revoked key, or one that never existed |
+| `forbidden` | 403 | Authenticated, and not allowed |
+| `not_found` | 404 | No such resource *for this account* — the same answer another tenant's id gets, so a wrong id cannot confirm that it exists somewhere |
+| `conflict` | 409 | Registering a name that already exists, or revoking your last active key |
+| `rate_limited` | 429 | Carries `retryAfterSeconds` |
+| `server_error` | 5xx | Ours |
+| `api_error` | any | A status this client has no more specific name for |
+| `timeout` | — | No response inside `timeoutMs` |
+| `connection_error` | — | The request never arrived: DNS, TLS, a refused connection, or a body that stopped mid-response |
+| `aborted` | — | The `AbortSignal` you passed fired |
+| `invalid_response` | — | Something answered and it was not this API — a proxy error page, a captive portal, a tunnel that is down |
+| `invalid_option` | — | An option this client cannot use, such as a `timeoutMs` of `NaN`. Nothing was sent |
+| `missing_api_key` | — | An authenticated call with no key configured. Nothing was sent |
+
+The last five never reached the API, which is why `statusCode` is `0` on them.
+
+<CodeBlock code={ERRORS_SWITCH} lang="ts" />
+
+## If you would rather throw
+
+`PropgateError` extends `Error`, so a wrapper of four lines gets you the other
+style everywhere, and keeps a stack:
+
+<CodeBlock code={ERRORS_THROWING} lang="ts" />
+
+## What gets retried
+
+Connection failures, timeouts, `429`s and `5xx` are retried — twice by default,
+250ms then 500ms apart.
+
+**No `POST` that may already have been applied is ever repeated.**
+`POST /v1/api-keys` mints a key every time it is called, so a retry after a
+timeout is a second key nobody knows about. `POST /v1/domains` and
+`POST /v1/webhooks` are idempotent by construction, but that is a property of
+those two routes rather than of the method, and a rule that has to be right per
+route is one that will be wrong the first time a route is added.
+
+A `429` is the exception, and the only one: the server refused *before* doing
+anything, so repeating the request cannot repeat an effect.
+
+<CodeBlock code={ERRORS_RETRIES} lang="ts" />
+
+## Rate limits you have to schedule around
+
+A `Retry-After` longer than five seconds is **not** waited out inside the call.
+
+<CodeBlock code={ERRORS_RATE_LIMIT} lang="ts" />
+
+[Verify](/api/domains/verify) is limited to 100 checks a minute per account and
+answers `Retry-After: 47` when you cross it. Honouring that inside the client
+would turn one `await` into a 47-second stall you cannot see, twice over at the
+default `maxRetries`. Past the ceiling the limit comes back as an error carrying
+the number, and how long your process may block is your decision.
+
+<Callout>
+  So the worst case for a single call is statable: `timeoutMs * (1 + maxRetries)`
+  of request time plus at most `maxRetries * 5s` of waiting — 65 seconds at the
+  defaults, and only if every attempt times out.
+</Callout>
+
+Aborting mid-backoff returns `aborted` immediately rather than at the end of the
+wait, so a cancelled request stops being your problem when you cancel it.

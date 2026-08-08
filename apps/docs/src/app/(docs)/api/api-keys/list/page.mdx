@@ -1,7 +1,7 @@
 import { CodeBlock } from "@/components/docs/code-block";
 import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
-import { LIST_CLI, LIST_CURL, LIST_RESPONSE } from "./_snippets";
+import { LIST_CLI, LIST_CURL, LIST_RESPONSE, LIST_SDK } from "./_snippets";
 
 # List API keys
 
@@ -13,6 +13,7 @@ Every key on the tenant, oldest first, revoked ones included.
   items={[
     { code: LIST_CURL, label: "cURL", lang: "bash" },
     { code: LIST_CLI, label: "CLI", lang: "bash" },
+    { code: LIST_SDK, label: "SDK", lang: "ts" },
   ]}
 />
 

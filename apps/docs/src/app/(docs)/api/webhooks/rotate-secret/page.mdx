@@ -1,7 +1,14 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
 import { ParamsTable } from "@/components/docs/params-table";
-import { ROTATE_CURL, ROTATE_LEAK_CURL, ROTATE_RESPONSE } from "./_snippets";
+import {
+  ROTATE_CURL,
+  ROTATE_LEAK_CURL,
+  ROTATE_LEAK_SDK,
+  ROTATE_RESPONSE,
+  ROTATE_SDK,
+} from "./_snippets";
 
 # Rotate a webhook secret
 
@@ -26,7 +33,13 @@ that doesn't, which one a given action gets stops being predictable.
   ]}
 />
 
-<CodeBlock code={ROTATE_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: ROTATE_CURL, label: "cURL", lang: "bash" },
+    { code: ROTATE_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={ROTATE_RESPONSE} lang="json" />
 
 Until `previousSecretExpiresAt`, every delivery is signed with **both**
@@ -37,4 +50,9 @@ deploy rather than an outage.
 Rotating because a secret leaked? Pass `windowHours: 0` and the old one stops
 being accepted immediately:
 
-<CodeBlock code={ROTATE_LEAK_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: ROTATE_LEAK_CURL, label: "cURL", lang: "bash" },
+    { code: ROTATE_LEAK_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>

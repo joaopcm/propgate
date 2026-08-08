@@ -52,3 +52,12 @@ export const PROFILE_GET_NOT_FOUND = `{
   },
   "meta": null
 }`;
+
+/**
+ * The SDK calls assume a client constructed once, as `/sdk` shows:
+ * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
+ * name and shape here is checked against `@propgate/sdk` itself by
+ * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
+ */
+
+export const PROFILE_GET_SDK = `const { data, error } = await propgate.profiles.get("sending");`;

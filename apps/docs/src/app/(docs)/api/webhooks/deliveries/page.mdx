@@ -1,7 +1,8 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
 import { ParamsTable } from "@/components/docs/params-table";
-import { DELIVERIES_CURL, DELIVERIES_RESPONSE } from "./_snippets";
+import { DELIVERIES_CURL, DELIVERIES_RESPONSE, DELIVERIES_SDK } from "./_snippets";
 
 # List webhook deliveries
 
@@ -26,7 +27,13 @@ anything the URL says.
   ]}
 />
 
-<CodeBlock code={DELIVERIES_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: DELIVERIES_CURL, label: "cURL", lang: "bash" },
+    { code: DELIVERIES_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={DELIVERIES_RESPONSE} lang="json" />
 
 `lastError` is what makes a dead-lettered delivery answerable — null while

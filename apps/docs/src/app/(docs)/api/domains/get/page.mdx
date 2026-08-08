@@ -1,7 +1,8 @@
 import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
-import { GET_CURL, GET_RESPONSE } from "./_snippets";
+import { GET_CURL, GET_RESPONSE, GET_SDK } from "./_snippets";
 
 # Get a domain
 
@@ -16,7 +17,13 @@ result, call [verify](/api/domains/verify) first.
   against the live API, called here with `includeLookups: true`.
 </Callout>
 
-<CodeBlock code={GET_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: GET_CURL, label: "cURL", lang: "bash" },
+    { code: GET_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={GET_RESPONSE} lang="json" />
 
 `requirements` mirrors [verify](/api/domains/verify)'s response: the same

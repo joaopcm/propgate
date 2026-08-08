@@ -10,7 +10,7 @@ export {
 } from "./client";
 export type { PropgateResult } from "./envelope";
 export type { PropgateErrorCode } from "./error";
-export { PropgateError } from "./error";
+export { PROPGATE_ERROR_CODES, PropgateError } from "./error";
 export type { FetchLike } from "./http";
 export type { ApiKeyCreateInput, RevocationMeta } from "./resources/api-keys";
 export type { CheckRequest, ResolverMeta } from "./resources/checks";

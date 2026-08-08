@@ -1,7 +1,13 @@
 import { Callout } from "@/components/docs/callout";
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
-import { VERIFY_CURL, VERIFY_RATE_LIMITED, VERIFY_RESPONSE } from "./_snippets";
+import {
+  VERIFY_CURL,
+  VERIFY_RATE_LIMITED,
+  VERIFY_RESPONSE,
+  VERIFY_SDK,
+} from "./_snippets";
 
 # Verify a domain
 
@@ -23,7 +29,13 @@ rate-limited the same way either.
   looking one up.
 </Callout>
 
-<CodeBlock code={VERIFY_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: VERIFY_CURL, label: "cURL", lang: "bash" },
+    { code: VERIFY_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={VERIFY_RESPONSE} lang="json" />
 
 Every finding carries a [diagnosis code](/taxonomy) and, where the evaluator

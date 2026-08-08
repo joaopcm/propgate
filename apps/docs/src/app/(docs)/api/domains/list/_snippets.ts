@@ -44,3 +44,17 @@ export const LIST_RESPONSE = `{
     "nextCursor": "019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a"
   }
 }`;
+
+/**
+ * The SDK calls assume a client constructed once, as `/sdk` shows:
+ * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
+ * name and shape here is checked against `@propgate/sdk` itself by
+ * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
+ */
+
+export const LIST_SDK = `const page = await propgate.domains.list({ state: "failed" });
+
+page.meta?.nextCursor; // null when the walk is done
+
+// Or let the client follow the cursor to the end, 200 rows a request.
+const { data, error } = await propgate.domains.listAll({ state: "failed" });`;

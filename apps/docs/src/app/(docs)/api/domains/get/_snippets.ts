@@ -68,3 +68,15 @@ export const GET_RESPONSE = `{
   "error": null,
   "meta": null
 }`;
+
+/**
+ * The SDK calls assume a client constructed once, as `/sdk` shows:
+ * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
+ * name and shape here is checked against `@propgate/sdk` itself by
+ * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
+ */
+
+export const GET_SDK = `const { data, error } = await propgate.domains.get("019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a");
+
+// Stored, not re-checked. data.lookups is the derivation behind the verdict.
+data?.lookups;`;

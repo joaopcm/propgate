@@ -146,6 +146,9 @@ importers:
       '@propgate/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@propgate/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.3.3

@@ -1,0 +1,71 @@
+import { Callout } from "@/components/docs/callout";
+import { CodeBlock } from "@/components/docs/code-block";
+import {
+  WEBHOOKS_CREATE,
+  WEBHOOKS_DELIVERIES,
+  WEBHOOKS_MANAGE,
+  WEBHOOKS_ROTATE,
+  WEBHOOKS_VERIFY,
+} from "./_snippets";
+
+# Webhooks
+
+Where domain state changes are sent, and what happened to them.
+
+<CodeBlock code={WEBHOOKS_CREATE} lang="ts" />
+
+`propgate.webhooks.create()` is idempotent on the URL, and the secret is in the
+response exactly once. Creating the same endpoint twice returns the existing one
+with `meta.created` false and **no** secret: the stored secret is kept to sign
+with and is not ours to hand back, so a retry cannot become a way to read a
+secret somebody else set up. Lost it? Rotate.
+
+An omitted or empty `events` array means every event. The four are
+`domain.verified`, `domain.degraded`, `domain.failed` and `domain.recovered` —
+see [webhook payloads](/webhooks) for what each carries and when it fires.
+
+<CodeBlock code={WEBHOOKS_MANAGE} lang="ts" />
+
+`propgate.webhooks.update()` with `disabled: true` stops delivery while keeping
+the endpoint and its delivery history, which is what you want during an incident
+on your side. `propgate.webhooks.remove()` is the one that loses the history.
+`propgate.webhooks.list()` and `propgate.webhooks.get()` read them back.
+
+## Rotating the signing secret
+
+<CodeBlock code={WEBHOOKS_ROTATE} lang="ts" />
+
+Both secrets are accepted for the window, defaulting to 24 hours — long enough
+that redeploying your receiver on your own schedule is never a broken endpoint.
+`windowHours: 0` expires the old one immediately, which is the right answer when
+you are rotating *because* something leaked.
+
+## Deliveries
+
+<CodeBlock code={WEBHOOKS_DELIVERIES} lang="ts" />
+
+The ledger is per endpoint, because a delivery belongs to exactly one and "did
+*this* endpoint receive it" is the question that gets asked. `lastError` is what
+makes a dead-lettered delivery answerable; it is null while pending and after an
+eventual success.
+
+`propgate.webhooks.listAllDeliveries()` walks the cursor to the end. Deliveries
+sort newest first, so anything created mid-walk is missed rather than
+duplicated — for an audit that must not miss one, walk again from the top rather
+than resuming a stale cursor.
+
+## Verifying on the receiving end
+
+<Callout>
+  Signature verification is **not** in this package. A request handler should not
+  have to construct an API client to check a signature —
+  [`@propgate/webhooks`](https://www.npmjs.com/package/@propgate/webhooks) is the
+  dependency the receiving side wants, and it is the same code that signs.
+</Callout>
+
+<CodeBlock code={WEBHOOKS_VERIFY} lang="ts" />
+
+The payload type is exported here as `WebhookPayload`, so your handler and your
+client describe one shape. It is `snake_case` on the wire, unlike everything
+else in this SDK: it is a contract with other people's code, it has to match
+what the docs show, and `snake_case` is what the Svix ecosystem expects.

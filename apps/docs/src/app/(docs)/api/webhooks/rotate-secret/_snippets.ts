@@ -23,3 +23,18 @@ export const ROTATE_RESPONSE = `{
 export const ROTATE_LEAK_CURL = `curl -s -X POST https://api.propgate.dev/v1/webhooks/019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b/secret \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H 'content-type: application/json' -d '{"windowHours":0}'`;
+
+/**
+ * The SDK calls assume a client constructed once, as `/sdk` shows:
+ * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
+ * name and shape here is checked against `@propgate/sdk` itself by
+ * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
+ */
+
+export const ROTATE_SDK = `const { data, meta } = await propgate.webhooks.rotateSecret("019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b", {
+  windowHours: 24,
+});
+
+meta?.previousSecretExpiresAt; // when the old secret stops being accepted`;
+
+export const ROTATE_LEAK_SDK = `await propgate.webhooks.rotateSecret("019fcf9a-3c4d-7e5f-a06b-7c8d9e0f1a2b", { windowHours: 0 });`;

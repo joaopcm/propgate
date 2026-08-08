@@ -1,11 +1,14 @@
 import { CodeBlock } from "@/components/docs/code-block";
+import { CodeTabs } from "@/components/docs/code-tabs";
 import { EndpointHeader } from "@/components/docs/endpoint-header";
 import { ParamsTable } from "@/components/docs/params-table";
 import {
   PROFILE_CREATE_CURL,
   PROFILE_CREATE_RESPONSE,
+  PROFILE_CREATE_SDK,
   PROFILE_REJECTED_CURL,
   PROFILE_REJECTED_RESPONSE,
+  PROFILE_REJECTED_SDK,
 } from "./_snippets";
 
 # Create a profile
@@ -83,7 +86,12 @@ keys, so pick ones you can switch on.
   ]}
 />
 
-<CodeBlock code={PROFILE_CREATE_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: PROFILE_CREATE_CURL, label: "cURL", lang: "bash" },
+    { code: PROFILE_CREATE_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
 
 <CodeBlock code={PROFILE_CREATE_RESPONSE} lang="json" />
 
@@ -119,7 +127,13 @@ not known until a domain supplies them, so uniqueness is not decidable here. If
 they resolve to the same selector it is evaluated twice and both requirements are
 attributed the same outcome — wasteful, not wrong.
 
-<CodeBlock code={PROFILE_REJECTED_CURL} lang="bash" />
+<CodeTabs
+  items={[
+    { code: PROFILE_REJECTED_CURL, label: "cURL", lang: "bash" },
+    { code: PROFILE_REJECTED_SDK, label: "SDK", lang: "ts" },
+  ]}
+/>
+
 <CodeBlock code={PROFILE_REJECTED_RESPONSE} lang="json" />
 
 Accepting a definition like this and failing later, once a customer already

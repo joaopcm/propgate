@@ -64,6 +64,7 @@ describe("api reference coverage", () => {
       "Concepts",
       "Get started",
       "Reference",
+      "SDK",
     ]);
   });
 });
