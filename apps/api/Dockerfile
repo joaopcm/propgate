@@ -15,6 +15,8 @@ COPY turbo.json tsconfig.json ./
 # Every workspace manifest, not just the ones being built. packages/dns has a
 # workspace devDependency on @propgate/dns-fixtures, and pnpm resolves the whole
 # workspace graph even behind --filter, so a missing manifest fails the install.
+# src/dockerfile-manifests.spec.ts keeps this list complete — a new package that
+# is not listed here fails there rather than in the deploy build.
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/docs/package.json apps/docs/
@@ -25,6 +27,7 @@ COPY packages/jobs/package.json packages/jobs/
 COPY packages/emails/package.json packages/emails/
 COPY packages/webhooks/package.json packages/webhooks/
 COPY packages/cli/package.json packages/cli/
+COPY packages/sdk/package.json packages/sdk/
 
 RUN pnpm install --frozen-lockfile --filter @propgate/api...
 
