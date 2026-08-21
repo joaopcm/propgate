@@ -14,6 +14,7 @@ import {
   TENANT_REQUESTS_PER_SECOND,
   tenantRateLimit,
 } from "./middleware/tenant-rate-limit";
+import { openApiDocument } from "./openapi";
 import { createApiKeysRoute } from "./routes/api-keys";
 import {
   CHECKS_PER_MINUTE,
@@ -35,6 +36,7 @@ import {
 import type { WebhookUrlPolicy } from "./routes/webhooks";
 import { createWebhooksRoute } from "./routes/webhooks";
 import { RateLimiter } from "./utils/rate-limit";
+import { error } from "./utils/response";
 
 /**
  * A factory rather than a module-level instance, so tests can point the app at
@@ -103,13 +105,24 @@ export function createApp(options: {
       extra: { method: c.req.method, path: c.req.path },
     });
 
-    return c.json(
-      { data: null, error: { message: "Internal server error" }, meta: null },
-      500
-    );
+    return error(c, 500, "Internal server error");
   });
 
+  app.notFound((c) =>
+    error(c, 404, `no route for ${c.req.method} ${c.req.path}`)
+  );
+
   app.get("/health", (c) => c.json({ status: "ok" }));
+
+  /**
+   * The machine-readable surface. Not wrapped in the envelope: an OpenAPI
+   * consumer expects the document itself, and wrapping it would make every
+   * generator fail to parse.
+   */
+  app.get("/openapi.json", (c) => {
+    c.header("Access-Control-Allow-Origin", "*");
+    return c.json(openApiDocument);
+  });
 
   /**
    * CORS, on the public checker and nowhere else.

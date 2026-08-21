@@ -32,7 +32,7 @@ let the sweeper do it.
 
 - [Quickstart](/quickstart): key, profile, register, verify
 - [API reference](/api): every REST endpoint
-- [OpenAPI](/openapi.json): unique `operationId`s, typed parameters, response schemas
+- [OpenAPI](https://api.propgate.dev/openapi.json): unique `operationId`s, typed parameters, response schemas. Same document at https://propgate.dev/openapi.json. This host adds the docs catalog at [/openapi.json](/openapi.json)
 - [Webhooks](/webhooks): signed events, Svix-compatible
 - [Diagnosis taxonomy](/taxonomy): every code, what it means
 - [SDK](/sdk): `@propgate/sdk` (`{ data, error, meta }`), never a throw
@@ -43,7 +43,7 @@ let the sweeper do it.
 | What | URL |
 | --- | --- |
 | This portal | `/developers` |
-| OpenAPI spec | `/openapi.json` |
+| OpenAPI spec | `https://api.propgate.dev/openapi.json` (also `/openapi.json` here) |
 | llms.txt | `/llms.txt` |
 | Full markdown corpus | `/llms-full.txt` |
 | Page catalog | `/v1/pages` |
@@ -51,6 +51,6 @@ let the sweeper do it.
 | Sitemap | `/sitemap.xml` |
 | Per-page markdown | `{path}.md` or `Accept: text/markdown` on the HTML URL |
 
-There is no MCP server. Function-call the operations in `/openapi.json`. The
-public checker is `checkDomain`. Authenticated work uses the bearer key from
-signup.
+There is no MCP server. Function-call the operations in
+`https://api.propgate.dev/openapi.json`. The public checker is
+`runPublicCheck`. Authenticated work uses the bearer key from signup.

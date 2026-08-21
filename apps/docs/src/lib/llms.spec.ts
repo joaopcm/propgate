@@ -38,6 +38,15 @@ describe("buildLlmsTxt", () => {
     expect(body).toContain("/developers");
     expect(body).toContain("propgate developer portal");
     expect(body).toContain("api.propgate.dev/v1/checks");
+    expect(body).toContain("npx @propgate/cli");
+    expect(body).toContain("@propgate/sdk");
+  });
+
+  it("points at the canonical OpenAPI and the marketing llms.txt", () => {
+    expect(body).toContain("https://api.propgate.dev/openapi.json");
+    expect(body).toContain("https://propgate.dev/openapi.json");
+    expect(body).toContain("https://propgate.dev/llms.txt");
+    expect(body).toContain("runPublicCheck");
   });
 
   it("says when to call and that there is no MCP server", () => {

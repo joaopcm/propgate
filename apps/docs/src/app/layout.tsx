@@ -9,6 +9,7 @@ const sans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
+  alternates: { canonical: "./" },
   description: SITE_DESCRIPTION,
   metadataBase: new URL(SITE_URL),
   openGraph: {
@@ -22,7 +23,9 @@ export const metadata: Metadata = {
       },
     ],
     siteName: SITE_NAME,
+    title: SITE_NAME,
     type: "website",
+    url: SITE_URL,
   },
   title: { default: SITE_NAME, template: `%s · ${SITE_NAME}` },
 };

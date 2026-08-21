@@ -45,13 +45,14 @@ Two consequences worth knowing:
 
 ## Why the surfaces live where they do
 
-**Web and docs are static.** Neither has a route handler, a server action, or a
-page that renders at request time — the public checker is a client component
-calling the API from the browser. `output: "export"` produces plain files, so
-they need no adapter, no Node runtime at the edge, and no cold start. The
-tripwire is written into both `next.config.ts`: the day something needs a server,
-that becomes an `@opennextjs/cloudflare` deployment, and it should be a decision
-rather than a discovery.
+**Web and docs are static files on Cloudflare.** Pages prerender; `output: "export"`
+produces plain files. Docs has two build-time route handlers (`/search-index.json`,
+`/llms.txt`) that land in `out/` as files. Web has a thin Worker in front of those
+files that only reads `Accept` and serves a sibling `.md` when an agent asks for
+markdown — not a second renderer, and not a reason to pull in
+`@opennextjs/cloudflare`. The tripwire is written into both `next.config.ts`: the
+day a dashboard needs server-side auth, that becomes an OpenNext deployment, and
+it should be a decision rather than a discovery.
 
 **The API is on a box we control**, for one reason above all others: the
 delegation evaluator queries each authoritative nameserver directly over UDP and
