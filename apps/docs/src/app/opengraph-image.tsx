@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const dynamic = "force-static";
-export const alt = "propgate docs — DNS diagnosis and API reference";
+export const alt = "propgate docs: DNS diagnosis and API reference";
 export const size = { height: 630, width: 1200 };
 export const contentType = "image/png";
 

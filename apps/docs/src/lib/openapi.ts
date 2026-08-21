@@ -7,7 +7,7 @@ import { API_URL, PRODUCT_NAME, SITE_DESCRIPTION, SITE_URL } from "./site";
  * OpenAPI 3.1 for the propgate API, plus the docs catalog on this host.
  *
  * Every product operation has a unique operationId, a description, typed
- * parameters, and response schemas — the shape function-calling needs. The
+ * parameters, and response schemas: the shape function-calling needs. The
  * catalog is generated from `ENDPOINTS` so a new route without an operation
  * fails the spec rather than shipping an incomplete document.
  */
@@ -203,7 +203,7 @@ const OPERATIONS: readonly Operation[] = [
   },
   {
     description:
-      "Create an API key. The secret is returned once and never again — only its hash is stored.",
+      "Create an API key. The secret is returned once and never again; only its hash is stored.",
     method: "post",
     operationId: "createApiKey",
     path: "/v1/api-keys",
@@ -251,7 +251,7 @@ const OPERATIONS: readonly Operation[] = [
   },
   {
     description:
-      "Who is on this account. Read-only — a member is added by proving control of a mailbox through signup.",
+      "Who is on this account. Read-only: a member is added by proving control of a mailbox through signup.",
     method: "get",
     operationId: "listMembers",
     path: "/v1/members",

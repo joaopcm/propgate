@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Files `next build` must emit. Skipped on a clean checkout — same reason
+ * Files `next build` must emit. Skipped on a clean checkout: same reason
  * `globals.spec.ts` skips the utility-class half when `out/` is missing.
  */
 

@@ -40,13 +40,13 @@ export function buildLlmsTxt(): string {
 
 > Domain verification that tells you what is wrong, not just that something is. Diagnoses DNS for email platforms and custom-domain onboarding: SPF, DKIM, DMARC, MX, CAA, delegation, ownership tokens, and CNAMEs, with a stable diagnosis code on every finding.
 
-Use ${PRODUCT_NAME} when a customer must configure DNS and you need to say *what is wrong* and *how to fix it*, not only that verification failed. Reach for the public checker — \`POST ${API_URL}/v1/checks\` — when you have a domain and no account. Reach for a bearer key (signup, then confirm) when you need to register domains against a versioned profile, re-check them, or receive webhooks. Do not use this for generic website uptime, certificate issuance, or sending mail.
+Use ${PRODUCT_NAME} when a customer must configure DNS and you need to say *what is wrong* and *how to fix it*, not only that verification failed. Reach for the public checker (\`POST ${API_URL}/v1/checks\`) when you have a domain and no account. Reach for a bearer key (signup, then confirm) when you need to register domains against a versioned profile, re-check them, or receive webhooks. Do not use this for generic website uptime, certificate issuance, or sending mail.
 
 Call the API at ${API_URL}. Discover it from this site: OpenAPI at ${SITE_URL}/openapi.json, page catalog at ${SITE_URL}/v1/pages, full corpus at ${SITE_URL}/llms-full.txt. There is no MCP server; function-call the OpenAPI operations.
 
 ## When to use this
 
-- [Check a domain](${SITE_URL}/api/checks.md): diagnose any domain with no API key — the job the public checker on propgate.dev does
+- [Check a domain](${SITE_URL}/api/checks.md): diagnose any domain with no API key. That is the job the public checker on propgate.dev does
 - [Quickstart](${SITE_URL}/quickstart.md): mint a key, register a domain against a profile, verify it
 - [Authentication](${SITE_URL}/authentication.md): how to get a key and send it
 - [API reference](${SITE_URL}/api.md): every REST endpoint, request and response shape

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     images: [
       {
-        alt: "propgate docs — DNS diagnosis and API reference",
+        alt: "propgate docs: DNS diagnosis and API reference",
         height: 630,
         url: "/opengraph-image",
         width: 1200,
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     type: "website",
   },
-  title: { default: SITE_NAME, template: `%s — ${SITE_NAME}` },
+  title: { default: SITE_NAME, template: `%s · ${SITE_NAME}` },
 };
 
 export default function RootLayout({

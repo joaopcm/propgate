@@ -6,7 +6,7 @@ import { EVENT_NAMES, EVENTS, TIMESTAMP_TOLERANCE_SECONDS } from "./webhooks";
 /**
  * Markdown for the pages that are `.tsx`, not MDX.
  *
- * Those pages are JSX over a typed registry — taxonomy, conformance, webhooks —
+ * Those pages are JSX over a typed registry (taxonomy, conformance, webhooks)
  * so `pageMarkdown` cannot read them. Rebuilding from the same registries the
  * pages render is what stops the agent surface drifting from the HTML.
  */
@@ -32,7 +32,7 @@ function taxonomyCodeBody(entry: Entry): string {
 
   return `# ${definition.code}
 
-${definition.severity} — ${SEVERITY_MEANING[definition.severity]}
+${definition.severity}: ${SEVERITY_MEANING[definition.severity]}
 
 ${definition.summary}
 
@@ -85,7 +85,7 @@ export function conformanceMarkdown(): string {
           ? "No catalogued gaps."
           : rfc.gaps.map((gap) => `- ${gap.requirement}`).join("\n");
 
-      return `## RFC ${rfc.rfc} — ${rfc.title}
+      return `## RFC ${rfc.rfc}: ${rfc.title}`
 
 ${rfc.implemented} of ${rfc.applicable} catalogued requirements implemented (${percentage(rfc.implemented, rfc.applicable)}%).
 

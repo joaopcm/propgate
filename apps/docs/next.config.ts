@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
   //
   // A small Worker (`src/worker.ts`) sits in front for Accept negotiation
   // and agent 404s. It does not render pages. An adapter such as
-  // @opennextjs/cloudflare is still unnecessary — it exists for apps that
+  // @opennextjs/cloudflare is still unnecessary. It exists for apps that
   // need a server at the edge, and this one still does not.
   //
   // The tripwire: `export` rules out ISR and request-time rendering. The day a
