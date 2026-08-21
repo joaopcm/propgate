@@ -1,9 +1,6 @@
 import { notFound } from "next/navigation";
-import {
-  listMarkdownPages,
-  markdownHrefFromAssetPath,
-  markdownPageByHref,
-} from "@/lib/markdown-pages";
+import { listMarkdownPages, markdownPageByHref } from "@/lib/markdown-pages";
+import { markdownHrefFromAssetPath } from "@/lib/markdown-paths";
 
 export const dynamic = "force-static";
 

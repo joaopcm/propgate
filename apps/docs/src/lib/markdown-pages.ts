@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { markdownPathFor } from "./markdown-paths";
 import { flattenNavigation } from "./navigation";
 import { pageMarkdown } from "./page-markdown";
-import { SITE_URL } from "./site";
 import { allEntries } from "./taxonomy";
 import {
   conformanceMarkdown,
@@ -42,10 +42,6 @@ function mdxPathFor(href: string): string {
 
 function tsxPathFor(href: string): string {
   return join(APP, href === "/" ? "" : href, "page.tsx");
-}
-
-export function markdownPathFor(href: string): string {
-  return href === "/" ? "/index.md" : `${href}.md`;
 }
 
 export function htmlPathHasPage(href: string): boolean {
@@ -127,22 +123,4 @@ export function listMarkdownPages(): MarkdownPage[] {
 
 export function markdownPageByHref(href: string): MarkdownPage | undefined {
   return listMarkdownPages().find((page) => page.href === href);
-}
-
-export function markdownHrefFromAssetPath(
-  pathname: string
-): string | undefined {
-  if (!pathname.endsWith(".md")) {
-    return;
-  }
-
-  if (pathname === "/index.md") {
-    return "/";
-  }
-
-  return pathname.slice(0, -".md".length);
-}
-
-export function absoluteMarkdownUrl(href: string): string {
-  return `${SITE_URL}${markdownPathFor(href)}`;
 }

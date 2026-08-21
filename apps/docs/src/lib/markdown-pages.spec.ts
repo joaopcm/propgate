@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { listMarkdownPages, markdownPathFor } from "./markdown-pages";
+import { listMarkdownPages } from "./markdown-pages";
+import { markdownPathFor } from "./markdown-paths";
 import { flattenNavigation } from "./navigation";
 
 describe("listMarkdownPages", () => {

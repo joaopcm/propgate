@@ -51,3 +51,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm --filter ${{ matrix.filter }} build
+
+      # The Worker script, validated the way Cloudflare validates it.
+      #
+      # `worker-graph.spec.ts` catches the import that caused this in `pnpm
+      # test`, and does it faster and with a better message. This is the
+      # authoritative version: it bundles for real, so a dynamic import or a
+      # transitive path the static walk cannot see still fails here.
+      #
+      # It is worth both, because the failure it guards is silent until deploy.
+      # `docs.propgate.dev` published nothing for three releases while every
+      # build, lint and test stayed green — the assets uploaded fine and only
+      # the script was rejected, with `No such module "node:fs"`.
+      #
+      # No credentials needed: --dry-run bundles and exits without calling the
+      # API. It needs `out/` from the build above, so it runs after it.
+      - name: Validate the Worker bundle
+        if: matrix.name == 'Docs'
+        run: pnpm --filter ${{ matrix.filter }} verify:worker
