@@ -1,0 +1,44 @@
+# propgate
+
+> Domain verification that tells you what is wrong, not just that something is.
+
+propgate diagnoses DNS for products whose customers configure records: custom sending domains, tracking hosts, ownership tokens, CAA. Six checks (nameservers, SPF, DKIM, DMARC, mail delivery, certificate authorities) plus the lookups behind each answer. Four verdicts: pass, warn, fail, indeterminate.
+
+Website: https://propgate.dev
+API: https://api.propgate.dev
+Docs: https://docs.propgate.dev
+Source: https://github.com/joaopcm/propgate
+
+## When to use this
+
+Reach for propgate when an agent or a product needs a programmatic verdict about a domain's DNS, not a screenshot of a dashboard.
+
+Best-fit jobs:
+- A user (or an agent acting for one) has just written SPF, DKIM, DMARC, MX, CAA, CNAME, or an ownership TXT, and you need to know whether it is actually correct.
+- You are building or operating a “verify your domain” flow and want findings you can switch on (`SPF_LOOKUP_LIMIT_NEAR`, `NS_SERIAL_MISMATCH`, …) rather than a boolean.
+- You need to tell “the record is wrong” from “we could not tell” (timeout, unreachable nameserver). The latter is `indeterminate`, not `fail`.
+- You want to register many customer domains against a versioned profile of requirements, re-check them, and get a signed webhook when one fails or recovers.
+
+How to call us:
+1. One-shot diagnosis, no account: `POST https://api.propgate.dev/v1/checks` with `{"domain":"example.com"}`, or `npx @propgate/cli check example.com`, or `npx @propgate/cli check example.com --remote`.
+2. Remembered domains: `POST https://api.propgate.dev/v1/signup` then `POST https://api.propgate.dev/v1/signup/confirm` for a key; then profiles, domains, checks, webhooks as in https://docs.propgate.dev/quickstart. From Node, `npm install @propgate/sdk`.
+3. Read the OpenAPI document at https://propgate.dev/openapi.json (also https://api.propgate.dev/openapi.json) before inventing paths. Every operation has an operationId, typed parameters, and an error envelope with `code`, `message`, and `hint`.
+
+Do not use propgate as a general DNS lookup API, a nameserver host, a certificate authority, or an email sender. We inspect records. We do not serve them, issue certificates, or deliver mail.
+
+## Developer resources
+
+- [OpenAPI spec](https://propgate.dev/openapi.json): machine-readable API surface. Same document at https://api.propgate.dev/openapi.json.
+- [API reference](https://docs.propgate.dev/api): every endpoint, request and response shape, curl / CLI / SDK.
+- [Authentication](https://docs.propgate.dev/authentication): bearer keys, `Authorization: Bearer pg_live_...`.
+- [Quickstart](https://docs.propgate.dev/quickstart): get a key, register a domain, verify it.
+- [CLI](https://docs.propgate.dev/cli): `npx @propgate/cli` — official CLI on npm. `propgate check` needs no account.
+- [Node SDK](https://docs.propgate.dev/sdk): `npm install @propgate/sdk`. `{ data, error, meta }`, never a throw.
+- [Webhooks](https://docs.propgate.dev/webhooks): `domain.verified`, `domain.degraded`, `domain.failed`, `domain.recovered`. Svix-compatible signatures.
+- [Diagnosis taxonomy](https://docs.propgate.dev/taxonomy): every code, what it means, how to fix it.
+- [@propgate/dns](https://docs.propgate.dev/dns): the resolver and evaluators, MIT, zero runtime dependencies.
+- [RFC conformance](https://docs.propgate.dev/conformance): what we implement and what we do not.
+- [Sitemap](https://propgate.dev/sitemap.xml)
+- [About](https://propgate.dev/about)
+- [Contact](https://propgate.dev/contact)
+- [Privacy](https://propgate.dev/privacy)

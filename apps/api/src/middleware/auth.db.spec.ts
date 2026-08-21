@@ -131,7 +131,11 @@ describe("bearerAuth", () => {
 
     expect(await response.json()).toEqual({
       data: null,
-      error: { message: expect.any(String) },
+      error: {
+        code: "unauthorized",
+        hint: expect.any(String),
+        message: expect.any(String),
+      },
       meta: null,
     });
   });
