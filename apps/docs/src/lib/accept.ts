@@ -70,6 +70,11 @@ export function parseAccept(header: string | null): readonly Range[] {
     });
 }
 
+/** Whether a range names a concrete type rather than a wildcard. */
+function isWildcard(range: Range): boolean {
+  return range.specificity < 2;
+}
+
 function matches(range: Range, candidate: string): boolean {
   if (range.type === "*/*") {
     return true;
@@ -112,6 +117,35 @@ export function negotiateType(
   }
 
   for (const range of ranges) {
+    /**
+     * A wildcard expresses no preference, so it takes the default rather than
+     * the head of `OFFERED`.
+     *
+     * This is the bug that broke docs.propgate.dev on the first deploy of this
+     * Worker. A browser asks for a stylesheet with an Accept of `text/css`
+     * followed by a wildcard at q=0.1. `text/css` matches nothing we offer, so
+     * the wildcard decided it — and a wildcard matched whichever kind happened
+     * to be listed first, which is markdown. Every stylesheet, script and font
+     * came back as a markdown 404, and the site rendered with no styles at all.
+     *
+     * A wildcard, in either the `type` or the `subtype` position, means "any of
+     * these is fine". That is exactly what a missing header describes, and that
+     * case already defaults to HTML a few lines above.
+     *
+     * Reordering `OFFERED` would have hidden this rather than fixed it: the next
+     * caller to pass a different `offered` list would meet it again. The rule
+     * belongs on the wildcard, not on the ordering.
+     */
+    if (isWildcard(range)) {
+      const fallback = OFFERED.find(
+        (offer) => offer.kind === "html" && available.has(offer.kind)
+      );
+
+      if (fallback !== undefined) {
+        return fallback.kind;
+      }
+    }
+
     const match = OFFERED.find(
       (offer) => available.has(offer.kind) && matches(range, offer.type)
     );

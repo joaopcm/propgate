@@ -17,6 +17,34 @@ const TRAILING_SLASH = /\/$/;
 
 const MARKDOWN_TYPE = "text/markdown; charset=utf-8";
 
+/**
+ * Paths the Worker must hand straight to the assets, without negotiating.
+ *
+ * The second half of the CSS failure, and the half that makes the class of bug
+ * impossible rather than merely fixed. Even with wildcard handling corrected, a
+ * client that genuinely sent `Accept: text/markdown` for a stylesheet would be
+ * answered with a markdown 404 — because the negotiation below would look for
+ * `/_next/static/chunks/0a-6hmdrq391z.css.md`, which does not and should never
+ * exist.
+ *
+ * Negotiation is about *pages*. A page has a markdown twin; an asset does not.
+ * Anything under `/_next/` is a build artefact, and anything whose last segment
+ * carries an extension is a file being asked for by name — neither is a
+ * document with alternative representations.
+ *
+ * `.md` is the exception: those are the markdown twins themselves, and asking
+ * for one by name has to keep working.
+ */
+export function isAssetPath(pathname: string): boolean {
+  if (pathname.startsWith("/_next/")) {
+    return true;
+  }
+
+  const last = pathname.slice(pathname.lastIndexOf("/") + 1);
+
+  return last.includes(".") && !last.endsWith(".md");
+}
+
 export function isCatalogPath(pathname: string): boolean {
   return (
     pathname === "/openapi.json" ||
@@ -87,6 +115,11 @@ export async function handleDocsRequest(
     }
 
     return withVary(asset, "application/json; charset=utf-8");
+  }
+
+  // Assets are served as themselves. See `isAssetPath`.
+  if (isAssetPath(pathname)) {
+    return await fetchAsset(request);
   }
 
   if (prefersMarkdown(accept)) {

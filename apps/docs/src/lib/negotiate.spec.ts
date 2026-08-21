@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DocsErrorBody } from "./json-error";
-import { handleDocsRequest, VARY_ACCEPT } from "./negotiate";
+import { handleDocsRequest, isAssetPath, VARY_ACCEPT } from "./negotiate";
 import { notFoundMarkdown } from "./not-found-markdown";
 
 function request(path: string, accept?: string, method = "GET"): Request {
@@ -92,5 +92,123 @@ describe("handleDocsRequest", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("vary")).toBe(VARY_ACCEPT);
     expect(await response.text()).toContain("home");
+  });
+});
+
+/**
+ * The stylesheet failure, from both ends.
+ *
+ * `accept.spec.ts` covers the wildcard rule that caused it. These cover the
+ * structural half: an asset is handed straight to the assets binding, so it
+ * cannot be negotiated even by a client that asks for markdown by name.
+ */
+describe("isAssetPath", () => {
+  it("recognises build artefacts", () => {
+    expect(isAssetPath("/_next/static/chunks/0a-6hmdrq391z.css")).toBe(true);
+    expect(isAssetPath("/_next/static/chunks/0q~b3v_0dyzra.js")).toBe(true);
+    expect(
+      isAssetPath(
+        "/_next/static/media/5c285b27cdda1fe8-s.p.0yo6-5yoeeudq.woff2"
+      )
+    ).toBe(true);
+  });
+
+  it("recognises a file asked for by name", () => {
+    expect(isAssetPath("/favicon.ico")).toBe(true);
+    expect(isAssetPath("/openapi.json")).toBe(true);
+    expect(isAssetPath("/robots.txt")).toBe(true);
+  });
+
+  it("does not treat a page as an asset", () => {
+    expect(isAssetPath("/")).toBe(false);
+    expect(isAssetPath("/quickstart")).toBe(false);
+    expect(isAssetPath("/api/domains/register")).toBe(false);
+    expect(isAssetPath("/taxonomy/spf-void-lookup")).toBe(false);
+  });
+
+  /**
+   * The markdown twins are the exception. They have an extension and they are
+   * exactly what negotiation resolves to, so treating them as assets would be
+   * harmless here and confusing to read — a `.md` path is a document.
+   */
+  it("does not treat a markdown twin as an asset", () => {
+    expect(isAssetPath("/quickstart.md")).toBe(false);
+    expect(isAssetPath("/index.md")).toBe(false);
+  });
+});
+
+describe("assets bypass negotiation", () => {
+  const CSS = "/_next/static/chunks/0a-6hmdrq391z.css";
+
+  it("serves a stylesheet as itself for a Chrome stylesheet request", async () => {
+    const response = await handleDocsRequest(
+      request(CSS, "text/css,*/*;q=0.1"),
+      (incoming) => {
+        expect(new URL(incoming.url).pathname).toBe(CSS);
+
+        return textAsset("body{color:red}", 200, "text/css");
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/css");
+    expect(await response.text()).toBe("body{color:red}");
+  });
+
+  it("serves a stylesheet as itself even when markdown is asked for by name", async () => {
+    const response = await handleDocsRequest(
+      request(CSS, "text/markdown"),
+      (incoming) => {
+        expect(new URL(incoming.url).pathname).toBe(CSS);
+
+        return textAsset("body{color:red}", 200, "text/css");
+      }
+    );
+
+    expect(response.headers.get("content-type")).toBe("text/css");
+  });
+
+  it("passes a real 404 on an asset through untouched", async () => {
+    const response = await handleDocsRequest(
+      request("/_next/static/chunks/gone.js", "*/*"),
+      () => textAsset("not found", 404, "text/plain")
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toBe("text/plain");
+  });
+});
+
+describe("a browser page request", () => {
+  it("gets HTML for a Chrome document Accept", async () => {
+    const chrome =
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8";
+    const response = await handleDocsRequest(
+      request("/quickstart", chrome),
+      (incoming) => {
+        expect(new URL(incoming.url).pathname).toBe("/quickstart");
+
+        return textAsset('<html lang="en"></html>');
+      }
+    );
+
+    expect(response.headers.get("content-type")).toBe("text/html");
+  });
+
+  /**
+   * curl with no `-H`, which is how anybody first checks whether a deploy
+   * worked. It sends a bare wildcard and used to get markdown.
+   */
+  it("gets HTML for a bare wildcard", async () => {
+    const response = await handleDocsRequest(
+      request("/", "*/*"),
+      (incoming) => {
+        expect(new URL(incoming.url).pathname).toBe("/");
+
+        return textAsset('<html lang="en"></html>');
+      }
+    );
+
+    expect(response.headers.get("content-type")).toBe("text/html");
   });
 });
