@@ -1,5 +1,7 @@
 import { Checker } from "@/components/checker";
+import { SiteFooter } from "@/components/site-frame";
 import { env } from "@/env";
+import { HOME_FOOTER, HOME_H1, HOME_LEAD } from "@/lib/site";
 
 export default function Home() {
   return (
@@ -9,21 +11,20 @@ export default function Home() {
           propgate
         </p>
         <h1 className="mt-4 text-balance font-semibold text-3xl leading-tight tracking-tight sm:text-4xl">
-          What is actually wrong with this domain?
+          {HOME_H1}
         </h1>
+        <p className="mt-6 max-w-2xl text-muted-foreground text-sm leading-relaxed">
+          {HOME_LEAD}
+        </p>
       </header>
 
       <Checker />
 
-      <footer className="mt-24 space-y-2 border-border border-t pt-8 text-muted-foreground/60 text-xs leading-relaxed">
+      <section className="mt-24 space-y-4 border-border border-t pt-8 text-muted-foreground/60 text-xs leading-relaxed">
+        {HOME_FOOTER.split("\n\n").map((paragraph) => (
+          <p key={paragraph.slice(0, 48)}>{paragraph}</p>
+        ))}
         <p>
-          Nothing is stored. Every check runs against live DNS at the moment you
-          ask, and the queries behind each answer are listed with it.
-        </p>
-        <p>
-          {/* Deliberately a footnote. Someone checking a domain does not care
-              which RFC clauses we implement — but someone deciding whether to
-              build on the library does, and this is where they will look. */}
           The checks are the same ones in{" "}
           <a
             className="underline decoration-transparent underline-offset-2 transition-colors hover:text-foreground hover:decoration-current"
@@ -35,7 +36,9 @@ export default function Home() {
           </a>
           , which publishes what it implements of each RFC and what it does not.
         </p>
-      </footer>
+      </section>
+
+      <SiteFooter className="mt-8 border-0 pt-0" />
     </main>
   );
 }

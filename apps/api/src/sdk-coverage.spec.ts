@@ -41,7 +41,7 @@ const app = createApp({
 });
 
 /**
- * The two routes the SDK deliberately does not cover.
+ * The routes the SDK deliberately does not cover.
  *
  * Signup is a mailbox flow: it sends a six-digit code to an address and takes it
  * back to mint the first key. A server-side SDK is on the wrong side of that —
@@ -49,8 +49,12 @@ const app = createApp({
  * credentials belongs in the CLI and the dashboard, where a human is present to
  * read the mail. `@propgate/cli` covers both, and this list is where to remove
  * an entry from if that ever stops being true.
+ *
+ * `GET /openapi.json` is the spec itself. An SDK method that returned it would
+ * be a client fetching its own documentation; agents fetch the URL directly.
  */
 const NOT_IN_SDK: ReadonlySet<string> = new Set([
+  "GET /openapi.json",
   "POST /v1/signup",
   "POST /v1/signup/confirm",
 ]);

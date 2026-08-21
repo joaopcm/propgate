@@ -1,11 +1,12 @@
-// Static assets on Cloudflare Workers. No `main`: there is no Worker
-// script, only the prerendered output, so requests never invoke compute.
+// Static assets on Cloudflare Workers, with a Worker only for Accept
+// negotiation. HTML still comes from the prerendered export in `out/`.
 //
 //   pnpm --filter @propgate/web deploy:cf
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "propgate-web",
   "compatibility_date": "2026-01-01",
+  "main": "./worker.ts",
   // The custom domain, declared here rather than clicked in the dashboard.
   // Cloudflare creates and maintains the DNS record for it, so this is the only
   // place the hostname is written down. Requires the zone to already be on
@@ -13,7 +14,11 @@
   // a workers.dev URL nobody is looking at.
   "routes": [{ "pattern": "propgate.dev", "custom_domain": true }],
   "assets": {
+    "binding": "ASSETS",
     "directory": "./out",
-    "not_found_handling": "404-page"
+    "not_found_handling": "404-page",
+    // The Worker must see `/` even though `index.html` exists, otherwise a
+    // cached HTML response is served to `Accept: text/markdown`.
+    "run_worker_first": true
   }
 }

@@ -7,8 +7,18 @@ const sans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
-  description: "DNS diagnosis taxonomy and API reference",
+  alternates: { canonical: "./" },
+  description:
+    "propgate docs: API reference, CLI, SDK, authentication, webhooks, diagnosis taxonomy, and RFC conformance for domain verification.",
   metadataBase: new URL("https://docs.propgate.dev"),
+  openGraph: {
+    description:
+      "propgate docs: API reference, CLI, SDK, authentication, webhooks, and the diagnosis taxonomy.",
+    siteName: "propgate docs",
+    title: "propgate docs",
+    type: "website",
+    url: "https://docs.propgate.dev",
+  },
   title: { default: "propgate docs", template: "%s — propgate docs" },
 };
 
