@@ -1,14 +1,23 @@
 name: Deploy static
 
-# The marketing site and the docs, as prerendered assets on Cloudflare Workers.
-# Nothing here runs at request time, so there is no adapter and no cold start.
+# The marketing site, the docs and the course, as prerendered assets on
+# Cloudflare Workers. Nothing here runs at request time, so there is no adapter
+# and no cold start.
 on:
   push:
     branches: [main]
     paths:
       - "apps/web/**"
       - "apps/docs/**"
+      - "apps/learn/**"
       - "packages/dns/**"
+      # Every app here renders something from a registry rather than from prose,
+      # so a change to one of these changes the published output even when no
+      # app file moved. `apps/docs` reads FIXTURE_EXPECTATIONS for the taxonomy's
+      # "which fixture proves this?" column, and `apps/learn` reads it for its
+      # counts and for half its quiz questions. Without this path, adding a
+      # fixture row silently leaves both sites showing the previous answer.
+      - "packages/dns-fixtures/**"
       - "pnpm-lock.yaml"
       - ".github/workflows/deploy-static.yml"
   workflow_dispatch:
@@ -36,6 +45,9 @@ jobs:
           - name: Docs
             filter: "@propgate/docs"
             directory: apps/docs
+          - name: Learn
+            filter: "@propgate/learn"
+            directory: apps/learn
 
     steps:
       - uses: actions/checkout@v4
