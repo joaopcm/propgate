@@ -261,6 +261,15 @@ Arrived with Phase 2:
 packages/{db,jobs,webhooks}
 ```
 
+Arrived after it, and outside the product scope above: `apps/learn`, a public
+course on domain verification with propgate as the worked example. It is
+content, not control plane, so the phasing argument that keeps `packages/ui`
+unbuilt does not transfer — nothing in the product depends on it and removing it
+changes no behaviour. It earns its place the way the taxonomy does: principle 1
+already says the diagnosis codes double as content marketing, and a course is
+that argument taken seriously. It ships nine units and is not linked from
+anywhere until `learn.propgate.dev` exists.
+
 Still not built, and deliberately so — the phasing exists so a control plane that
 may never ship is not pre-built, and that reasoning holds for everything left on
 the list:

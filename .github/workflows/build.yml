@@ -29,6 +29,8 @@ jobs:
             filter: "@propgate/web"
           - name: Docs
             filter: "@propgate/docs"
+          - name: Learn
+            filter: "@propgate/learn"
           - name: DNS
             filter: "@propgate/dns"
           - name: CLI

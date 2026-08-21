@@ -1,0 +1,257 @@
+# Publishing a contract
+
+import { Callout } from "@/components/mdx/callout";
+import {
+  applicableRequirementCount,
+  diagnosisCodeCount,
+  fixtureCount,
+  gapCount,
+  implementedRequirementCount,
+  rfcCount,
+  unreproducibleCodeCount,
+} from "@/lib/counts";
+
+The last unit is not about DNS. It is about the seams — what changes when the
+thing you built stops being yours and becomes something other people write code
+against.
+
+## A code consumers switch on
+
+`PROVIDER_APPENDED_ZONE_NAME` is a string in a response body. It is also,
+the moment a customer ships, a branch in somebody else's code.
+
+```ts
+switch (finding.code) {
+  case "PROVIDER_APPENDED_ZONE_NAME":
+    return showAppendedZoneHelp(finding.evidence.name);
+  case "DKIM_RECORD_MISSING":
+    return showAddRecordInstructions();
+  default:
+    return showGenericError();
+}
+```
+
+Rename the code and their handled case silently falls into the default branch.
+Nothing errors. Their integration gets quietly worse and they find out from
+their own support queue.
+
+So a code is a public contract, and there are {diagnosisCodeCount()} of them.
+Adding one is fine. Changing or removing one is a breaking change.
+
+That constraint is not a burden after the fact — it is what forces the taxonomy
+to be designed rather than accumulated. A name you can never change is a name
+you think about before you publish.
+
+## The guard that will not let the taxonomy drift
+
+A code with no fixture behind it is a claim you cannot support. It sits on the
+documentation site and in the API's registry, and a consumer switching on it
+waits forever for something nothing produces.
+
+So there is a spec that fails the build unless every code is either produced by
+a fixture or listed with a written reason it cannot be. {fixtureCount()} fixture
+entries currently back the taxonomy.
+
+```ts
+const uncovered = Object.values(DiagnosisCode).filter(
+  (code) => !(covered.has(code) || NOT_LOCALLY_REPRODUCIBLE[code])
+);
+
+expect(uncovered).toEqual([]);
+```
+
+Eleven lines, and they change what adding a code *is*. It stops being a string
+you append and becomes a deliberate act with a cost attached.
+
+<Callout>
+  There is a second guard next to it, asking a different question: is every code
+  actually *emitted* by some evaluator? A code can be perfectly reproducible by a
+  fixture and still unreachable because nothing looks for it. Nine codes were
+  published ahead of their evaluators that way. The list is currently empty and
+  is kept rather than deleted, so the next code published ahead of its evaluator
+  is written down here rather than in a commit message.
+</Callout>
+
+## NOT_LOCALLY_REPRODUCIBLE
+
+The escape hatch is the interesting part, because a guard with no escape hatch
+gets worked around.
+
+{unreproducibleCodeCount()} code is currently in it, and the entry is worth
+reading in full because of what it contains:
+
+> A zone file cannot express it. **Measured:** `named-checkzone` silently
+> rewrites a mismatched TTL to the first one it saw, and `nsd-checkzone` warns —
+> so a fixture would be normalised before it was served and the test would
+> assert nothing.
+
+That is not "this is hard to test". It is a record of somebody trying, finding
+out exactly why it could not work, and writing down what they found. The
+distinction between "we forgot to write the fixture" and "this genuinely cannot
+be tested locally" is preserved, which is the whole reason the list exists.
+
+An escape hatch that requires you to explain yourself is a different thing from
+one that requires nothing.
+
+## Why no percentage of an RFC exists
+
+The conformance ledger has {applicableRequirementCount()} requirements that
+apply to a verifier, across {rfcCount()} RFCs. {implementedRequirementCount()}
+are implemented. {gapCount()} are not, each with a reason.
+
+What it deliberately does not have is a percentage of any RFC.
+
+"100% of RFC 7208" is not a number anybody can compute. Most of that document
+instructs senders and receiving mail servers; a percentage over its whole text
+would be a number with no measurement behind it. And a coverage metric over a
+denominator you choose is a metric you can improve by cataloguing more of what
+somebody else's software does.
+
+So the ledger's denominator is *our reading* of which normative statements apply
+to something that inspects a domain's records and reports on them — and it says
+so, at the top, in those words. A reader is meant to disagree with that reading,
+which is why every entry cites a section and why the gaps are listed rather than
+quietly excluded.
+
+<Callout kind="warning">
+  There is deliberately no function that returns a percentage of an RFC. Offering
+  an approximation of a number that does not exist is worse than offering
+  nothing, because the approximation gets quoted.
+</Callout>
+
+## A ledger where every claim names a test
+
+The narrow, checkable claim the ledger does support: **every requirement marked
+implemented names a test that exists and asserts it.**
+
+```ts
+{
+  requirement: "More than one SPF record is a permanent error",
+  rfc: 7208,
+  section: "4.5",
+  status: "implemented",
+  proof: [{
+    spec: "src/evaluate/spf.fixture.spec.ts",
+    test: "treats two SPF records as authorising nothing",
+  }],
+}
+```
+
+The `test` field is the text of the `it(...)`, matched exactly. A spec that fails
+the build otherwise, so an entry cannot be marked covered by writing the word
+"implemented".
+
+Rename the test and the ledger fails until somebody updates it. That is the
+point: it is the same shape as the diagnosis coverage guard, a table joined to
+the test suite and enforced by the test suite.
+
+Adding a requirement is cheap and worth doing even when the answer is "we do not
+do this". The gap list is the part a consumer cannot get anywhere else — every
+other vendor's compliance page lists what they support.
+
+## Signing, and the ledger of what is owed
+
+Webhooks have the same shape of problem one layer out.
+
+The wire format is deliberately Svix-compatible: three headers, and
+`v1,<base64 HMAC-SHA256>` over `{id}.{timestamp}.{body}`. Not out of admiration —
+because it means every existing verification library and every published example
+already works, and swapping in a hosted sender later changes nothing for anybody
+already integrated.
+
+The five-minute timestamp tolerance is the Svix default for exactly the same
+reason. Publishing a different number would mean customers using a stock library
+silently disagreeing with the documentation.
+
+<Callout>
+  The signing code is its own package with no dependencies beyond `node:crypto`,
+  and the reason is a failure mode rather than tidiness: a refactor that silently
+  changes the signing input breaks every customer at once and does so invisibly,
+  because our side keeps signing happily. That has to be independently testable
+  against a fixed vector.
+</Callout>
+
+And then there are four events, one of which was argued against: a webhook
+meaning "possibly nothing is wrong" trains people to ignore the channel. The
+answer was not to drop it but to fire it once per episode — which the state
+machine from unit 6 already guarantees, because a transition is only recorded
+when the state actually moved.
+
+A delivery ledger in Postgres records what is owed. Same rule as unit 7: a
+flushed Redis costs in-flight attempts and never obligations.
+
+## A route with no way to reach it
+
+The last guard, and the one with the most direct customer consequence.
+
+"Full API coverage" is a claim, and a claim in a README is one nobody re-runs. So
+a spec reads the application's own router and checks that every route has an SDK
+method that reaches it.
+
+Adding a route fails that spec until the SDK can call it.
+
+The failure worth catching is specific: a customer who cannot do from the SDK
+what they can do with curl writes their own client, and then there are two
+clients and the one you did not write is the one they will report bugs against.
+
+It costs almost nothing to run. The app is constructed only to be *read* — no
+handler executes — and the SDK talks to a `fetch` that records the request and
+answers from memory. So it lives in the ungated test project rather than beside
+the end-to-end spec that needs three container tiers.
+
+<Callout>
+  One detail worth stealing. The app is constructed *with* a mailer specifically
+  so the signup routes are mounted and have to be excluded by name. Leaving the
+  mailer out would unmount them and the exclusion would become invisible — which
+  is the difference between "the SDK deliberately omits signup" and "nobody
+  noticed signup exists".
+</Callout>
+
+## What is deliberately not built
+
+A course that ended by listing achievements would be selling something. The more
+useful list is the other one.
+
+**Delegation.** The long-term differentiator: instead of six copy-pasted
+records, the customer adds one NS delegation and the platform owns the subtree.
+Key rotation and new selectors need zero customer action. It is not built,
+because it requires enormous trust — nameservers going down breaks customers'
+customers' mail — and that trust has to be earned by shipping something
+lower-risk first.
+
+**A dashboard, and originally the SDK.** Both were in scope and both were
+dropped rather than deferred by accident. The stated reasoning: the API is the
+product for a platform integrating you, and neither a UI nor a typed client
+changes whether anybody pays for it. The SDK did eventually ship, once wrapping
+the API was transcription rather than design.
+
+**Certificates.** Delegation is the prerequisite, and delivering a certificate
+to a customer's own terminator is the real scope explosion.
+
+**Multi-region high availability.** Acceptable to skip *only because* the product
+is read-only: if it goes down, the customer falls back to their own polling and
+nothing of theirs breaks. That is a conditional that has to be re-examined the
+day it stops being read-only.
+
+Each of those has a written reason rather than a roadmap position, and the
+reasons are load-bearing. "Not yet" with no reason is a decision that has not
+been made.
+
+## Where to go next
+
+The most honest thing left to say is what nobody has measured.
+
+Several numbers in the implementation ship commented as unmeasured, with the
+measurement that would justify them named alongside. The consecutive-failure
+thresholds from unit 6. The sweep intervals. The webhook retry budget. Each needs
+roughly a month of real monitored domains before it is anything more than a
+defensible guess.
+
+Reading those comments is a reasonable next step, and so is disagreeing with
+them. The generated references — the taxonomy and the RFC ledger — are built from
+the code rather than written by hand, so they are the current answer rather than
+the answer as of when this course was written.
+
+Which is the last idea worth taking away. Documentation that is generated from
+what it describes cannot lie about it, and a guard that joins a table to the
+test suite is how a claim stops being a promise.

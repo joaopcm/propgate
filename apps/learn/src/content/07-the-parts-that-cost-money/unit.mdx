@@ -1,0 +1,208 @@
+# The parts that cost money
+
+import { Callout } from "@/components/mdx/callout";
+
+Most architecture arguments are about taste. A few are about the invoice.
+
+This unit is the second kind. Nothing here changes what the product does; all of
+it changes what it costs to run, by roughly an order of magnitude. And the
+constraint that makes it interesting is that the implementation was bootstrapped
+with no customers, so the infrastructure bill had a hard ceiling from the first
+commit.
+
+## Three hundred and sixty thousand rows a day
+
+Start with the arithmetic, because the arithmetic is the whole argument.
+
+Ten thousand monitored domains. Six requirements each. Checked six times a day
+on average across the mix of states.
+
+```
+10,000 × 6 × 6 = 360,000 rows per day
+```
+
+That is eleven million rows a month, of which very nearly all say the same thing
+as the row before them. The DKIM record was there. Still there. Still there.
+
+At that rate the storage, the index maintenance, the backup size and the vacuum
+pressure turn a $20 infrastructure bill into a $400 one. For information nobody
+reads: the only rows anyone ever looks at are the ones where something changed.
+
+## Store changes, never observations
+
+So the current state is updated in place — `last_checked_at`, `last_result` —
+and a history row is appended only when a value actually changed.
+
+```ts
+// read the most recent observation for this requirement
+// if it matches what we just saw, write nothing
+```
+
+The read costs one indexed lookup. The alternative costs a row per requirement
+per sweep, forever.
+
+The customer-facing feature this buys is a timeline: "the DKIM record was
+deleted on Tuesday at 14:02". That is exactly the question a support engineer
+asks, and it is answerable from a table that only contains changes — the
+unchanged rows would have added nothing to it.
+
+<Callout>
+  There was also a plan for a day-partitioned `checks` table with seven-day
+  retention, for debugging. It did not ship, and the stated reason is that
+  transitions plus the current result already answer the diagnosability question
+  at a fraction of the rows. Worth noting because it is a case of the rule being
+  applied to a feature that the rule itself had motivated.
+</Callout>
+
+## What a timeline is actually comparing
+
+A subtle and load-bearing detail: the thing compared is not the record.
+
+A requirement is satisfied by a *property* of the zone — "our include is
+authorised", "this selector publishes a valid key" — and several different
+record texts satisfy it identically. Comparing texts would append a timeline
+entry every time a customer reordered the mechanisms in their SPF record.
+
+So the stored observation is the verdict plus the sorted diagnosis codes. The
+verdict and the codes are exactly the part a consumer reacts to, and the codes
+are a public contract, so a timeline built on them stays readable. Sorted,
+because a set of findings has no inherent order and an accidental reordering is
+not a change.
+
+Notice this is the same signature consensus uses to decide whether two vantage
+points agree. One definition of "the same answer", used for two different
+questions.
+
+## Uniform sweeping costs ten times as much
+
+Unit 6 gave the adaptive schedule as a correctness and experience decision. It is
+also roughly a factor of ten on query volume.
+
+The reason is the shape of the population. Most monitored domains are in
+`verified` and have been for weeks. Under a uniform five-minute sweep, they are
+the overwhelming majority of the queries and essentially all of the waste. Move
+them to daily and the bill collapses, while the domains that actually need
+attention — someone mid-onboarding, someone degraded — get checked *more* often
+than a uniform interval would allow.
+
+Cheaper and better at the same time, which is rare enough to be worth noticing
+when it happens.
+
+## The SOA serial fast path
+
+The second lever, and a more surgical one.
+
+A zone's SOA record carries a serial number that increments when the zone
+changes. So before checking six records in a zone, check the serial. If it has
+not moved since last time, nothing in the zone has changed, and the six queries
+can be skipped.
+
+One query instead of six. Roughly a four to six times reduction on the sweep
+path.
+
+<Callout kind="warning">
+  With one caveat that has to be designed for: not every provider bumps the
+  serial reliably. Cloudflare and Route 53 do. Some do not. So the fast path is
+  an optimisation with a full verify daily regardless — which means a provider
+  that never bumps its serial costs a little more and is never *wrong*.
+</Callout>
+
+## The worst possible fit for per-invocation billing
+
+The sweeper wakes every sixty seconds, forever. It does a small amount of work
+and goes back to sleep.
+
+Priced per invocation, that is 43,200 invocations a day to do a few minutes of
+actual work. Serverless pricing is built for traffic that is bursty and
+request-shaped; a metronome is the pathological case.
+
+So it is one long-running process. No serverless anything between the scheduler
+and the resolver.
+
+The nuance worth stating, because it is easy to read the rule too broadly: this
+bans per-invocation *billing*, not queues. A queue against a Redis container in
+the same compose stack is exactly the long-running process the rule asks for.
+What stays banned is paying per tick — and specifically a hosted Redis with
+per-command pricing, which against a sweeper waking every sixty seconds is the
+failure mode the rule exists to prevent.
+
+Request-driven surfaces are a different question. A dashboard, an API — those are
+genuinely request-shaped and serverless is a reasonable fit. The rule is about
+the sweep path.
+
+## Postgres is truth, Redis is the conveyor
+
+Once there is a queue, there is a question about what lives where. The answer is
+a single rule: nothing may live only in Redis.
+
+`domains.next_check_at` decides what is due. `webhook_deliveries` records what is
+owed. Both are Postgres. So a flushed Redis costs in-flight attempts and never
+obligations — the next tick re-derives the same list of due domains from the
+same column, and a reconcile pass re-derives the deliveries.
+
+The split shows up in the tick itself. The tick claims due rows and hands them
+to the queue. It does no DNS. That way a slow authoritative server delays one
+job instead of the next tick, and the sweep's cadence stays a property of the
+scheduler rather than of the worst zone in the batch.
+
+Claiming uses `select ... for update skip locked` with a lease. A claimed row is
+not due again until the lease expires, which has to comfortably exceed the check
+budget — otherwise a slow-but-healthy check gets claimed a second time while the
+first is still running. Five minutes over a ten-second budget is a wide margin.
+
+<Callout>
+  A trap worth knowing if you build one of these. Deriving a BullMQ `jobId` from
+  the domain id is the obvious de-duplication idea and it is a bug: BullMQ refuses
+  to add a job whose id already exists, *including* one sitting in the completed
+  set. With retention keeping tens of thousands of completed jobs, a domain
+  checked daily would have yesterday's job still present, today's add would be
+  silently ignored, and the domain would simply stop being checked with no error
+  anywhere. De-duplication belongs in Postgres, where the lease already provides
+  it.
+</Callout>
+
+## A job payload carries identifiers and nothing else
+
+Same rule, one level down. A job carries a domain id and a tenant id. Never the
+domain's state, its profile, or a result.
+
+By the time a job runs, the row it names may have been re-registered,
+re-profiled or deleted. A payload carrying a copy of any of that would act on a
+snapshot that is no longer true. Re-reading costs one indexed lookup and removes
+the entire class of bug.
+
+It is also what makes a flushed Redis survivable, which is the same argument
+again: a payload that is only an id can always be reconstructed from the tables.
+
+The tenant id is carried alongside the domain id even though it is derivable
+from it. Every query in the data layer is tenant-scoped, so passing the tenant
+means the worker's read is scoped the way a request's would be rather than
+reaching for a row by primary key alone. A job that somehow names a domain from
+another tenant finds nothing instead of finding it.
+
+## Quotas, and what a single check costs somebody else
+
+The last cost is one you impose on other people.
+
+One verification aims up to twenty queries at authoritative servers the *caller*
+names. That is not your infrastructure being spent — it is somebody else's, at a
+rate a caller chooses.
+
+Which is why the quotas came down when signup became self-serve. Every key used
+to be handed out deliberately; now anybody with an email address gets one. The
+request limit went from 30,000 a minute to 250 a second — the same order of
+magnitude on average, a very different burst — and verifications went from 600 a
+minute to 100.
+
+That second number is the one that matters, and the reasoning behind it is not
+about protecting the service. It is that a hundred verifications a second is up
+to two thousand queries a second pointed at other people's nameservers, and
+being a good citizen of the DNS is a constraint before it is a cost.
+
+A per-tenant column raises it for an account that has been vetted. Which is the
+right shape: a conservative default that a human decision can lift, rather than a
+generous default that has to be defended.
+
+Three decisions, then, and none of them are about features. Adaptive scheduling,
+the serial fast path, and retention discipline. Together they are the difference
+between roughly $30 a month and roughly $400, at the same functionality.

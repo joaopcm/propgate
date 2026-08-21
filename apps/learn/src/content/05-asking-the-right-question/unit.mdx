@@ -1,0 +1,232 @@
+# Asking the right question
+
+import { Callout } from "@/components/mdx/callout";
+import { Lookup } from "@/components/lookup";
+
+Everything so far has been about reading DNS accurately. This unit is about the
+thing accuracy cannot supply: knowing what the answer is supposed to be.
+
+## A null MX is correct and catastrophic
+
+Unit 4 ended here and it is worth restating, because it is the observation the
+rest of this unit exists to handle.
+
+<Lookup
+  name="nomail.mx.test"
+  notice={
+    <>
+      <p>
+        <code>0 .</code> — this domain accepts no mail and says so. Is that
+        right?
+      </p>
+      <p>
+        There is no query that answers it. It is right for a transactional-email
+        customer who only sends, and it means every message bounces for a
+        customer who expects inbound. The DNS is identical.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="MX 0 with the root as the exchange."
+  type="MX"
+/>
+
+The same shape appears everywhere once you look for it. Does a missing DKIM
+selector matter? Only if the platform issued one. Does an unauthorised
+certificate authority matter? Only if certificates are being issued at all. Does
+a missing SPF record matter? Not if nobody sends as the domain — and reporting
+it as broken is how a checker teaches people to ignore its output.
+
+So a checker needs to be told what a domain is *for*. That statement of intent
+is a profile.
+
+## The profile states the shape
+
+A profile is plain data: which checks to run, and the parameters that shape
+them. Not code, not a class, nothing computed from DNS.
+
+```ts
+{
+  checks: ["delegation", "spf", "dkim", "dmarc", "mx"],
+  mx: [{ expectsMail: false }],
+  spf: [{ include: "_spf.ourplatform.com" }],
+  dkimSelectors: ["pg1"],
+}
+```
+
+`expectsMail: false` is the entire answer to the null MX question. It is
+information the platform has and DNS does not.
+
+Two properties of this are load-bearing.
+
+**Anything absent is unasked, not passing.** A profile that says nothing about
+DKIM produces no DKIM outcome at all — not a green one. A dashboard showing
+eight ticks for a domain that was only asked about two is lying.
+
+**`expectsMail` is optional, not defaulted.** Omit it and the answer is that
+nobody knows, which is different from `false`. Undeliverable mail is only a
+fault if somebody said the name should receive it.
+
+<Callout>
+  The label matters as much as the kind. Every sending platform publishes SPF
+  twice: once at the apex, which authorises mail whose From header carries the
+  domain, and once at a bounce host like `send`, which authorises the envelope
+  sender receivers actually check for alignment. Same check, different names, and
+  one profile has to hold both.
+</Callout>
+
+## The domain supplies the values
+
+Here is where the design gets interesting, and where the implementation got it
+wrong the first time.
+
+A profile is versioned. Customers pin to a version, and the version is what
+makes "we changed the requirements" a controlled event rather than a surprise.
+
+But some of what a platform expects is issued *per domain*. The DKIM key for
+`acme.com` is not the one for `globex.com`. An ownership token is unique by
+definition — it would be worthless otherwise.
+
+Put those values on the profile and asserting "this domain publishes the key we
+issued it" costs one profile version per domain. Ten thousand domains, ten
+thousand versions, and versioning has stopped meaning anything.
+
+The fix splits it. A requirement names the fields it defers with
+`requiredPerDomain`, and each domain carries them in `expectations`.
+
+```ts
+// on the profile, once
+{ key: "dkim-main", check: "dkim", requiredPerDomain: ["expectedPublicKey"] }
+
+// on the domain, per domain
+{ "dkim-main": { expectedPublicKey: "MIIBIjANBgkq..." } }
+```
+
+Two rules keep that a contract rather than a hole.
+
+**A value the profile did not ask for is ignored.** Nothing a domain sends can
+widen what it is checked against. It can only fill in what the profile asked it
+to.
+
+**A value the profile asked for and did not get makes the domain
+`indeterminate`, never `pass`.** Missing an expectation is not the absence of a
+problem; it is the absence of an answer.
+
+<Callout kind="warning">
+  This validation cannot be a schema on the request body. The profile definition
+  is not known when the body is parsed — it is fetched by key afterwards — and a
+  schema validator that strips unknown keys would silently drop a typo like
+  `expectedPublickey`, leaving the domain monitored against no expectation at
+  all. Which is the exact failure the mechanism exists to prevent.
+</Callout>
+
+## One profile version per domain, and why that failed
+
+Worth dwelling on, because the shape recurs.
+
+The original design put expected values on the profile. It worked. Every test
+passed. It was discovered after shipping, not by a bug report but by writing
+down what asserting a per-domain key would cost.
+
+That is a specific kind of mistake: not a wrong implementation of a right idea,
+but a right implementation of a design that put a per-domain fact in a
+per-tenant place. No test catches that, because every test that exists is
+testing the thing that was built.
+
+The correction added no new check kind and nothing new the resolver can do. It
+moved where a value lives.
+
+## Checks that repeat, and the discriminator they need
+
+Some checks are asked once per domain. Some are asked once per *name*.
+
+DKIM repeats per selector, obviously. Ownership tokens, tracking CNAMEs, SPF and
+MX repeat per label — they are the checks that answer a question about a name
+rather than about the domain as a whole.
+
+Three kinds are deliberately not repeatable: `delegation`, `dmarc`, and `caa`.
+All three are properties of the zone, and asking them at a label either means
+nothing or asks the same question twice.
+
+Now the fault this produced, which is worth understanding in detail because it
+is the most interesting bug in the codebase.
+
+Results are attributed back to the requirement that asked for them, keyed by the
+thing that distinguishes one repetition from its siblings — the selector, the
+label. Two requirements resolving to the *same* key produce two outcomes under
+one key, attribution can only take one, and the second requirement gets reported
+against the first one's result.
+
+If the first token is published and the second is not, the domain reads
+**verified for a token nobody ever published.**
+
+<Callout kind="warning">
+  The subtlety is that uniqueness was already checked — at profile-write time,
+  across the discriminators written as literals. A deferred discriminator has no
+  value yet, so uniqueness is not decidable there. A check that repeats needs a
+  discriminator that is unique *after* per-domain values are resolved, not just
+  as written.
+</Callout>
+
+Two things now stop it. Writing a domain's expectations refuses a collision
+outright, with a message naming both requirement keys. And the attribution code
+refuses to guess when it finds two, which downgrades the result to
+`indeterminate` instead of picking one.
+
+Belt and braces, deliberately. The rejection stops it arising; the refusal to
+guess means that if it somehow arises anyway, the failure mode is "we could not
+tell" rather than a false pass.
+
+## Four verdicts
+
+A verdict is not a boolean and not a tri-state. There are four, and the fourth
+is the one that gets dropped in careless implementations.
+
+| Verdict | Meaning |
+|---|---|
+| `pass` | The requirement is satisfied |
+| `warn` | Satisfied, with something worth saying — an SPF record near the lookup limit |
+| `fail` | Definitely not satisfied |
+| `indeterminate` | The check could not run, or could not decide |
+
+`indeterminate` is the load-bearing one. A resolver timed out. A macro needed a
+sender nobody supplied. An expectation was missing. Two requirements collided.
+
+None of those are failures. Collapsing them into `fail` produces false alarms,
+and collapsing them into `pass` produces false confidence. The whole four-valued
+discipline exists so that "we could not tell" survives all the way from a socket
+timeout to a webhook payload — and the next unit is about what happens when it
+does not.
+
+## The worst of the parts
+
+A domain's verdict is the worst of its requirements'. The ordering is:
+
+```
+pass  <  warn  <  indeterminate  <  fail
+```
+
+`indeterminate` outranks `warn` and loses to `fail`. Both halves have a reason.
+
+It beats `warn` because "we could not tell" is more serious than a warning: the
+check did not run, so there could be anything behind it.
+
+It loses to `fail` because a failure you actually observed is more actionable
+than uncertainty about the rest. A domain with one definite failure and one
+timeout should report the failure — that is the thing somebody can go and fix.
+
+## A skipped check is not a passing check
+
+The last rule, and the one that shapes the output type.
+
+Eight evaluators exist. A profile might ask for two. The result has to say that
+six were not asked, rather than showing six greens.
+
+This is also why the checks run concurrently with separate contexts rather than
+sharing one. A shared context would have been simpler right up until attributing
+a finding to a check meant slicing an array by index, which stops working the
+moment anything runs in parallel. And they do run in parallel: the wall clock for
+an interactive check is the slowest evaluator, not the sum of all of them.
+
+That is the profile. It is the seam between "what does DNS say" and "is that
+right", and everything past this point is about not overreacting to the answer.

@@ -88,6 +88,8 @@ apps/api    Hono resolver service. Long-running by design.
 apps/web    Next.js — marketing plus the public checker.
 apps/docs   Next.js + MDX — the taxonomy and the API reference, both rendered
             from the code they describe.
+apps/learn  Next.js + MDX — the course. Nine units, quiz-gated, progress in
+            localStorage. Public, and propgate is the worked example.
 packages/dns           @propgate/dns — resolver, evaluators, taxonomy. MIT.
 packages/dns-fixtures  Zone files, signing pipeline, test harness. Private.
 packages/db            Drizzle schema, migrations, and the queries. Private.
@@ -113,6 +115,15 @@ never ship is not pre-built, and that reasoning still holds.
 `packages/sdk` covers every route except signup, and `apps/api/src/sdk-coverage.spec.ts`
 is what keeps that true: it reads the app's own router, so a route added without
 a method to reach it fails there rather than in a customer's integration.
+
+`apps/learn` teaches the system rather than documenting it, so it links to
+`apps/docs` wherever it would otherwise restate a reference. It states no count
+in prose — `src/lib/counts.ts` reads the registries, because the taxonomy grows
+and a number written into MDX goes stale in a sentence nobody re-reads. Its
+exercises are real `dig` commands against the fixture tier, and
+`src/content/lookups.spec.ts` asserts every one names a zone that exists on
+disk. There is no simulated resolver in the browser: invariant 1 applies to the
+thing that teaches invariant 1.
 
 ## Commands
 

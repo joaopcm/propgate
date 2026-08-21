@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+@source "../**/*.{ts,tsx,mdx}";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-rule: var(--rule);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-mark: var(--mark);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+:root,
+.dark {
+  /**
+   * Everything above the rule is copied from `apps/docs` on purpose.
+   *
+   * A diagnosis code is a public contract, and it has to look the same on
+   * docs.propgate.dev as it does here. Two visual languages for one contract
+   * teaches the reader that the colour means something local, which is exactly
+   * the thing the severity tokens exist to prevent. If a value changes there,
+   * it changes here.
+   */
+  --background: #0b0b0d;
+  --foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --border: rgba(255, 255, 255, 0.08);
+  --rule: rgba(255, 255, 255, 0.2);
+  --warning: #fbbf24;
+  --destructive: #f87171;
+  --success: #4ade80;
+
+  /**
+   * Below the rule is this app's own, and there is exactly one addition.
+   *
+   * `--mark` is "you are here": the filled node on the spine, the active unit
+   * in the rail, the underline on a heading being read. It is deliberately a
+   * bone white rather than a colour, because every colour in the set above
+   * already means something specific about a domain's health. An accent drawn
+   * from that set would read as a verdict on the reader's progress — a green
+   * unit number saying "pass" where nothing has been evaluated.
+   *
+   * Paper rather than pure white so it sits below `--foreground` in the
+   * hierarchy: a mark in pencil next to text in ink.
+   */
+  --mark: #e8e4da;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    @apply font-body;
+  }
+
+  /**
+   * The unit page has no sticky header, but the spine's active-node scroll and
+   * every in-unit anchor still want breathing room above the target. Smaller
+   * than the docs' 5rem because there is no 3.5rem of chrome to clear.
+   */
+  html {
+    scroll-padding-top: 2rem;
+  }
+
+  /**
+   * `*` rather than `html`/`body` alone: the spine and every scrollable code
+   * block are their own scroll containers, and a default scrollbar on any of
+   * them would read as a different app bolted onto this one.
+   */
+  * {
+    scrollbar-color: gray transparent;
+    scrollbar-width: thin;
+  }
+
+  /**
+   * Keyboard focus has to be visible: a quiz is a sequence of buttons, and
+   * answering one without a ring is guessing at which is focused.
+   * `:focus-visible` rather than `:focus` so a mouse click leaves nothing
+   * behind.
+   */
+  :focus-visible {
+    outline: 2px solid var(--mark);
+    outline-offset: 2px;
+  }
+
+  /**
+   * Shiki paints its own theme's canvas colour as an inline style on every
+   * `<pre>` it emits. Same override as `apps/docs`, for the same reason and
+   * with the same single `!important`: an inline style attribute beats any
+   * stylesheet rule that is not marked. The visible background comes from
+   * `bg-muted` on the wrapper instead, so a code block matches this app's grey
+   * rather than whatever colour the theme ships.
+   */
+  .shiki {
+    background-color: transparent !important;
+  }
+
+  /**
+   * Long-form prose wants a serif at a size a docs page would never use.
+   *
+   * A unit is around two thousand words and is read start to finish; the docs'
+   * 14px sans is tuned for a paragraph somebody skims on the way to a code
+   * sample. This is the single largest difference between the two apps and it
+   * is the reason the course does not read as a docs page that lost its
+   * sidebar.
+   */
+  .prose {
+    font-size: 1.0625rem;
+    line-height: 1.75;
+  }
+}
+
+/**
+ * The spine draws itself once, on first paint, and never again.
+ *
+ * `@media (prefers-reduced-motion: reduce)` below turns it off rather than
+ * shortening it: the animation carries no information the static state does not
+ * already show, so there is nothing lost by skipping it.
+ */
+@keyframes spine-draw {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.375rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility spine-rule {
+  transform-origin: top;
+  animation: spine-draw 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@utility rise-in {
+  animation: rise 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spine-rule,
+  .rise-in {
+    animation: none;
+  }
+}

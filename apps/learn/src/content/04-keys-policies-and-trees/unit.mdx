@@ -1,0 +1,325 @@
+# Keys, policies, and trees
+
+import { Callout } from "@/components/mdx/callout";
+import { Lookup } from "@/components/lookup";
+
+Four more record types. The pattern from SPF holds throughout: parse the record
+into what it means, then reason about the meaning. What changes is what each one
+means.
+
+## A DKIM record is a key, not a string
+
+A DKIM record is a tag list, and the tag that matters is `p=` — the public half
+of the signing key, base64-encoded.
+
+Parsing it as a key rather than comparing it as text buys three things a string
+comparison cannot have. You learn the algorithm and the key length. You can tell
+"a different key" from "the same key, split differently". And you can tell
+either of those from "not a key at all".
+
+<Lookup
+  name="short._domainkey.dkim.test"
+  notice={
+    <>
+      <p>
+        A real 512-bit RSA key. It parses, it is syntactically perfect, and
+        receivers are already rejecting signatures made with it. Nothing about
+        the record text says so — the length is a property of the parsed key.
+      </p>
+      <p>
+        Compare <code>ed25519._domainkey.dkim.test</code>, which is 32 raw bytes
+        rather than an SPKI wrapper (RFC 8463). A parser that assumes RSA
+        structure rejects a perfectly good key.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="A valid record whose key is too short to be trusted."
+  type="TXT"
+/>
+
+## Empty p= means revoked
+
+RFC 6376 §3.6.1: an empty `p=` is not a truncated record. It is revocation. The
+domain owner is saying this selector's key is no longer valid.
+
+Reporting it as malformed tells somebody to go and fix a record they broke on
+purpose.
+
+<Lookup
+  name="revoked._domainkey.dkim.test"
+  notice={
+    <>
+      <p>
+        <code>v=DKIM1; k=rsa; p=</code> — complete, correct, and deliberate.
+      </p>
+      <p>
+        Two more worth reading in the same zone. <code>t=y</code> on{" "}
+        <code>testing._domainkey</code> means receivers must ignore signature
+        failures, so the key is published and protecting nothing yet — which is
+        a warning, not a pass. And <code>vlast._domainkey</code> puts{" "}
+        <code>v=</code> second, which the RFC says MUST be first.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="A record whose p= tag has no value."
+  type="TXT"
+/>
+
+## Base64 is case-sensitive and DNS names are not
+
+Two facts, each unremarkable, which combine into a trap.
+
+DNS names fold case. `S6._DomainKey.example.com` and
+`s6._domainkey.example.com` are the same name, and a query for either finds a
+record published as the other.
+
+Base64 does not fold case. `MIIBIjAN` and `miibijan` are different byte
+sequences, and only one of them is the key you issued.
+
+So a comparison that lowercases the whole record to be safe about the name has
+just made two different keys look identical.
+
+<Lookup
+  name="s5._domainkey.txt-split.test"
+  notice={
+    <>
+      <p>
+        This key differs from the expected value only in case. It must{" "}
+        <em>not</em> be treated as a match, and a case-insensitive comparison
+        does exactly that.
+      </p>
+      <p>
+        The other direction is <code>S6._DomainKey.txt-split.test</code>,
+        published with capitals in the owner name and which a lowercase query
+        must still find. Both behaviours are needed at once, on the same
+        comparison, for opposite reasons.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="A valid-looking key that is the expected one lowercased."
+  type="TXT"
+/>
+
+## DMARC lives at the organizational domain
+
+DMARC is published at `_dmarc.<domain>`, and RFC 7489 §6.6.3 defines discovery
+in two steps. A receiver queries the exact name first. Only if that returns
+nothing does it fall back to the *organizational* domain.
+
+The organizational domain is one label below the public suffix — `example.co.uk`
+for `mail.example.co.uk`, since `co.uk` is a suffix and `.uk` alone is not. That
+determination needs the Public Suffix List, which is why a DMARC evaluator ships
+one.
+
+The consequence people get backwards: `sp=` governs a subdomain **only when the
+subdomain publishes nothing of its own.**
+
+<Lookup
+  name="_dmarc.own.dmarc.test"
+  notice={
+    <>
+      <p>
+        <code>p=none</code>. This subdomain publishes its own policy, so the
+        exact-name lookup wins and the organizational <code>sp=quarantine</code>{" "}
+        is irrelevant.
+      </p>
+      <p>
+        Now query <code>_dmarc.inherits.dmarc.test</code>, which has nothing.
+        Then query <code>_dmarc.dmarc.test</code> and read its{" "}
+        <code>sp=</code>. That is the policy which applies to the subdomain — 
+        <code>quarantine</code>, not the <code>p=reject</code> next to it.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="A DMARC record at the subdomain itself."
+  type="TXT"
+/>
+
+Two more DMARC facts that produce findings rather than booleans. `p=none` is
+monitoring only — a valid record enforcing nothing, which is a warning rather
+than a pass. And `pct=20` applies the policy to a fifth of mail, delivering the
+rest regardless, which most people who set it do not realise.
+
+<Callout>
+  The same "discard non-matching records before counting" rule from SPF applies
+  here. `_dmarc.shared.dmarc.test` has a DMARC record and a Google verification
+  token at the same name. Counting TXT records reports it as ambiguous; counting
+  DMARC records reports it correctly as one policy.
+</Callout>
+
+## Authorising someone else to receive your reports
+
+`rua=mailto:reports@analytics-vendor.com` asks a third party to receive
+aggregate reports about your domain. Left unchecked, anyone could nominate
+anyone as a firehose destination.
+
+RFC 7489 §7.1 closes that: the destination has to opt in by publishing
+`<source>._report._dmarc.<destination>` containing a DMARC record.
+
+<Lookup
+  name="dmarc.test._report._dmarc.reports.test"
+  notice={
+    <>
+      <p>
+        <code>v=DMARC1</code>, and that is all it needs to say. The presence of
+        the record at that name is the authorisation.
+      </p>
+      <p>
+        Compare <code>unauth-reports.test</code>, which is named as a
+        destination and publishes no such record. Reports sent there will be
+        dropped by any receiver that checks — so the domain owner is getting
+        fewer reports than they think, silently.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="A minimal DMARC record at the report-authorisation name."
+  type="TXT"
+/>
+
+## The null MX
+
+RFC 7505: an MX record with preference 0 and a single dot as the exchange means
+this domain accepts no mail, deliberately, and says so.
+
+Here is the thing that makes MX different from every other check in this
+course. The same record is correct or catastrophic depending on what the domain
+is *for*, and no amount of looking at DNS can tell you which.
+
+A null MX on a send-only domain is exactly right. On a domain that receives
+mail, every message bounces.
+
+<Lookup
+  name="nomail.mx.test"
+  notice={
+    <>
+      <p>
+        <code>0 .</code> — preference zero, exchange is the root. That is the
+        whole record.
+      </p>
+      <p>
+        Then look at <code>ambiguous.mx.test</code>, which has a null MX{" "}
+        <em>and</em> a real exchange. RFC 7505 §3 forbids the pair and senders
+        disagree about what it means, so delivery depends on whose mail server
+        is trying. Nobody is misconfigured in a way you can point at, and
+        delivery is a coin flip.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="MX preference 0 with a single dot as the exchange."
+  type="MX"
+/>
+
+This is the observation that forces the next unit into existence. An evaluator
+cannot decide this alone, so something has to tell it what the domain is for.
+
+## An MX may not point at an alias
+
+RFC 2181 §10.3 forbids it. Most senders follow the alias anyway, which is
+exactly why the ones that refuse look intermittent rather than broken.
+
+<Lookup
+  name="aliased.mx.test"
+  notice={
+    <>
+      <p>
+        The exchange is <code>alias.mx.test</code>. Query that for a{" "}
+        <code>CNAME</code> and you will find one. Forbidden, widely tolerated,
+        and the source of "some of our mail gets through" tickets.
+      </p>
+      <p>
+        Three more in the same zone. <code>literal.mx.test</code> holds an
+        address where a name belongs — the zone file accepts it, dig prints it,
+        and senders look it up as a name and find nothing.{" "}
+        <code>dangling.mx.test</code> points at a name with no address of either
+        family. And <code>sixth.mx.test</code> has only AAAA, which is unusual,
+        legitimate, and must not be reported as missing an address.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="An MX whose exchange is itself an alias."
+  type="MX"
+/>
+
+## Climbing the CAA tree
+
+CAA says which certificate authorities may issue for a name. RFC 8659 defines
+the lookup as a climb: start at the name, and if there is no CAA record set,
+try the parent, and keep going up to but not including the root.
+
+Two properties of that climb are easy to get wrong.
+
+**The nearest ancestor with a CAA record set wins outright.** Policies are never
+merged up the tree. A subdomain with its own CAA record completely replaces the
+apex policy rather than adding to it.
+
+**The Public Suffix List plays no part.** Unlike DMARC, this is a plain walk up
+the name.
+
+<Lookup
+  name="host.sub.caa.test"
+  notice={
+    <>
+      <p>
+        Nothing here, so climb. Query <code>sub.caa.test</code> and you get{" "}
+        <code>0 issue "digicert.com"</code>. That is the answer, and the apex
+        policy naming letsencrypt is <em>not</em> merged in — so letsencrypt is
+        not authorised at this name even though it is at the apex.
+      </p>
+      <p>
+        Compare <code>deep.nested.caa.test</code>, which has no CAA of its own
+        and no CAA at <code>nested.caa.test</code> either, so the climb goes two
+        steps to the apex. An implementation that stops after one step gets this
+        wrong.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="No CAA records, so the answer is somewhere above."
+  type="CAA"
+/>
+
+Then the property semantics. `issue` governs ordinary certificates and
+`issuewild` governs wildcards, and confusing them authorises the wrong CA for
+the wrong kind of certificate. A value of `;` means no authority may issue at
+all.
+
+<Lookup
+  name="critical.caa.test"
+  notice={
+    <>
+      <p>
+        Flag 128 — the critical bit — on a property no authority recognises.
+        RFC 8659 §4.1 requires a CA that does not understand a critical property
+        to refuse issuance, so this blocks everything <em>despite</em> also
+        carrying a perfectly good <code>issue "letsencrypt.org"</code> next to
+        it.
+      </p>
+      <p>
+        Also worth reading: <code>params.caa.test</code>, whose value carries
+        ACME account-binding parameters after a semicolon. Those must not be
+        mistaken for part of the CA's name, or the authorised CA is a string
+        nobody matches.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="Two CAA records, one of which has flag 128."
+  type="CAA"
+/>
+
+<Callout kind="warning">
+  In a zone file, an unquoted `;` starts a comment. `@ IN CAA 0 issue ;` is a
+  deny-all that silently becomes empty rdata. The fixture zones quote it, and
+  the reason is written next to it — this is the kind of detail that looks like a
+  typo until you know.
+</Callout>
+
+Five record types now, each parsed rather than matched. What is missing is the
+thing MX made unavoidable: somebody has to say what the domain is for.

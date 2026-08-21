@@ -1,0 +1,416 @@
+# DNS does not tell the truth
+
+import { Callout } from "@/components/mdx/callout";
+import { Lookup } from "@/components/lookup";
+
+DNS is a caching, inconsistent, occasionally lying distributed system. Not
+because anyone built it badly, but because the alternative — a single
+authoritative answer available everywhere at once — is not a thing that exists
+at internet scale.
+
+Every failure in the previous unit is a consequence of that. This unit goes
+through them one at a time, and each one has a query you can run.
+
+## Two ways for a name to have no answer
+
+Start with the most basic distinction, and the one support tickets conflate
+most often.
+
+`NXDOMAIN` means the name does not exist. Nothing at all is published there,
+under any type.
+
+`NODATA` means the name exists, and there is nothing of the type you asked for.
+It is not a separate response code — it is `NOERROR` with an empty answer
+section and a SOA record in the authority section.
+
+<Lookup
+  name="_propgate-verify.nodata.test"
+  notice={
+    <>
+      <p>
+        The status line says <code>NOERROR</code>, the answer section is empty,
+        and there is a SOA in the authority section. That is NODATA. Now ask for
+        an <code>A</code> record at the same name and you will get an address —
+        the name exists, it simply has no TXT.
+      </p>
+      <p>
+        Compare with <code>dig TXT nothing-here.nodata.test</code>, which is a
+        real NXDOMAIN with status <code>NXDOMAIN</code>.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="status: NOERROR, ANSWER: 0, and a SOA under AUTHORITY."
+  type="TXT"
+/>
+
+Why it matters: the remedies are different. NXDOMAIN usually means the record
+was never added, or was added at the wrong name. NODATA usually means something
+else is already configured at that name and will need removing or merging
+first — a CNAME where you want a TXT, most often, since a name with a CNAME
+cannot legally hold anything else.
+
+A verifier that reports both as "not found" throws away the more useful half of
+the answer.
+
+## The answer that is cached before it exists
+
+RFC 2308 governs how long a resolver may remember that something does not
+exist. The value is the lesser of the SOA's `MINIMUM` field and the SOA
+record's own TTL.
+
+That "lesser of" is the part people get wrong, and getting it wrong in either
+direction is a support problem. Read `MINIMUM` alone and you may tell a customer
+to wait an hour when the real answer is five minutes.
+
+<Lookup
+  name="missing.negcache-low.test"
+  notice={
+    <>
+      <p>
+        The SOA in the authority section has <code>MINIMUM</code> of 3600 and
+        its own TTL of 300. The negative answer is cacheable for 300 seconds,
+        not 3600. A checker reading the last field of the SOA would be wrong by
+        a factor of twelve, in the direction that makes a customer give up.
+      </p>
+      <p>
+        Then try <code>missing.negcache-high.test</code>, where both are 3600.
+        That one really is an hour, and it is worth telling somebody about
+        before they conclude their fix did not work.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="An NXDOMAIN whose authority SOA carries both numbers you need."
+  type="TXT"
+/>
+
+This is the reason interactive verification and background monitoring are
+different code paths with different behaviour. When somebody is sitting at an
+onboarding screen having just clicked Verify, you want to bypass caches and ask
+the authoritative servers directly. When you are sweeping ten thousand domains
+in the background, you want the cache — it is the whole reason the cost model
+works.
+
+## The record that makes everything pass
+
+A wildcard record answers for every name in its zone that has nothing more
+specific. If a customer has `*.example.com TXT "something"`, then
+`selector1._domainkey.example.com` answers. So does
+`literally-anything.example.com`.
+
+A verifier that asks "did the lookup return something?" now passes every domain
+with a wildcard, whether or not the customer added anything.
+
+<Lookup
+  name="did-not-configure-this.wildcard.test"
+  notice={
+    <>
+      <p>
+        A name nobody would ever configure, answering with content. That is
+        synthesis, and the only reliable way to detect it from outside is
+        exactly this: probe a random label and see whether it answers too.
+      </p>
+      <p>
+        The nastier case is on the same zone. Ask for{" "}
+        <code>anything._domainkey.wildcard.test</code> and you get a{" "}
+        <em>well-formed DKIM key</em>. A verifier that parses records rather
+        than testing presence is immune to a wildcard serving junk — but not to
+        one serving something valid. Every selector anyone asks for publishes a
+        working key, and nothing in the record says the customer never added it.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="A TXT answer for a name nobody configured."
+  type="TXT"
+/>
+
+<Callout>
+  There is a second detection path, and it is authoritative rather than
+  behavioural. In a signed zone, the RRSIG covering a synthesised answer has a
+  `Labels` field smaller than the owner name's label count, because the
+  signature was made over the wildcard name rather than the name you asked for.
+  That is a fact rather than an inference, and it is why the fixture set has both
+  a signed and an unsigned wildcard zone: implement one path and the other ships
+  untested.
+</Callout>
+
+## The alias that is not an alias
+
+You tell a customer to add `track.acme.com CNAME track.yourplatform.com`. They
+do. You query for a CNAME and get nothing.
+
+Some providers — Cloudflare most visibly — resolve the alias when it is saved
+and serve address records in its place. The customer did exactly what you asked.
+`dig CNAME` returns an empty answer.
+
+<Lookup
+  name="track.flat.cname.test"
+  notice={
+    <>
+      <p>
+        No CNAME. Now ask for <code>A</code> at the same name, and separately for{" "}
+        <code>A track.propgate-fixture.test</code>. The addresses match, which is
+        the only thing that distinguishes this from a customer who typed the
+        wrong host.
+      </p>
+      <p>
+        <code>track.wrong.cname.test</code> is the same shape with a different
+        address. Indistinguishable from flattening unless you resolve the target
+        you issued and compare.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="An empty CNAME answer, at a name that is configured correctly."
+  type="CNAME"
+/>
+
+So the check cannot be a lookup. It has to resolve the target you issued, get
+its addresses, and compare. Which raises a question a lookup never had to
+answer: compare how?
+
+<Lookup
+  name="track.partial.cname.test"
+  notice={
+    <>
+      <p>
+        Two addresses. One is the platform's, one belongs to somebody else —
+        what a customer produces by <em>adding</em> your record next to the one
+        their previous vendor left behind, instead of replacing it.
+      </p>
+      <p>
+        Resolvers hand out the whole set, so some requests reach you and some do
+        not. This is the fault that reads as "it works sometimes" with nobody
+        lying. It also means the comparison has to be a subset test rather than
+        an overlap test: an overlap test passes this zone.
+      </p>
+      <p>
+        And check <code>track.v6.cname.test</code>, where the A record is
+        correct and the AAAA points at a stranger. A check that stops asking once
+        A answers sees nothing wrong while every IPv6 client goes somewhere
+        else.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="Two A records at one name, only one of which is the issued target's."
+  type="A"
+/>
+
+## The name with the zone on the end
+
+This is the one that generates the most tickets, and it is entirely a UI
+problem.
+
+DNS provider interfaces disagree about whether the name field is absolute or
+relative to the zone. A customer pastes the full name into a field that expects
+a relative one, and the provider helpfully appends the zone. The record lands
+one zone deeper than intended.
+
+<Lookup
+  name="selector1._domainkey.appended.test"
+  notice={
+    <>
+      <p>
+        NXDOMAIN, at the name you told the customer to use. Now try the same
+        name with the zone appended again:{" "}
+        <code>selector1._domainkey.appended.test.appended.test</code>. The record
+        is right there.
+      </p>
+      <p>
+        That second probe is the entire difference between "record not found" and
+        a message the customer can act on in under a minute. It costs one extra
+        query on the failure path and nothing on the success path.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="NXDOMAIN at the correct name."
+  type="TXT"
+/>
+
+The fault has more shapes than you would guess. The same zone carries it applied
+to an ownership token, where it costs the most — the token is opaque, so nothing
+about the value hints that the name is wrong, and the correct name is NXDOMAIN
+with no other clue. It also carries the fault applied to a CNAME's *target*
+rather than its owner name, in two spellings: the target with its own zone
+appended, and the target with the customer's zone appended because a trailing
+dot was stripped.
+
+<Callout kind="warning">
+  A doubled target is a value the customer pasted correctly. Reporting it as
+  "points somewhere else on purpose" is technically true and completely useless.
+</Callout>
+
+## Two hundred and fifty-five characters
+
+A TXT record's rdata is not a string. It is a sequence of strings, each at most
+255 bytes, which concatenate with no separator.
+
+A 2048-bit RSA public key in base64 is around 392 characters, so every DKIM
+record longer than a toy key has to be split. Providers split it in different
+places, and a few rejoin it wrongly.
+
+<Lookup
+  name="s2._domainkey.txt-split.test"
+  notice={
+    <>
+      <p>
+        Split with whitespace at the chunk boundary. RFC 6376 §2.10 says a
+        base64 string "is permitted to include whitespace (FWS) at arbitrary
+        places", so every conforming verifier accepts this key. A checker that
+        rejects it tells a customer their working DKIM key is broken, which is
+        the most expensive kind of wrong.
+      </p>
+      <p>
+        Then look at <code>s3._domainkey.txt-split.test</code>, where the
+        provider re-emitted the whole tag prefix on every chunk. That one really
+        is broken. And <code>s5._domainkey.txt-split.test</code>, which differs
+        from the expected key only in case — DNS names fold case, base64 payloads
+        do not, so this must not be treated as a match.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="Several quoted strings that join into one valid key."
+  type="TXT"
+/>
+
+The lesson generalises past DKIM: comparing record text is the wrong operation.
+Parse the record, then compare the parsed field. That way "a different key" and
+"the same key, split differently" are different answers, which a regex over the
+record can never tell apart.
+
+## The flag dig will not show you
+
+A DNS response over UDP that exceeds the client's advertised buffer gets
+truncated: the server sets the `TC` bit and the resolver is expected to retry
+over TCP.
+
+A query carrying no EDNS0 OPT record is capped at 512 bytes by protocol,
+regardless of server tuning. That makes it the reliable lever for testing this.
+
+Here is the trap. `dig` sees `TC`, silently retries over TCP, and prints the
+retried answer. The flag never appears in the output. You have to tell it not
+to.
+
+<Lookup
+  flags="+ignore"
+  name="big4096._domainkey.tcp.test"
+  notice={
+    <>
+      <p>
+        With <code>+ignore</code> the flags line contains <code>tc</code> and the
+        answer is cut off. Run it again without <code>+ignore</code> and the
+        flag is gone and the answer is complete, because dig went and asked
+        again over TCP without telling you.
+      </p>
+      <p>
+        Now try <code>big._domainkey.tcp.test</code> the same way. That is a real
+        2048-bit key at 483 bytes — under 512, so it does <em>not</em> truncate.
+        The first draft of this fixture assumed it would. A verifier that reports
+        truncation for the 2048-bit case is as broken as one that misses it for
+        the 4096-bit case.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="With +ignore, the flags line includes tc and the answer is incomplete."
+  type="TXT"
+/>
+
+There is a worse version of this in the wild. Some middleboxes drop TCP port 53
+entirely, without rejecting it — the UDP response arrives with `TC` set, the
+TCP retry opens, and then nothing comes back. From the resolver's side that is
+indistinguishable from a slow server, and the record is both correct and
+unreadable.
+
+<Callout>
+  No zone file can express that, because it is something done *to* a
+  conversation rather than a property of a zone. The fixture for it is an
+  in-process listener that answers over UDP with `TC` set, accepts the TCP
+  retry, and never replies.
+</Callout>
+
+## Signed, unsigned, and lying
+
+DNSSEC has three states that matter here, and two of them look identical from a
+non-validating resolver.
+
+**Secure**: the zone is signed and the chain of trust reaches a trust anchor. A
+validating resolver sets the `AD` bit.
+
+**Insecure**: the zone is not signed, and the absence of a DS record at the
+parent is itself proven. Resolves fine everywhere, `AD` is not set, nothing is
+wrong. Most of the internet is here.
+
+**Bogus**: the zone is signed and the signatures do not verify. A validating
+resolver returns SERVFAIL. A non-validating one returns the records happily.
+
+That last one is the interesting failure. Somebody botches a key rollover, and
+their mail breaks for every recipient behind a validating resolver — which is a
+large and growing share — while resolving perfectly from wherever the person
+debugging it happens to be sitting.
+
+<Lookup
+  name="bogus-zone.test"
+  notice={
+    <>
+      <p>
+        SERVFAIL, from the validating resolver. Now ask{" "}
+        <code>dig @127.0.0.7 -p 53 TXT bogus-zone.test</code> — the permissive
+        resolver, which iterates without validating. Same zone, same moment, and
+        the records come back.
+      </p>
+      <p>
+        That difference is the whole point of running two resolver tiers. A
+        SERVFAIL on its own proves something is broken; the differential proves
+        it is the <em>signature</em>. And{" "}
+        <code>secure.test</code> is the control — it validates, with{" "}
+        <code>ad</code> in the flags.
+      </p>
+    </>
+  }
+  server="resolver"
+  shape="status: SERVFAIL."
+  type="TXT"
+/>
+
+The distinction between insecure and bogus is commercially load-bearing.
+"Insecure" is a warning a customer can reasonably ignore. "Bogus" means their
+mail is already broken. Reporting one as the other is exactly the false alarm
+that makes a monitoring product worse than not existing.
+
+There is a third case worth knowing, sitting between them: a signed parent
+delegating to an unsigned child with no DS record. The signatures above stop
+protecting anything at that boundary, nothing is broken, and the remedy is a DS
+record at the registrar.
+
+<Lookup
+  name="island.secure.test"
+  notice={
+    <>
+      <p>
+        It resolves, and <code>ad</code> is absent from the flags even though{" "}
+        <code>secure.test</code> above it validates. The chain stops at this
+        delegation.
+      </p>
+      <p>
+        Worth noting what this must <em>not</em> report. At an organizational
+        domain — an unsigned zone directly under a public suffix — the same
+        observation is true of most of the internet, so it is only a finding
+        below that level. The fixture set has both cases precisely so the guard
+        is tested rather than assumed.
+      </p>
+    </>
+  }
+  server="resolver"
+  shape="NOERROR with an answer, and no ad flag."
+  type="TXT"
+/>
+
+That is the catalogue. None of it is exotic; all of it is what a verifier meets
+in its first thousand customers. The next unit builds the thing that asks these
+questions.
