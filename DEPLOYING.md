@@ -1,12 +1,14 @@
 # Deploying
 
-Three surfaces, two places.
+Four surfaces, two places.
 
 ```
                     Cloudflare Workers (static assets)
-                    ┌──────────────────┬──────────────────┐
-    propgate.dev ──▶│ apps/web         │ apps/docs        │──▶ docs.propgate.dev
-                    └────────┬─────────┴──────────────────┘
+                       propgate.dev    docs.propgate.dev  learn.propgate.dev
+                             ▲                 ▲                 ▲
+                    ┌────────┴────────┬────────┴────────┬────────┴────────┐
+                    │ apps/web        │ apps/docs       │ apps/learn      │
+                    └────────┬────────┴─────────────────┴─────────────────┘
                              │ fetch /v1/checks
                              ▼
                     ┌─────────────────────────────────────┐
@@ -45,9 +47,10 @@ Two consequences worth knowing:
 
 ## Why the surfaces live where they do
 
-**Web and docs are static files on Cloudflare.** Pages prerender; `output: "export"`
-produces plain files. Docs has two build-time route handlers (`/search-index.json`,
-`/llms.txt`) that land in `out/` as files. Web has a thin Worker in front of those
+**Web, docs and learn are static files on Cloudflare.** Pages prerender;
+`output: "export"` produces plain files. Docs has two build-time route handlers
+(`/search-index.json`, `/llms.txt`) that land in `out/` as files. Learn has
+none: its only state is the reader's progress, which lives in their browser. Web has a thin Worker in front of those
 files that only reads `Accept` and serves a sibling `.md` when an agent asks for
 markdown — not a second renderer, and not a reason to pull in
 `@opennextjs/cloudflare`. The tripwire is written into both `next.config.ts`: the
@@ -121,9 +124,10 @@ Variables (optional, defaults in the workflows): `NEXT_PUBLIC_API_URL`,
 |---|---|
 | `propgate.dev` | Cloudflare, from `apps/web/wrangler.jsonc` |
 | `docs.propgate.dev` | Cloudflare, from `apps/docs/wrangler.jsonc` |
+| `learn.propgate.dev` | Cloudflare, from `apps/learn/wrangler.jsonc` |
 | `api.propgate.dev` | **You**, an `A` record to the VPS, before the first deploy |
 
-The two Worker hostnames are declared as `custom_domain` routes, so Cloudflare
+The three Worker hostnames are declared as `custom_domain` routes, so Cloudflare
 creates and maintains those records itself — the only place either hostname is
 written down is the repository. That also means the zone must already be on
 Cloudflare; if it is not, the deploy fails loudly rather than quietly publishing
