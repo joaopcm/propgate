@@ -20,6 +20,7 @@ COPY turbo.json tsconfig.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/docs/package.json apps/docs/
+COPY apps/learn/package.json apps/learn/
 COPY packages/dns/package.json packages/dns/
 COPY packages/dns-fixtures/package.json packages/dns-fixtures/
 COPY packages/db/package.json packages/db/
