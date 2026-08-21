@@ -1,6 +1,12 @@
 import { DIAGNOSIS_COUNT } from "@/lib/counts";
 import { CodeTabs } from "@/components/docs/code-tabs";
+import { SITE_DESCRIPTION, SITE_URL } from "@/lib/site";
 import { CHECK_CLI, CHECK_CURL, CHECK_SDK } from "./_snippets";
+
+export const metadata = {
+  alternates: { canonical: SITE_URL },
+  description: SITE_DESCRIPTION,
+};
 
 # propgate
 

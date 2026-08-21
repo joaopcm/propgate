@@ -1,0 +1,56 @@
+# propgate developer portal
+
+API keys, documentation, a public sandbox, and the machine-readable files
+agents should start from. This is the propgate developer surface — not a
+marketing page.
+
+## Get a key
+
+Two calls, no sales conversation.
+
+1. `POST https://api.propgate.dev/v1/signup` with `{"email":"you@example.com"}`
+2. `POST https://api.propgate.dev/v1/signup/confirm` with the six-digit code
+
+The confirm response returns the key once. After that only a hash is stored.
+Named keys later are `POST /v1/api-keys`. See [Authentication](/authentication).
+
+## Sandbox
+
+No key required. The same engine as the CLI and the sweeper:
+
+```
+curl -s -X POST https://api.propgate.dev/v1/checks \
+  -H 'content-type: application/json' \
+  -d '{"domain":"github.com"}'
+```
+
+Or the checker on [propgate.dev](https://propgate.dev). Rate limited to 20
+checks a minute per address. For scheduled checks, register the domain and
+let the sweeper do it.
+
+## Documentation
+
+- [Quickstart](/quickstart): key, profile, register, verify
+- [API reference](/api): every REST endpoint
+- [OpenAPI](/openapi.json): unique `operationId`s, typed parameters, response schemas
+- [Webhooks](/webhooks): signed events, Svix-compatible
+- [Diagnosis taxonomy](/taxonomy): every code, what it means
+- [SDK](/sdk): `@propgate/sdk` — `{ data, error, meta }`, never a throw
+- [CLI](/cli): `npx @propgate/cli`
+
+## Predictable URLs
+
+| What | URL |
+| --- | --- |
+| This portal | `/developers` |
+| OpenAPI spec | `/openapi.json` |
+| llms.txt | `/llms.txt` |
+| Full markdown corpus | `/llms-full.txt` |
+| Page catalog | `/v1/pages` |
+| Docs status | `/v1/status` |
+| Sitemap | `/sitemap.xml` |
+| Per-page markdown | `{path}.md` or `Accept: text/markdown` on the HTML URL |
+
+There is no MCP server. Function-call the operations in `/openapi.json`. The
+public checker is `checkDomain`. Authenticated work uses the bearer key from
+signup.

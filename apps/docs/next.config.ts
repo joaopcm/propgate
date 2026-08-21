@@ -12,12 +12,14 @@ const withMDX = createMDX({
 
 const nextConfig: NextConfig = {
   // A static export, deployed as assets on Cloudflare Workers. Every page here
-  // prerenders, and so does the one route handler: `/search-index.json` is
-  // `force-static`, so it runs at build and lands in `out/` as a file rather
-  // than as anything that serves a request. There are no server actions, and
-  // the public checker is a client component that calls the API from the
-  // browser. That makes an adapter such as @opennextjs/cloudflare unnecessary —
-  // it exists for apps that need a server at the edge, and this one does not.
+  // prerenders, and so do the route handlers (`/search-index.json`,
+  // `/openapi.json`, `/llms.txt`, `/v1/pages`, per-page `.md`): they are
+  // `force-static`, so they run at build and land in `out/` as files.
+  //
+  // A small Worker (`src/worker.ts`) sits in front for Accept negotiation
+  // and agent 404s. It does not render pages. An adapter such as
+  // @opennextjs/cloudflare is still unnecessary — it exists for apps that
+  // need a server at the edge, and this one still does not.
   //
   // The tripwire: `export` rules out ISR and request-time rendering. The day a
   // dashboard needs server-side auth, this becomes an OpenNext deployment, and
@@ -26,7 +28,11 @@ const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "mdx"],
   // Workspace packages ship raw TypeScript (main/types point at ./src), so Next
   // has to compile them rather than treat them as prebuilt deps.
-  transpilePackages: ["@propgate/dns", "@propgate/dns-fixtures"],
+  transpilePackages: [
+    "@propgate/dns",
+    "@propgate/dns-fixtures",
+    "@propgate/webhooks",
+  ],
 };
 
 export default withMDX(nextConfig);
