@@ -17,11 +17,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "code",
-          "hint",
-          "message"
-        ],
+        "required": ["code", "hint", "message"],
         "type": "object"
       },
       "Check": {
@@ -43,11 +39,7 @@
                         "type": "object"
                       },
                       "severity": {
-                        "enum": [
-                          "error",
-                          "info",
-                          "warning"
-                        ],
+                        "enum": ["error", "info", "warning"],
                         "type": "string"
                       },
                       "slug": {
@@ -104,34 +96,18 @@
                         "type": "integer"
                       }
                     },
-                    "required": [
-                      "name",
-                      "purpose",
-                      "server",
-                      "status",
-                      "type"
-                    ],
+                    "required": ["name", "purpose", "server", "status", "type"],
                     "type": "object"
                   },
                   "type": "array"
                 },
                 "verdict": {
                   "description": "pass, warn, fail, or indeterminate — not a boolean.",
-                  "enum": [
-                    "fail",
-                    "indeterminate",
-                    "pass",
-                    "warn"
-                  ],
+                  "enum": ["fail", "indeterminate", "pass", "warn"],
                   "type": "string"
                 }
               },
-              "required": [
-                "findings",
-                "kind",
-                "lookups",
-                "verdict"
-              ],
+              "required": ["findings", "kind", "lookups", "verdict"],
               "type": "object"
             },
             "type": "array"
@@ -154,11 +130,7 @@
                   "type": "object"
                 },
                 "severity": {
-                  "enum": [
-                    "error",
-                    "info",
-                    "warning"
-                  ],
+                  "enum": ["error", "info", "warning"],
                   "type": "string"
                 },
                 "slug": {
@@ -169,13 +141,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "code",
-                "evidence",
-                "severity",
-                "slug",
-                "summary"
-              ],
+              "required": ["code", "evidence", "severity", "slug", "summary"],
               "type": "object"
             },
             "type": "array"
@@ -186,12 +152,7 @@
           },
           "verdict": {
             "description": "pass, warn, fail, or indeterminate — not a boolean.",
-            "enum": [
-              "fail",
-              "indeterminate",
-              "pass",
-              "warn"
-            ],
+            "enum": ["fail", "indeterminate", "pass", "warn"],
             "type": "string"
           }
         },
@@ -229,11 +190,7 @@
             "type": "object"
           },
           "severity": {
-            "enum": [
-              "error",
-              "info",
-              "warning"
-            ],
+            "enum": ["error", "info", "warning"],
             "type": "string"
           },
           "slug": {
@@ -244,13 +201,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "code",
-          "evidence",
-          "severity",
-          "slug",
-          "summary"
-        ],
+        "required": ["code", "evidence", "severity", "slug", "summary"],
         "type": "object"
       },
       "Lookup": {
@@ -274,23 +225,12 @@
             "type": "integer"
           }
         },
-        "required": [
-          "name",
-          "purpose",
-          "server",
-          "status",
-          "type"
-        ],
+        "required": ["name", "purpose", "server", "status", "type"],
         "type": "object"
       },
       "Verdict": {
         "description": "pass, warn, fail, or indeterminate — not a boolean.",
-        "enum": [
-          "fail",
-          "indeterminate",
-          "pass",
-          "warn"
-        ],
+        "enum": ["fail", "indeterminate", "pass", "warn"],
         "type": "string"
       }
     },
@@ -326,9 +266,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "status"
-                  ],
+                  "required": ["status"],
                   "type": "object"
                 }
               }
@@ -337,9 +275,7 @@
           }
         },
         "security": [],
-        "tags": [
-          "Meta"
-        ]
+        "tags": ["Meta"]
       }
     },
     "/openapi.json": {
@@ -360,9 +296,7 @@
           }
         },
         "security": [],
-        "tags": [
-          "Meta"
-        ]
+        "tags": ["Meta"]
       }
     },
     "/v1/api-keys": {
@@ -401,11 +335,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -422,11 +352,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -470,11 +396,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -491,11 +413,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -539,11 +457,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -560,11 +474,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -577,9 +487,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "API keys"
-        ]
+        "tags": ["API keys"]
       },
       "post": {
         "description": "The secret is returned once and never again — only its hash is stored. CLI: `propgate keys create <name>`.",
@@ -597,9 +505,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "name"
-                ],
+                "required": ["name"],
                 "type": "object"
               }
             }
@@ -637,11 +543,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -658,11 +560,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -706,11 +604,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -727,11 +621,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -775,11 +665,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -796,11 +682,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -844,11 +726,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -865,11 +743,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -882,9 +756,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "API keys"
-        ]
+        "tags": ["API keys"]
       }
     },
     "/v1/api-keys/{id}": {
@@ -933,11 +805,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -954,11 +822,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -1002,11 +866,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -1023,11 +883,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -1071,11 +927,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -1092,11 +944,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -1140,11 +988,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -1161,11 +1005,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -1209,11 +1049,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -1230,11 +1066,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -1247,9 +1079,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "API keys"
-        ]
+        "tags": ["API keys"]
       }
     },
     "/v1/checks": {
@@ -1294,10 +1124,7 @@
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "label",
-                        "target"
-                      ],
+                      "required": ["label", "target"],
                       "type": "object"
                     },
                     "maxItems": 5,
@@ -1328,9 +1155,7 @@
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "token"
-                      ],
+                      "required": ["token"],
                       "type": "object"
                     },
                     "maxItems": 5,
@@ -1343,9 +1168,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "domain"
-                ],
+                "required": ["domain"],
                 "type": "object"
               }
             }
@@ -1378,11 +1201,7 @@
                                       "type": "object"
                                     },
                                     "severity": {
-                                      "enum": [
-                                        "error",
-                                        "info",
-                                        "warning"
-                                      ],
+                                      "enum": ["error", "info", "warning"],
                                       "type": "string"
                                     },
                                     "slug": {
@@ -1489,11 +1308,7 @@
                                 "type": "object"
                               },
                               "severity": {
-                                "enum": [
-                                  "error",
-                                  "info",
-                                  "warning"
-                                ],
+                                "enum": ["error", "info", "warning"],
                                 "type": "string"
                               },
                               "slug": {
@@ -1521,12 +1336,7 @@
                         },
                         "verdict": {
                           "description": "pass, warn, fail, or indeterminate — not a boolean.",
-                          "enum": [
-                            "fail",
-                            "indeterminate",
-                            "pass",
-                            "warn"
-                          ],
+                          "enum": ["fail", "indeterminate", "pass", "warn"],
                           "type": "string"
                         }
                       },
@@ -1561,11 +1371,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -1582,11 +1388,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -1630,11 +1432,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -1651,11 +1449,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -1699,11 +1493,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -1720,11 +1510,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -1733,9 +1519,7 @@
           }
         },
         "security": [],
-        "tags": [
-          "Checks"
-        ]
+        "tags": ["Checks"]
       }
     },
     "/v1/domains": {
@@ -1813,11 +1597,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -1834,11 +1614,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -1882,11 +1658,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -1903,11 +1675,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -1951,11 +1719,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -1972,11 +1736,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -1989,9 +1749,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Domains"
-        ]
+        "tags": ["Domains"]
       },
       "post": {
         "description": "Pin a domain to a profile, with the values that profile requires per domain. Does not touch DNS. The domain starts pending. CLI: `propgate domains add <domain>`.",
@@ -2024,10 +1782,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "name",
-                  "profile"
-                ],
+                "required": ["name", "profile"],
                 "type": "object"
               }
             }
@@ -2065,11 +1820,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2086,11 +1837,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2134,11 +1881,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2155,11 +1898,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2203,11 +1942,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2224,11 +1959,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2272,11 +2003,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2293,11 +2020,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2310,9 +2033,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Domains"
-        ]
+        "tags": ["Domains"]
       }
     },
     "/v1/domains/{id}": {
@@ -2361,11 +2082,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2382,11 +2099,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2430,11 +2143,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2451,11 +2160,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2499,11 +2204,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2520,11 +2221,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2568,11 +2265,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2589,11 +2282,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2606,9 +2295,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Domains"
-        ]
+        "tags": ["Domains"]
       },
       "get": {
         "description": "The last known state, per-requirement results, and every lookup behind them. CLI: `propgate domains get <id>`.",
@@ -2655,11 +2342,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2676,11 +2359,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2724,11 +2403,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2745,11 +2420,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2793,11 +2464,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2814,11 +2481,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2862,11 +2525,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2883,11 +2542,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -2900,9 +2555,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Domains"
-        ]
+        "tags": ["Domains"]
       },
       "patch": {
         "description": "Change the values a domain is judged against, the profile it is pinned to, or both. Resets it to pending; fires no webhook. Supply at least one of expectations or profile. CLI: `propgate domains update <id>`.",
@@ -2974,11 +2627,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -2995,11 +2644,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3043,11 +2688,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3064,11 +2705,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3112,11 +2749,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3133,11 +2766,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3181,11 +2810,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3202,11 +2827,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3250,11 +2871,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3271,11 +2888,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3288,9 +2901,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Domains"
-        ]
+        "tags": ["Domains"]
       }
     },
     "/v1/domains/{id}/checks": {
@@ -3339,11 +2950,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3360,11 +2967,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3408,11 +3011,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3429,11 +3028,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3477,11 +3072,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3498,11 +3089,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3546,11 +3133,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3567,11 +3150,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3584,9 +3163,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Domains"
-        ]
+        "tags": ["Domains"]
       }
     },
     "/v1/domains/{id}/timeline": {
@@ -3651,11 +3228,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3672,11 +3245,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3720,11 +3289,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3741,11 +3306,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3789,11 +3350,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3810,11 +3367,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3858,11 +3411,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3879,11 +3428,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -3896,9 +3441,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Domains"
-        ]
+        "tags": ["Domains"]
       }
     },
     "/v1/members": {
@@ -3937,11 +3480,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -3958,11 +3497,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4006,11 +3541,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4027,11 +3558,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4075,11 +3602,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4096,11 +3619,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4113,9 +3632,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Members"
-        ]
+        "tags": ["Members"]
       }
     },
     "/v1/profiles": {
@@ -4185,20 +3702,14 @@
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "check",
-                        "key"
-                      ],
+                      "required": ["check", "key"],
                       "type": "object"
                     },
                     "minItems": 1,
                     "type": "array"
                   }
                 },
-                "required": [
-                  "key",
-                  "requirements"
-                ],
+                "required": ["key", "requirements"],
                 "type": "object"
               }
             }
@@ -4236,11 +3747,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4257,11 +3764,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4305,11 +3808,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4326,11 +3825,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4374,11 +3869,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4395,11 +3886,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4443,11 +3930,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4464,11 +3947,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4481,9 +3960,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Profiles"
-        ]
+        "tags": ["Profiles"]
       }
     },
     "/v1/profiles/{key}": {
@@ -4532,11 +4009,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4553,11 +4026,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4601,11 +4070,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4622,11 +4087,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4670,11 +4131,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4691,11 +4148,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4739,11 +4192,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4760,11 +4209,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4777,9 +4222,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Profiles"
-        ]
+        "tags": ["Profiles"]
       }
     },
     "/v1/signup": {
@@ -4797,9 +4240,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "email"
-                ],
+                "required": ["email"],
                 "type": "object"
               }
             }
@@ -4837,11 +4278,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4858,11 +4295,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4906,11 +4339,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4927,11 +4356,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -4975,11 +4400,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -4996,11 +4417,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5009,9 +4426,7 @@
           }
         },
         "security": [],
-        "tags": [
-          "Accounts"
-        ]
+        "tags": ["Accounts"]
       }
     },
     "/v1/signup/confirm": {
@@ -5035,10 +4450,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "code",
-                  "email"
-                ],
+                "required": ["code", "email"],
                 "type": "object"
               }
             }
@@ -5076,11 +4488,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5097,11 +4505,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5145,11 +4549,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5166,11 +4566,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5214,11 +4610,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5235,11 +4627,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5248,9 +4636,7 @@
           }
         },
         "security": [],
-        "tags": [
-          "Accounts"
-        ]
+        "tags": ["Accounts"]
       }
     },
     "/v1/webhooks": {
@@ -5289,11 +4675,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5310,11 +4692,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5358,11 +4736,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5379,11 +4753,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5427,11 +4797,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5448,11 +4814,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5465,9 +4827,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Webhooks"
-        ]
+        "tags": ["Webhooks"]
       },
       "post": {
         "description": "Idempotent on the URL; the signing secret is returned only on the call that creates it. https only, and never a private address. CLI: `propgate webhooks create`.",
@@ -5496,9 +4856,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "url"
-                ],
+                "required": ["url"],
                 "type": "object"
               }
             }
@@ -5536,11 +4894,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5557,11 +4911,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5605,11 +4955,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5626,11 +4972,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5674,11 +5016,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5695,11 +5033,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5743,11 +5077,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5764,11 +5094,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5781,9 +5107,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Webhooks"
-        ]
+        "tags": ["Webhooks"]
       }
     },
     "/v1/webhooks/{id}": {
@@ -5832,11 +5156,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5853,11 +5173,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5901,11 +5217,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5922,11 +5234,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -5970,11 +5278,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -5991,11 +5295,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6039,11 +5339,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6060,11 +5356,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6077,9 +5369,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Webhooks"
-        ]
+        "tags": ["Webhooks"]
       },
       "get": {
         "description": "One endpoint. CLI: `propgate webhooks get <id>`.",
@@ -6126,11 +5416,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6147,11 +5433,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6195,11 +5477,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6216,11 +5494,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6264,11 +5538,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6285,11 +5555,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6333,11 +5599,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6354,11 +5616,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6371,9 +5629,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Webhooks"
-        ]
+        "tags": ["Webhooks"]
       },
       "patch": {
         "description": "Change which events an endpoint receives, or disable it. Both fields are optional; omitting both changes nothing. CLI: `propgate webhooks update <id>`.",
@@ -6448,11 +5704,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6469,11 +5721,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6517,11 +5765,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6538,11 +5782,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6586,11 +5826,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6607,11 +5843,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6655,11 +5887,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6676,11 +5904,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6724,11 +5948,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6745,11 +5965,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6762,9 +5978,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Webhooks"
-        ]
+        "tags": ["Webhooks"]
       }
     },
     "/v1/webhooks/{id}/deliveries": {
@@ -6801,11 +6015,7 @@
             "in": "query",
             "name": "status",
             "schema": {
-              "enum": [
-                "delivered",
-                "failed",
-                "pending"
-              ],
+              "enum": ["delivered", "failed", "pending"],
               "type": "string"
             }
           }
@@ -6841,11 +6051,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6862,11 +6068,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6910,11 +6112,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -6931,11 +6129,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -6979,11 +6173,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -7000,11 +6190,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -7048,11 +6234,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -7069,11 +6251,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -7086,9 +6264,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Webhooks"
-        ]
+        "tags": ["Webhooks"]
       }
     },
     "/v1/webhooks/{id}/secret": {
@@ -7156,11 +6332,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -7177,11 +6349,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -7225,11 +6393,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -7246,11 +6410,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -7294,11 +6454,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -7315,11 +6471,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -7363,11 +6515,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -7384,11 +6532,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -7432,11 +6576,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "code",
-                            "hint",
-                            "message"
-                          ],
+                          "required": ["code", "hint", "message"],
                           "type": "object"
                         }
                       ]
@@ -7453,11 +6593,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "data",
-                    "error",
-                    "meta"
-                  ],
+                  "required": ["data", "error", "meta"],
                   "type": "object"
                 }
               }
@@ -7470,9 +6606,7 @@
             "BearerAuth": []
           }
         ],
-        "tags": [
-          "Webhooks"
-        ]
+        "tags": ["Webhooks"]
       }
     }
   },
