@@ -1,0 +1,143 @@
+# The last 20%
+
+import { Callout } from "@/components/mdx/callout";
+import { diagnosisCodeCount, fixtureZoneCount } from "@/lib/counts";
+
+Somewhere in your product there is a screen that says "add these records to
+your DNS, then click Verify". Behind that button is a system that almost
+certainly started as fifteen lines of code and has been quietly growing ever
+since.
+
+This course is about what that system turns into, and why.
+
+## The six records nobody wants to own
+
+A platform that sends email on a customer's behalf needs the customer's domain
+to say so. In practice that means some subset of:
+
+| Record | What it does |
+|---|---|
+| SPF at the apex | Names the hosts allowed to send as the domain |
+| SPF at a bounce host | Authorises the envelope sender receivers actually check |
+| DKIM, one per selector | Publishes the public half of a signing key |
+| DMARC | Tells receivers what to do when the other two fail |
+| MX | Says whether the domain accepts mail, and where |
+| An ownership token | Proves the person configuring this controls the domain |
+| A tracking CNAME | Points a subdomain at the platform's link handler |
+
+None of these are hard to look up. That is the trap.
+
+<Callout>
+  Nothing here is email-specific in the end. An ownership token and a CNAME are
+  what any platform issuing a custom subdomain needs, which is why the
+  interesting problem is not "verify mail records" but "tell somebody the truth
+  about a name they do not control".
+</Callout>
+
+## Eighty percent in two weeks
+
+Query the name. Compare the answer to what you expected. Show a tick.
+
+For most domains that works, and it keeps working long enough to ship. The
+system does not fail on the happy path — it fails on a long tail of specific,
+unrelated-looking cases, each of which arrives as a support ticket rather than
+as an exception in your logs.
+
+Some real ones, in no order:
+
+- The customer pastes `selector1._domainkey.acme.com` into a provider whose UI
+  expects a name relative to the zone. The record lands at
+  `selector1._domainkey.acme.com.acme.com`. The name you queried is NXDOMAIN.
+- The customer has a `*.acme.com TXT` record. Every name you ask about answers.
+  Every domain verifies. Including the ones where nothing was added.
+- The customer adds a CNAME. Cloudflare flattens it, and you observe an A
+  record. Your string comparison fails.
+- The DKIM key is 2048 bits, so it exceeds the 255-byte limit on a single
+  string inside a TXT record. The provider splits it. Some providers rejoin it
+  with a space in the middle, which RFC 6376 explicitly permits and a naive
+  comparison rejects.
+- The 4096-bit key makes the response exceed 512 bytes, so it truncates and the
+  resolver retries over TCP. A middlebox somewhere drops TCP port 53. The record
+  is fine and unreadable.
+- Someone botched a DNSSEC key rollover. The zone resolves perfectly through
+  every non-validating resolver, including probably yours, and returns SERVFAIL
+  to a validating one. Their mail has been broken for a day.
+- The record was correct on Tuesday. On Thursday somebody tidying up the zone
+  deleted it. Nothing told anyone.
+
+Each of these is a couple of days of work once you understand it. The problem is
+that you do not understand it — you understand "the record is missing", because
+that is what your check returned. The customer says they added it. You are both
+right.
+
+## What a support ticket costs
+
+The output of a verifier is not a boolean. It is a sentence somebody reads while
+deciding whether to file a ticket.
+
+"Record not found" creates the ticket. Somebody on your team has to reproduce
+it, run `dig`, notice the doubled zone name, and explain it. Call it forty
+minutes and one frustrated customer.
+
+`PROVIDER_APPENDED_ZONE_NAME`, with the name where the record actually is,
+deflects it. The customer fixes it in the provider's UI in about a minute.
+
+That difference is why the implementation this course works through treats its
+diagnosis codes as the product rather than as error strings. There are currently
+{diagnosisCodeCount()} of them, and adding one requires a fixture that produces
+it — a real zone, on a real authoritative server, {fixtureZoneCount()} of them
+in total — or a written explanation of why no local fixture can. A code without
+one fails the build.
+
+<Callout kind="warning">
+  The codes are also a public contract. Consumers write `switch` statements over
+  them, so renaming or removing one is a breaking change. That constraint is
+  worth understanding early, because it shapes everything: a taxonomy you can
+  never rename is a taxonomy you have to think about before you publish.
+</Callout>
+
+## Seven invariants and what each one bought
+
+The codebase this course reads from states seven rules up front, each one
+because getting it wrong produces something worse than shipping nothing. They
+are worth meeting now, because the rest of the course is largely their
+consequences.
+
+**Never mock DNS.** A mocked resolver agrees with whatever you believed when you
+wrote the mock, which is precisely the belief the bugs live in. Tests run
+against real authoritative servers with deliberately broken zones. This is why
+the exercises in this course need Docker.
+
+**Regression detection needs hysteresis.** A `domain.failed` notification fired
+because one resolver had a bad second makes your customers page *their*
+customers for nothing. That is worse than having no monitoring. Unit 6 is
+entirely about this.
+
+**Store changes, never observations.** Logging every check result at ten
+thousand domains is 360,000 rows a day. Record the current state in place;
+append to a history only when something actually changed. Unit 7 does the
+arithmetic.
+
+**No per-invocation billing in the sweep path.** A loop that wakes every sixty
+seconds forever is the worst possible fit for pay-per-execution pricing. One
+long-running process.
+
+**Everything is port-aware.** A nameserver's address is `{ address, port,
+transport }` and the port is never assumed to be 53. This sounds pedantic until
+you try to test delegation-following, at which point it is the difference
+between a real test tier and a pile of shims.
+
+**Semantics, not string matching.** Evaluate SPF the way a receiving mail server
+would, including its lookup limits. Parse DKIM keys as keys. Climb the CAA tree
+per RFC 8659. A regex over a TXT record is not a verifier, and units 3 and 4 are
+about why.
+
+**Diagnosis codes are a public contract.** See above.
+
+None of these are style preferences. Each one is a decision with a stated cost,
+and each one is the sort of thing that is free to get wrong on day one and
+expensive to change on day four hundred.
+
+The next unit starts with the DNS itself, because every failure above is
+downstream of one fact: the protocol will answer your question without
+answering it.

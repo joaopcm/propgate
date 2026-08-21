@@ -1,0 +1,351 @@
+# SPF the way an MTA reads it
+
+import { Callout } from "@/components/mdx/callout";
+import { Lookup } from "@/components/lookup";
+
+Here is a plausible SPF check:
+
+```ts
+const txt = await resolveTxt(domain);
+const spf = txt.find((record) => record.startsWith("v=spf1"));
+return spf?.includes("include:_spf.ourplatform.com") ?? false;
+```
+
+It is wrong in at least six ways, and every one of them corresponds to a real
+domain that will pass this check while its mail fails.
+
+## A sender policy is a program
+
+RFC 7208 does not describe a pattern to match. It describes an evaluation: a
+receiving mail server walks the record's terms left to right, and the first
+mechanism that matches decides the result.
+
+```
+v=spf1 ip4:198.51.100.0/24 include:_spf.example.net -all
+```
+
+Read as an MTA reads it: is the connecting IP in 198.51.100.0/24? If yes, the
+qualifier on that mechanism is the answer. If no, fetch the record at
+`_spf.example.net`, evaluate it recursively, and if *it* matches, this term
+matches. If nothing matched by the end, `-all` matches everything and its
+qualifier applies.
+
+So `include:` is not string containment. It is a function call, and the question
+"is our platform authorised?" cannot be answered without expanding the tree.
+
+<Lookup
+  name="spf.test"
+  notice={
+    <>
+      <p>
+        Two includes, one of which includes a third. Follow all three by hand:{" "}
+        <code>one.spf.test</code>, <code>two.spf.test</code>, and{" "}
+        <code>three.spf.test</code> which only <code>two</code> reaches.
+      </p>
+      <p>
+        A platform reached through a customer's own aggregator is still
+        authorised, so authorisation has to be checked against the whole expanded
+        tree and not just the terms written at the apex. A string search on the
+        apex record finds neither <code>two</code>'s contents nor{" "}
+        <code>three</code>'s.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="v=spf1 with two include: terms and -all."
+  type="TXT"
+/>
+
+## Qualifiers, and the one nobody writes
+
+Every mechanism carries a qualifier, and it is the qualifier rather than the
+match that produces the outcome.
+
+| Qualifier | Result | Meaning |
+|---|---|---|
+| `+` | pass | Authorised. The default when none is written |
+| `-` | fail | Not authorised, reject it |
+| `~` | softfail | Not authorised, accept but mark it |
+| `?` | neutral | No opinion at all |
+
+The default is the trap. `include:_spf.example.net` is `+include:...`, and a
+record ending in `all` rather than `-all` or `~all` ends in `+all` — which
+authorises the entire internet.
+
+<Lookup
+  name="plusall.spf.test"
+  notice={
+    <>
+      <p>
+        <code>v=spf1 +all</code>. This is strictly worse than publishing no
+        record at all: it tells receivers that forgeries are legitimate. A
+        checker reporting "SPF record present" here is actively harmful.
+      </p>
+      <p>
+        Compare <code>noall.spf.test</code>, which has no <code>all</code> and no{" "}
+        <code>redirect</code>, so an unlisted sender defaults to neutral. And{" "}
+        <code>neutral.spf.test</code>, which says <code>?all</code> — the domain
+        explicitly has no opinion, so the record protects nothing.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="A record that authorises every host on the internet."
+  type="TXT"
+/>
+
+## Ten lookups, and which terms spend one
+
+Section 4.6.4 caps the number of DNS-querying terms an evaluation may use at
+ten. Not per record — per evaluation, across the entire expanded tree.
+
+The terms that cost a lookup are `include`, `a`, `mx`, `ptr`, `exists`, and the
+`redirect` modifier. The ones that do not are `ip4`, `ip6`, and `all`, because
+they need no query to decide.
+
+This is the single most common way a real SPF record breaks, and it breaks
+gradually. A domain adds a marketing platform, then a support tool, then a
+transactional sender. Each is one `include:`, each of which spends whatever its
+own record spends. Nothing warns anybody. Then the eleventh lookup arrives and
+receivers that enforce the limit return permerror, which most treat as a
+failure.
+
+<Lookup
+  name="limit.spf.test"
+  notice={
+    <>
+      <p>
+        Eleven <code>include:</code> terms, each pointing at a record that
+        spends nothing of its own. Eleven lookups, one over.
+      </p>
+      <p>
+        Two things worth checking in an implementation. The failure is on the
+        eleventh, not the tenth — the tenth is legal. And the lookup that would
+        exceed the limit is never performed: a receiver stops, so a verifier that
+        keeps expanding is measuring something the receiver never sees.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="A single record with eleven include: terms."
+  type="TXT"
+/>
+
+<Lookup
+  name="near.spf.test"
+  notice={
+    <>
+      <p>
+        Eight lookups. Entirely legal today, and the state actually worth
+        warning about — because the next sending service the customer adds is
+        what breaks it, and by then the symptom is failing mail rather than a
+        bad record.
+      </p>
+      <p>
+        The threshold for "near" has a receipt behind it: adding one mainstream
+        sending service costs between one and three lookups, so a domain with
+        fewer than three spare is one integration away from breaking. That is
+        the moment to say something.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="Eight include: terms, two short of the limit."
+  type="TXT"
+/>
+
+<Callout>
+  There is a second, less known cap in the same section: one `mx` mechanism may
+  expand to at most ten names. A domain with eleven MX records has an `mx` term
+  that is a permanent error on its own.
+</Callout>
+
+## Failing on the eleventh, not the tenth
+
+Worth stating separately because it is where implementations go wrong quietly.
+Off-by-one here does not crash. It produces a plausible number, reports a
+working domain as broken or a broken one as fine, and nobody notices until a
+customer argues.
+
+The way to be sure is a fixture sized to land exactly on each side of the
+boundary — one record at ten lookups that must pass, one at eleven that must
+fail — rather than a record at fifteen, which passes any implementation that is
+roughly right.
+
+## Two void lookups
+
+A void lookup is a DNS-querying term that resolves to nothing: NXDOMAIN, or
+NODATA for the type asked. It still spends one of the ten.
+
+Section 4.6.4 permits two. The third is a permanent error.
+
+Almost nobody knows this, and it is the shape of failure where each individual
+piece looks harmless. Three retired `include:` terms pointing at services the
+customer stopped using is a broken SPF record, and reading the record does not
+reveal it — you have to resolve each term to find out that nothing is there.
+
+<Lookup
+  name="void3.spf.test"
+  notice={
+    <>
+      <p>
+        Three <code>a:</code> terms pointing at names that do not exist in this
+        zone. Resolve each one and you will get NXDOMAIN three times.
+      </p>
+      <p>
+        Then look at <code>void1.spf.test</code>, which has one. That is a
+        warning rather than an error: it authorises nothing while still spending
+        a lookup, which is waste rather than breakage.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="Three a: terms, all pointing at absent names."
+  type="TXT"
+/>
+
+## Macros, and the ones that cannot be expanded here
+
+Section 7 lets a record contain macros that expand per connection. `%{i}` is the
+connecting IP, `%{ir}` is it reversed, `%{d}` is the domain whose record is
+being read, `%{l}` is the local part of the envelope sender.
+
+The point of the mechanism is that one published record becomes a different
+query for every connection.
+
+<Lookup
+  name="macroexists.spf.test"
+  notice={
+    <>
+      <p>
+        <code>{"exists:%{ir}.%{v}._spf.spf.test"}</code>. For the sender
+        198.51.100.7 that expands to{" "}
+        <code>7.100.51.198.in-addr._spf.spf.test</code>, which exists. Query it
+        and see. For any other address it asks about a name that is not there.
+      </p>
+      <p>
+        Which means the verdict depends on <em>who is sending</em>. A checker
+        with no sender to evaluate against cannot answer this, and the honest
+        result is not "fail" — it is that the question was not answerable.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="A record whose target name depends on the connecting address."
+  type="TXT"
+/>
+
+Two macros cannot be expanded by anything that is not the receiving MTA. `%{p}`
+is the validated domain name of the connecting address, which needs a reverse
+lookup plus a forward confirmation of every name it returns; RFC 7208 §7.3
+advises against publishing it at all. The same reasoning applies to the `ptr`
+mechanism.
+
+The honest answer for both is that the term is unevaluable, reported as such,
+rather than a guess in either direction. That is a stated gap in the conformance
+ledger rather than an omission — the difference being that a gap has a reason
+written next to it.
+
+<Callout kind="warning">
+  A macro that does not parse makes the whole record malformed, which is a
+  permanent error rather than a term that matches nothing. `%{q}` is not a macro
+  letter; `macrobroken.spf.test` is the fixture for it.
+</Callout>
+
+## redirect is not include
+
+`redirect=` looks like `include:` and behaves differently in two ways that both
+matter.
+
+It replaces the result rather than contributing to it: if the redirected record
+does not match, the whole evaluation takes that record's result, not a fallback.
+
+And section 6.1 says it is **ignored entirely** when the record contains an
+`all` mechanism. Since `all` always matches, evaluation never reaches the
+modifier.
+
+<Lookup
+  name="redirectignored.spf.test"
+  notice={
+    <>
+      <p>
+        <code>v=spf1 -all redirect=one.spf.test</code>. The redirect does
+        nothing at all, because <code>-all</code> matches first and decides the
+        result.
+      </p>
+      <p>
+        A checker that expands the redirect anyway charges a lookup no receiver
+        spends, and reports authorisation from a record no receiver reads. Both
+        directions of wrong from one misread clause.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="A record with both -all and redirect=."
+  type="TXT"
+/>
+
+## Terms after all
+
+Related, and the same class of mistake. `all` always matches, so anything after
+it is unreachable.
+
+<Lookup
+  name="afterall.spf.test"
+  notice={
+    <>
+      <p>
+        <code>v=spf1 -all include:one.spf.test</code>. It reads as though it
+        authorises something. It does not — evaluation stops at{" "}
+        <code>-all</code>.
+      </p>
+      <p>
+        This is worth its own finding rather than being folded into "record
+        malformed", because the record is syntactically fine and the customer's
+        intent is obvious. The fix is a reorder, and saying so is more useful
+        than saying it is broken.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="A record with a term written after -all."
+  type="TXT"
+/>
+
+Two more accounting rules, and then the list is done.
+
+**More than one SPF record is a permanent error.** Not the union of the two —
+RFC 7208 §4.5 makes the domain authorise nothing. The subtlety is that records
+not beginning with `v=spf1` have to be discarded *before* any are counted, or
+every domain with a verification token published as TXT gets reported as having
+two SPF records.
+
+<Lookup
+  name="token.spf.test"
+  notice={
+    <>
+      <p>
+        One SPF record and one verification token at the same name. Filtering on{" "}
+        <code>v=spf1</code> before counting is the whole difference between this
+        and <code>multi.spf.test</code>, which really does have two.
+      </p>
+      <p>
+        A checker that counts TXT records at the apex reports most of the
+        internet as broken.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="Two TXT records, only one of which is SPF."
+  type="TXT"
+/>
+
+**A syntax error is a permanent error.** `ip4:198.51.100.999` is not an
+address. Receivers stop rather than reading past the mistake, so a checker that
+skips the bad term and evaluates the rest is reporting an outcome no receiver
+will produce.
+
+That is SPF. One RFC, thirty catalogued requirements in the ledger this course
+draws on, and a record format simple enough to look obvious. Unit 4 takes the
+other four record types rather more quickly, because the pattern is now
+established: parse it, then reason about it.

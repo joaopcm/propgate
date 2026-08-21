@@ -1,0 +1,251 @@
+# Believing a failure
+
+import { Callout } from "@/components/mdx/callout";
+import { Lookup } from "@/components/lookup";
+
+Everything up to here has been about one check, run once, answered honestly.
+
+This unit is about the harder question, and the one with the highest stakes in
+the whole product: a check just failed. Should anybody be told?
+
+## The webhook that pages the wrong person
+
+Picture the chain. You monitor a customer's domain. The customer is a platform.
+Their customer is a business whose mail depends on it. You fire
+`domain.failed`. Their alerting picks it up. Somebody's phone goes off at
+three in the morning.
+
+Now suppose the record was fine and one resolver had a bad second.
+
+You have not delivered a slightly inaccurate result. You have woken somebody up
+for nothing, and you have taught a platform that your notifications are noise.
+A monitoring product that does that is worse than one that does not exist,
+because at least the absent one leaves them polling their own DNS and trusting
+what they see.
+
+That is the constraint everything below is built to satisfy.
+
+## Asking from more than one place
+
+The first defence is not asking one resolver. Every authenticated check runs
+against a pool of them concurrently.
+
+The same pool for the interactive verify and for the background sweep,
+deliberately — a verify that consulted one resolver and a sweep that consulted
+another could disagree about the same domain a minute apart, and the customer
+would have no way to tell which was right.
+
+Concurrently rather than in sequence, so the wall clock is the slowest vantage
+point rather than their sum. Three resolvers cost roughly 1.2 to 1.5 times one,
+not three times, which is what makes consensus affordable on a button press.
+
+<Lookup
+  name="split.test"
+  notice={
+    <>
+      <p>
+        <code>v=spf1 include:one.spf.test -all</code>. Now ask the divergent
+        server the same question:{" "}
+        <code>dig @127.0.0.8 -p 53 TXT split.test</code>. Different answer, same
+        moment, and both servers are listed in the delegation — so a resolver
+        may legitimately pick either.
+      </p>
+      <p>
+        Nobody is lying. This is the real shape of mid-propagation, and it is
+        also the shape of the "it works for me" support ticket.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="An SPF record authorising the platform."
+  type="TXT"
+/>
+
+## Disagreement is uncertainty, not failure
+
+Reconciliation compares a signature per vantage point: the verdict plus the
+sorted finding codes.
+
+Deliberately not the raw records. Two resolvers legitimately return an RRset in
+different orders and with different remaining TTLs, and calling that a
+divergence would fire on every healthy domain — which is the failure mode this
+whole codebase is most careful about.
+
+Three outcomes:
+
+**Unanimous.** The answer passes through untouched. Nothing to say.
+
+**A strict majority.** The majority's verdict is kept, but raised to at least
+`warn`, with a divergence finding attached. This is the point of having three
+rather than two: one resolver serving a stale answer is outvoted rather than
+being able to make the whole check uncertain. The divergence is still reported,
+because a customer mid-propagation should be told that rather than left
+wondering why the answer changed.
+
+**No majority.** Two that disagree, or a three-way split. There is nothing to
+believe, so the verdict is `indeterminate` — which is exactly the verdict unit 5
+built for this.
+
+<Callout>
+  Every lookup from every vantage point is kept in the result, not just the
+  winner's. A query made and not shown is a cost the caller pays and cannot see —
+  and when the question is "why do you say this is uncertain", the losing vantage
+  point's lookups are the entire answer.
+</Callout>
+
+## What three resolvers on one host cannot see
+
+The honest limit, stated because a product that overclaims here is selling
+something it does not have.
+
+Several resolvers reached from one machine share an egress IP. They are only
+weakly independent. What they catch is real: cache state, propagation lag, one
+resolver being broken.
+
+What they cannot see is GeoDNS, anycast, or a network path that differs by
+geography. A domain answering differently in Frankfurt than in São Paulo looks
+identical from here.
+
+The fixture tier has the same limitation and says so. Real GeoDNS is out of
+reach from one host, so the divergence fixture is two authoritative servers
+serving different content for the same name — which exercises the reconciliation
+logic exactly, and is not a simulation of geography.
+
+## Counting failures
+
+Consensus handles one bad resolver. It does not handle a bad *minute*, when
+every vantage point sees the same transient problem.
+
+So the state machine counts. A single failing check does not move a verified
+domain anywhere. It takes consecutive failures.
+
+```
+pending → verifying → verified → degraded → failed
+                          ↑          |         |
+                          └──────────┴─────────┘
+                              recovered
+```
+
+The thresholds are one for `degraded` and three for `failed`, and both are
+commented in the source as **unmeasured**, with the measurement that would
+justify them named next to them.
+
+That honesty is the point. One for a warning is the conservative choice: it
+costs a possibly-noisy event and buys the shortest time to notice. Three for a
+failure, at the five-minute cadence a degraded domain gets, is roughly ten
+minutes of sustained failure before anyone says so — long enough to outlast a
+resolver restart or a zone reload, short enough to be useful.
+
+<Callout kind="warning">
+  Neither number came from data. The receipt they are waiting on is the observed
+  distribution of consecutive transient failures across real monitored domains
+  over thirty days. A limit with no measurement behind it is a landmine, and
+  labelling it as one is the least a codebase can do while it waits.
+</Callout>
+
+## Why indeterminate neither increments nor resets
+
+This is the sharpest piece of reasoning in the implementation, and it is worth
+working through rather than reading.
+
+A check comes back `indeterminate`. What happens to the failure counter?
+
+**Reset it to zero?** Then a domain that alternates failure and unreachability
+never accumulates three consecutive failures. It can never reach `failed`. A
+genuinely broken domain behind a flaky resolver would be monitored forever and
+never reported. That is a real bug hiding inside an intuitive choice.
+
+**Increment it?** Then our own resolver having a bad minute pages somebody.
+Which is the thing this entire unit exists to prevent.
+
+**Leave it exactly as it was.** Uncertainty is not evidence of failure, and it is
+not evidence of health either. Nothing moves and the counter is untouched.
+
+Three options, two of which are wrong in opposite directions and both of which
+look reasonable in isolation.
+
+## degraded needs something to have regressed from
+
+A second subtlety with the same flavour.
+
+`degraded` means "this used to work and now does not". So it needs something to
+have regressed from. A domain nobody has ever verified cannot have got worse.
+
+Without that guard, two things fire `domain.degraded` when they should not: a
+freshly registered domain whose first check finds nothing published, and a
+domain reset to `pending` because its expectations were rotated. Both would be a
+notification saying "this used to work" about something that never did.
+
+So a failing domain only becomes `degraded` if it was `verified` or already
+`degraded`. Otherwise it stays `pending` until it has failed enough times to be
+`failed` outright — which is the honest reading of a customer who has not
+finished adding their records.
+
+<Callout>
+  A warning is not a failure. A domain close to SPF's ten-lookup limit works
+  today, and calling that degraded would train people to ignore the state. `warn`
+  is treated as a pass by the state machine, which is why the severity of a
+  diagnosis code is a decision about the state machine rather than about
+  presentation.
+</Callout>
+
+## Once per episode
+
+The last piece, and it comes free rather than needing its own rule.
+
+A transition is reported only when the state actually moved. A domain that stays
+`degraded` for a week produces one transition, not two thousand.
+
+That is the same shape as "store changes, never observations" from unit 0, and
+getting the once-per-episode property out of it — rather than out of a separate
+suppression rule somewhere else — is why there is nothing here to forget. There
+is no code path that emits an event without a state change, because emitting is
+downstream of the change.
+
+## Thirty seconds, then five minutes, then a day
+
+The schedule is adaptive rather than uniform, and this is one of three decisions
+that *is* the infrastructure bill rather than merely affecting it.
+
+| State | Interval |
+|---|---|
+| `pending` / `verifying`, first 15 minutes | 30 seconds |
+| `pending` / `verifying`, after that | 5 minutes |
+| `verified` | daily, floored at the shortest observed TTL |
+| `degraded` | 5 minutes |
+| `failed` | hourly |
+
+Sweeping everything on one interval costs roughly ten times as much and gives a
+worse experience at both ends: too slow while somebody is waiting at onboarding,
+too fast for a domain that has been stable for a month.
+
+These numbers come from the cost model rather than from a measurement, and the
+source says so. That is provenance, not a receipt. What would earn the receipt is
+the observed distribution of time-to-first-success at onboarding, and of how
+often a stable domain's records actually move.
+
+They are injectable rather than environment-tunable, deliberately. A number
+nobody has measured does not need a production override — it needs the
+measurement. The thresholds that *do* get overrides are the hysteresis ones,
+where being wrong means a false alarm reaching a customer rather than a slightly
+wasteful poll.
+
+## The TTL floor, and where it does not apply
+
+For a domain that already passes, the only question left is whether anything
+changed. Nothing can change faster than the TTL, so polling inside it spends
+queries to re-read a cache. Raising the interval to the TTL is free accuracy.
+
+Applying the same floor to a `pending` domain would be actively wrong. There the
+customer has just edited their zone and you are waiting to notice; a provider
+serving a one-hour negative TTL would push the first re-check an hour out and
+make onboarding feel broken.
+
+So the floor applies to `verified` and nothing else. The resolver's own cache may
+still delay a pending check by up to the TTL, which is acceptable because it
+self-corrects — unlike a scheduling decision, which stays wrong until the state
+changes.
+
+That is the whole of regression detection. Consensus for one bad resolver,
+counting for one bad minute, a state distinct from failure for a domain that
+might recover, and a schedule that spends queries where they buy something.

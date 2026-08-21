@@ -1,0 +1,305 @@
+# A resolver with no dependencies
+
+import { Callout } from "@/components/mdx/callout";
+import { Lookup } from "@/components/lookup";
+
+Node ships a DNS client. `dns.Resolver` wraps c-ares, it is fast, and it is
+correct. For most programs it is the right answer.
+
+It cannot do this job. Not because it is bad, but because it hands you the
+*answer* and throws away the *response* — and every finding in the previous
+unit lives in the parts it discards.
+
+| What a verifier needs | What `node:dns` gives you |
+|---|---|
+| The TC bit | Not exposed. A truncated key is indistinguishable from a missing record |
+| The DO bit and RRSIG records | Cannot set DO, never returns RRSIGs. No DNSSEC state, no wildcard `Labels` signal |
+| The authority-section SOA of an NXDOMAIN | Discarded, so RFC 2308's negative-cache TTL cannot be computed |
+| Control of the advertised EDNS buffer | Not available, so truncation cannot be driven from the client |
+| REFUSED vs SERVFAIL vs NXDOMAIN | Collapsed into error codes that lose the distinction |
+| The AA flag | Not exposed, so a lame delegation is invisible |
+
+Add a promise of zero runtime dependencies — the library is the thing that has
+to be credible on its own — and there is exactly one option left. Encode and
+decode DNS messages yourself, over `node:dgram` and `node:net`.
+
+That is about two thousand lines. This unit is what they do.
+
+## Twelve bytes of header
+
+Every DNS message, query or response, starts with the same twelve bytes.
+
+```
+ 0  1                                       15
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|                       ID                      |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|QR|   Opcode  |AA|TC|RD|RA| Z|AD|CD|   RCODE   |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|                    QDCOUNT                    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|                    ANCOUNT                    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|                    NSCOUNT                    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|                    ARCOUNT                    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+```
+
+Six sixteen-bit fields. The second one is where the flags live, packed as bits,
+and it is the interesting one:
+
+- **QR** — is this a response? Set on the way back.
+- **AA** — Authoritative Answer. The responding server owns this zone. Absent
+  from a delegated server's answer, this is a lame delegation.
+- **TC** — TrunCation. Unit 1's invisible flag.
+- **RD** / **RA** — recursion desired, recursion available.
+- **AD** — Authentic Data. The resolver validated DNSSEC for this answer.
+- **CD** — Checking Disabled. The client asked the resolver not to validate.
+- **RCODE** — 0 NOERROR, 2 SERVFAIL, 3 NXDOMAIN, 5 REFUSED.
+
+The four counts say how many records follow, in four sections: question,
+answer, authority, additional.
+
+<Callout>
+  `RCODE` 0 with `ANCOUNT` 0 is NODATA. There is no dedicated code for it,
+  which is exactly why so much software reports it as "not found" — the
+  distinction is in a count, not in a status.
+</Callout>
+
+The ID is sixteen random bits, echoed back by the server. Since the socket is
+connected the kernel already drops datagrams from other peers, so the check is
+there to catch a stale reply arriving on a reused ephemeral port. It is drawn
+from `node:crypto` rather than `Math.random`, which costs nothing at one call
+per query and removes the "is this random enough?" question from a
+security-adjacent decision.
+
+## A question, encoded
+
+The question section holds a name, a type, and a class.
+
+The name is not a string with dots. It is a sequence of length-prefixed labels,
+terminated by a zero byte. `spf.test` is:
+
+```
+0x03 's' 'p' 'f' 0x04 't' 'e' 's' 't' 0x00
+```
+
+Two hard limits, both from RFC 1035 §2.3.4: a label is at most 63 bytes, and the
+whole name is at most 255 bytes on the wire. The 63-byte cap is why the top two
+bits of a length byte are free, which matters in the next section.
+
+Type is a number — `A` is 1, `NS` is 2, `CNAME` is 5, `SOA` is 6, `MX` is 15,
+`TXT` is 16, `AAAA` is 28, `OPT` is 41, `RRSIG` is 46, `DS` is 43, `DNSKEY` is
+48, `CAA` is 257. Class is almost always 1, for `IN`.
+
+That is the entire query. Twelve bytes of header, an encoded name, four more
+bytes, and you are done.
+
+## The pointer that saves the packet
+
+A response repeating `selector1._domainkey.appended.test` in every record would
+waste most of the packet on the same name. So RFC 1035 §4.1.4 allows a name to
+end in a pointer to a name earlier in the message.
+
+A length byte with its top two bits set is not a length. It is the high six bits
+of a fourteen-bit offset from the start of the message, with the next byte
+supplying the rest. Labels are capped at 63 bytes precisely so those two bits
+are available to mean this.
+
+This is where a hand-rolled parser earns its complexity, because a hostile or
+merely broken message can point a name at itself. A decoder that follows
+pointers without a bound loops forever on eleven bytes of input.
+
+<Callout kind="warning">
+  Every read in the parser is bounds-checked against the end of the buffer. That
+  is not defensive habit — a truncated or malformed response is a routine
+  observation for a tool like this, and reading past the end should surface as a
+  diagnosable finding rather than as an out-of-range error from Node.
+</Callout>
+
+## Reading an answer by hand
+
+Worth doing once. `dig` will show you the bytes it sent and received.
+
+<Lookup
+  flags="+qr +noall +question +answer +comments"
+  name="healthy.test"
+  notice={
+    <>
+      <p>
+        <code>+qr</code> prints the query as well as the response, so you can see
+        both halves of the exchange. The header line lists the flags and the
+        section counts, which are the six fields above in the order they appear
+        on the wire.
+      </p>
+      <p>
+        For the actual bytes, add <code>+hexl</code>. Find the twelve header
+        bytes, then the length-prefixed labels of the question name, then look
+        for a byte with its top two bits set — <code>0xc0</code> — where a name
+        appears a second time. That is the pointer.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="Two blocks: the question sent, and the response received."
+  type="TXT"
+/>
+
+## EDNS0, and asking for a bigger envelope
+
+The original protocol caps a UDP response at 512 bytes. That was generous in
+1987 and is not now: a single 4096-bit DKIM key does not fit.
+
+EDNS0 (RFC 6891) extends it by smuggling a pseudo-record into the additional
+section. Type 41, `OPT`, and its fields are repurposed — the class field carries
+the buffer size the client can accept, and part of the TTL field carries the DO
+bit that asks for DNSSEC records.
+
+Two consequences worth holding on to.
+
+**Sending no OPT record caps you at 512 bytes, by protocol, regardless of what
+the server is configured to do.** That makes it the only reliable way to drive
+truncation from the client side, which is how the truncation fixtures work.
+
+**The DO bit is how you get RRSIGs at all.** Without it there is no DNSSEC
+state to read and no wildcard `Labels` signal. c-ares cannot set it, which is
+one row of the table at the top of this unit.
+
+<Lookup
+  flags="+dnssec +norecurse"
+  name="secure.test"
+  notice={
+    <>
+      <p>
+        RRSIG records alongside the answer, and an OPT pseudo-record in the
+        additional section with <code>flags: do</code>. Drop{" "}
+        <code>+dnssec</code> and the signatures vanish — the server has them and
+        does not send them unless asked.
+      </p>
+      <p>
+        The RRSIG's <code>Labels</code> field is the wildcard signal from unit 1.
+        For a name with three labels answered by a wildcard, it reads 2.
+      </p>
+    </>
+  }
+  server="auth"
+  shape="TXT answer plus RRSIG records, and an OPT record in ADDITIONAL."
+  type="TXT"
+/>
+
+## Following a delegation from the root
+
+Everything so far assumed you knew which server to ask. A recursive resolver
+does not.
+
+It starts with root hints — a small list of addresses that are not discovered,
+because there is nowhere to discover them from. It asks a root server for the
+name it wants. The root does not know, but it knows who does, and returns a
+referral: NS records in the authority section, and often their addresses in the
+additional section as glue.
+
+Then it asks one of those. And repeats, until a server answers with `AA` set.
+
+The fixture tier is a real, if small, version of this. There is a root server
+serving a root zone that delegates `test.`, an authoritative server for
+`test.` and its children, and two resolvers doing the walk.
+
+<Lookup
+  flags="+norecurse"
+  name="healthy.test"
+  notice={
+    <>
+      <p>
+        No answer, because the root is not authoritative for anything under{" "}
+        <code>test.</code>. What comes back is a referral: NS records in the
+        authority section naming the servers for <code>test.</code>, and glue
+        addresses in additional.
+      </p>
+      <p>
+        Follow it by hand. Take the address from the additional section and ask
+        it the same question, still with <code>+norecurse</code>. That answer has{" "}
+        <code>aa</code> in the flags, which is how you know the walk is over.
+      </p>
+    </>
+  }
+  server="root"
+  shape="No answer section. NS records under AUTHORITY and glue under ADDITIONAL."
+  type="NS"
+/>
+
+Two failures you can now name precisely. A delegated server that answers
+without `AA` set is a **lame delegation** — it was named as authoritative and
+does not think it is. A delegated server that does not answer at all is
+unreachable, and the two are different problems with different owners.
+
+<Lookup
+  flags="+norecurse"
+  name="lame.test"
+  notice={
+    <>
+      <p>
+        REFUSED, not a timeout. This server exists and is answering — it simply
+        does not serve this zone, despite the parent's delegation naming it.
+      </p>
+      <p>
+        The distinction matters because a timeout could be a firewall, a network
+        blip, or a server that is down for thirty seconds. A REFUSED is a
+        definite statement, and the fixture set has a separate decoy server
+        specifically so this case produces one rather than silence.
+      </p>
+    </>
+  }
+  server="decoy"
+  shape="status: REFUSED."
+  type="TXT"
+/>
+
+## Why port is a field and not the number 53
+
+An address in this codebase is `{ address, port, transport }`. The port is never
+assumed.
+
+This reads as pedantry until you try to build the tier above. Root hints have to
+be injectable, because a test root server is not the real root. And if the code
+that follows a delegation hardcodes 53, then a test tier on high ports needs a
+shim between the resolver and the socket — at which point the thing under test
+is no longer the thing that ships.
+
+The fixture tier solves it the other way. Six servers, each on its own loopback
+address, all on real port 53. Delegation-following needs no special case at all,
+because the addresses in the glue records are addresses the resolver can use
+directly.
+
+<Callout>
+  Hardcoding 53 breaks the test tier. Hardcoding a high port breaks production.
+  Making it a field costs one property on a type and removes the choice.
+</Callout>
+
+## The query budget
+
+One check can fan out a long way. An SPF record with nested `include:` terms is
+a tree; a CNAME chain is a walk; six record types at four names is twenty-four
+lookups before anything goes wrong.
+
+So evaluators never call the transport directly. They go through a context that
+carries three things a bare function call cannot:
+
+**A shared lookup counter.** SPF's ten-lookup limit is per evaluation, not per
+record, and it has to survive recursive expansion. The counter has to live above
+the evaluator.
+
+**A shared deadline.** A check that takes thirty seconds because each of six
+lookups waited five is a check nobody runs from a button.
+
+**The derivation.** Every lookup is recorded with the reason it happened. That
+is what turns a verdict into an explanation, and it is why a result can show its
+own working.
+
+There is also a backstop on total lookups, set generously — fifty, where a good
+domain uses a handful. That number is a tripwire rather than a design
+constraint: it exists so a pathological zone cannot make one check run forever,
+and if a legitimate domain ever touched it, the number would be wrong and would
+need re-measuring rather than working around.
+
+That is the machinery. From here on, every unit is about what to *ask*.
