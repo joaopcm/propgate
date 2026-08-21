@@ -1,7 +1,7 @@
 // GENERATED FILE — DO NOT EDIT.
 //
 // Vendored from https://github.com/publicsuffix/list
-// Upstream commit: e1b8015c3b2f0f4f8c18659c2480fc1a22c07b20
+// Upstream commit: e8c9a2b2b2856b6449999dd0ec0d118f364ed0cd
 //
 // Regenerate with: pnpm --filter @propgate/dns psl:refresh
 //
@@ -13,7 +13,7 @@
 // PRIVATE, so whether user.github.io is an organizational domain depends on which
 // sections a caller includes — see the note on `includePrivate` in ./index.ts.
 
-export const PSL_UPSTREAM_COMMIT = "e1b8015c3b2f0f4f8c18659c2480fc1a22c07b20";
+export const PSL_UPSTREAM_COMMIT = "e8c9a2b2b2856b6449999dd0ec0d118f364ed0cd";
 
 export const ICANN_LITERALS: readonly string[] = [
   "0.bg",
@@ -7031,7 +7031,6 @@ export const PRIVATE_LITERALS: readonly string[] = [
   "ac.ru",
   "accesscam.org",
   "activetrail.biz",
-  "adaptable.app",
   "adimo.co.uk",
   "adobeaemcloud.com",
   "adobeaemcloud.net",
@@ -7050,7 +7049,6 @@ export const PRIVATE_LITERALS: readonly string[] = [
   "affinitylottery.org.uk",
   "africa.com",
   "aiven.app",
-  "aivencloud.com",
   "akadns.net",
   "akamai-staging.net",
   "akamai.net",
@@ -7073,6 +7071,7 @@ export const PRIVATE_LITERALS: readonly string[] = [
   "alwaysdata.net",
   "am.leg.br",
   "amplifyapp.com",
+  "ams.scw.site",
   "analytics-gateway.ap-northeast-1.amazonaws.com",
   "analytics-gateway.ap-northeast-2.amazonaws.com",
   "analytics-gateway.ap-south-1.amazonaws.com",
@@ -7376,6 +7375,7 @@ export const PRIVATE_LITERALS: readonly string[] = [
   "cistron.nl",
   "clan.rip",
   "claude.app",
+  "claudeusercontent.com",
   "clerk.app",
   "clerkstage.app",
   "cleverapps.cc",
@@ -7451,6 +7451,8 @@ export const PRIVATE_LITERALS: readonly string[] = [
   "cockpit.pl-waw.scw.cloud",
   "cocotte.jp",
   "codeberg.page",
+  "codepen.app",
+  "codepen.dev",
   "codespot.com",
   "col.ng",
   "collegefan.org",
@@ -7939,6 +7941,7 @@ export const PRIVATE_LITERALS: readonly string[] = [
   "fr-par-2.baremetal.scw.cloud",
   "fr.eu.org",
   "fra1-de.cloudjiffy.net",
+  "frame.claudeusercontent.com",
   "framer.ai",
   "framer.app",
   "framer.media",
@@ -8119,6 +8122,7 @@ export const PRIVATE_LITERALS: readonly string[] = [
   "hercules-app.com",
   "hercules-dev.com",
   "here-for-more.info",
+  "here.now",
   "herokuapp.com",
   "heteml.net",
   "heyflow.page",
@@ -8856,6 +8860,7 @@ export const PRIVATE_LITERALS: readonly string[] = [
   "onhercules.app",
   "onid.ca",
   "oninferno.net",
+  "online-server.cloud",
   "online.th",
   "onporter.run",
   "onrender.com",
@@ -9425,6 +9430,7 @@ export const PRIVATE_LITERALS: readonly string[] = [
   "scrapper-site.net",
   "scrapping.cc",
   "scrysec.com",
+  "scw.site",
   "sdscloud.pl",
   "se.eu.org",
   "se.leg.br",
@@ -9835,7 +9841,7 @@ export const PRIVATE_LITERALS: readonly string[] = [
   "vpndns.net",
   "vpnplus.to",
   "vps-host.net",
-  "vps.hrsn.au",
+  "vps.hrsn.net",
   "vps.mcdir.ru",
   "vs.mythic-beasts.com",
   "vusercontent.net",
@@ -9846,6 +9852,7 @@ export const PRIVATE_LITERALS: readonly string[] = [
   "wal.app",
   "wasmer.app",
   "watson.jp",
+  "waw.scw.site",
   "we.bs",
   "web.app",
   "web.core.usgovcloudapi.net",
@@ -10046,6 +10053,7 @@ export const PRIVATE_WILDCARDS: readonly string[] = [
   "*.airflow.us-east-2.on.aws",
   "*.airflow.us-west-1.on.aws",
   "*.airflow.us-west-2.on.aws",
+  "*.aivencloud.com",
   "*.alces.network",
   "*.ap-east-1.airflow.amazonaws.com",
   "*.ap-east-1.rds.amazonaws.com",
@@ -10109,6 +10117,7 @@ export const PRIVATE_WILDCARDS: readonly string[] = [
   "*.compute.amazonaws.com",
   "*.compute.amazonaws.com.cn",
   "*.compute.estate",
+  "*.cursorusercontent.com",
   "*.customer-oci.com",
   "*.d.crm.dev",
   "*.database.run",
