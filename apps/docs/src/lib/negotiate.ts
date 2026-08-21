@@ -1,6 +1,6 @@
 import { prefersJson, prefersMarkdown } from "./accept";
 import { jsonErrorResponse } from "./json-error";
-import { markdownPathFor } from "./markdown-pages";
+import { markdownPathFor } from "./markdown-paths";
 import { notFoundMarkdown } from "./not-found-markdown";
 
 /**

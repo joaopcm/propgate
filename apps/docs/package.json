@@ -8,7 +8,8 @@
     "dev": "next dev",
     "lint": "tsc --noEmit",
     "start": "next start",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "verify:worker": "wrangler deploy --dry-run"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.1",
