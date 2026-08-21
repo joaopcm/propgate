@@ -85,7 +85,7 @@ export function conformanceMarkdown(): string {
           ? "No catalogued gaps."
           : rfc.gaps.map((gap) => `- ${gap.requirement}`).join("\n");
 
-      return `## RFC ${rfc.rfc}: ${rfc.title}`
+      return `## RFC ${rfc.rfc}: ${rfc.title}
 
 ${rfc.implemented} of ${rfc.applicable} catalogued requirements implemented (${percentage(rfc.implemented, rfc.applicable)}%).
 
