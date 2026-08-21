@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { blocksFrom } from "@/lib/prose";
 import { DOCS_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -23,9 +24,17 @@ export function SiteFrame({
 export function Prose({ text }: { text: string }) {
   return (
     <div className="mt-8 space-y-4 text-muted-foreground text-sm leading-relaxed">
-      {text.split("\n\n").map((paragraph) => (
-        <p key={paragraph.slice(0, 48)}>{paragraph}</p>
-      ))}
+      {blocksFrom(text).map((block) =>
+        block.kind === "p" ? (
+          <p key={block.text.slice(0, 48)}>{block.text}</p>
+        ) : (
+          <ul className="list-disc space-y-2 pl-5" key={block.items[0]}>
+            {block.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )
+      )}
     </div>
   );
 }
