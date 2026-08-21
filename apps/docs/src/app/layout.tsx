@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
+import { JsonLd } from "@/components/json-ld";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const sans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
@@ -8,18 +10,24 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   alternates: { canonical: "./" },
-  description:
-    "propgate docs: API reference, CLI, SDK, authentication, webhooks, diagnosis taxonomy, and RFC conformance for domain verification.",
-  metadataBase: new URL("https://docs.propgate.dev"),
+  description: SITE_DESCRIPTION,
+  metadataBase: new URL(SITE_URL),
   openGraph: {
-    description:
-      "propgate docs: API reference, CLI, SDK, authentication, webhooks, and the diagnosis taxonomy.",
-    siteName: "propgate docs",
-    title: "propgate docs",
+    description: SITE_DESCRIPTION,
+    images: [
+      {
+        alt: "propgate docs: DNS diagnosis and API reference",
+        height: 630,
+        url: "/opengraph-image",
+        width: 1200,
+      },
+    ],
+    siteName: SITE_NAME,
+    title: SITE_NAME,
     type: "website",
-    url: "https://docs.propgate.dev",
+    url: SITE_URL,
   },
-  title: { default: "propgate docs", template: "%s — propgate docs" },
+  title: { default: SITE_NAME, template: `%s · ${SITE_NAME}` },
 };
 
 export default function RootLayout({
@@ -31,6 +39,7 @@ export default function RootLayout({
       lang="en"
     >
       <body className="bg-background font-sans text-foreground">
+        <JsonLd />
         {children}
       </body>
     </html>

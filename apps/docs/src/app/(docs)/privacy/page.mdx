@@ -1,0 +1,29 @@
+# Privacy
+
+propgate processes the least it can and still answer the question you asked.
+
+The public checker (`POST /v1/checks` and the form on propgate.dev) sends us
+a domain name and optional check parameters. We look up DNS, return the
+result, and do not keep a history of those checks. The client address is used
+only to rate-limit (20 checks a minute). We do not sell that traffic, append
+it to a marketing list, or share it with advertisers.
+
+An account stores the email you confirmed, the hash of each API key (never
+the secret after the one response that shows it), the domains you register,
+the profiles you write, webhook URLs and hashed signing secrets, and the
+per-requirement results of checks you asked for. Signup adds the address to
+a product list only when that list is configured on the deployment; a
+self-hosted box without one still hands out keys.
+
+Webhooks deliver domain state to a URL you gave us. We sign the body. We do
+not read your customers' mail or open their zones beyond the queries a check
+makes.
+
+You can delete a domain (`DELETE /v1/domains/:id`) and revoke a key. To
+close an account or ask what we hold, write
+[hello@propgate.dev](mailto:hello@propgate.dev) or open an issue on
+[GitHub](https://github.com/joaopcm/propgate). The library you run locally
+(`@propgate/dns`, the CLI without `--remote`) never sends us anything.
+
+This policy is for the hosted API and docs at `*.propgate.dev`. It is not
+legal advice, and a self-hosted deployment is yours to govern.

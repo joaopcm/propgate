@@ -11,6 +11,12 @@ export function DocsHeader() {
       </Link>
       <nav className="ml-auto flex items-center gap-4 text-muted-foreground text-xs">
         <DocsSearch />
+        <Link
+          className="transition-colors hover:text-foreground"
+          href="/developers"
+        >
+          Developers
+        </Link>
         <Link className="transition-colors hover:text-foreground" href="/api">
           API
         </Link>

@@ -3,6 +3,7 @@ import { Breadcrumbs } from "@/components/docs/breadcrumbs";
 import { PagerFooter } from "@/components/docs/pager-footer";
 import { DocsHeader } from "@/components/docs-header";
 import { DocsSidebar } from "@/components/docs-sidebar";
+import { SiteFooter } from "@/components/site-footer";
 
 export default function DocsLayout({ children }: { children: ReactNode }) {
   return (
@@ -22,6 +23,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
           </div>
         </main>
       </div>
+      <SiteFooter />
     </div>
   );
 }

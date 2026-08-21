@@ -66,6 +66,7 @@ export const navigation: readonly NavSection[] = [
       { href: "/", title: "Introduction" },
       { href: "/quickstart", title: "Quickstart" },
       { href: "/authentication", title: "Authentication" },
+      { href: "/developers", title: "Developer portal" },
     ],
     title: "Get started",
   },

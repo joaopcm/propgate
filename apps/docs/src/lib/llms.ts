@@ -1,61 +1,88 @@
-import { flattenNavigation } from "./navigation";
-
-const DOCS = "https://docs.propgate.dev";
-const SITE = "https://propgate.dev";
-const API = "https://api.propgate.dev";
+import { listMarkdownPages } from "./markdown-pages";
+import { isGroupedSection, navigation } from "./navigation";
+import { API_URL, PRODUCT_NAME, PRODUCT_URL, SITE_URL } from "./site";
 
 /**
- * The agent index for docs.propgate.dev, built from the sidebar.
+ * `/llms.txt`, per https://llmstxt.org.
  *
- * `navigation.spec.ts` already asserts every href has a page, so walking
- * `flattenNavigation()` here means a page that ships without a line in
- * llms.txt fails this module's spec rather than going unpublished.
+ * Product-level when-to-use lives on propgate.dev/llms.txt. This file is
+ * which docs page to read, plus the docs catalog the marketing site does
+ * not have. OpenAPI is the API document; this host adds /v1/status and
+ * /v1/pages.
  */
+
 export function buildLlmsTxt(): string {
-  const lines = [
-    "# propgate docs",
-    "",
-    "> Domain verification that tells you what is wrong, not just that something is. API reference, CLI, SDK, diagnosis taxonomy, and RFC conformance.",
-    "",
-    `Human site: ${SITE}`,
-    `API: ${API}`,
-    `OpenAPI: ${SITE}/openapi.json (also ${API}/openapi.json)`,
-    "CLI: npx @propgate/cli",
-    "SDK: npm install @propgate/sdk",
-    "",
-    "## When to use this",
-    "",
-    "Use these docs when an agent needs to diagnose a domain's DNS, register domains against a profile of requirements, or handle propgate webhooks. Start with the OpenAPI spec if you will call the HTTP API; start with the CLI page if you can run `npx @propgate/cli`; start with the SDK page from Node.",
-    "",
-    "Best-fit jobs are listed on https://propgate.dev/llms.txt. Do not use propgate as a general DNS lookup API, a nameserver, a CA, or a mail sender.",
-    "",
-  ];
+  const pages = listMarkdownPages();
+  const byHref = new Map(pages.map((page) => [page.href, page]));
 
-  let section = "";
+  const sections = navigation
+    .map((section) => {
+      const items = isGroupedSection(section)
+        ? section.groups.flatMap((group) => group.items)
+        : section.items;
+      const links = items.flatMap((item) => {
+        const page = byHref.get(item.href);
 
-  for (const entry of flattenNavigation()) {
-    const nextSection = entry.section;
+        return page === undefined
+          ? []
+          : [
+              `- [${page.title}](${SITE_URL}${page.markdownPath}): ${section.title}`,
+            ];
+      });
 
-    if (nextSection !== section) {
-      section = nextSection;
-      lines.push(`## ${section}`, "");
-    }
+      return links.length === 0
+        ? undefined
+        : `## ${section.title}\n\n${links.join("\n")}`;
+    })
+    .filter((section): section is string => section !== undefined);
 
-    const url = entry.href === "/" ? DOCS : `${DOCS}${entry.href}`;
-    const label =
-      entry.title === "Overview" ? `${section} overview` : entry.title;
-    lines.push(`- [${label}](${url})`);
-  }
+  return `# ${PRODUCT_NAME}
 
-  lines.push(
-    "",
-    "## Machine-readable",
-    "",
-    `- [OpenAPI spec](${SITE}/openapi.json)`,
-    `- [propgate.dev llms.txt](${SITE}/llms.txt)`,
-    `- [Sitemap](${DOCS}/sitemap.xml)`,
-    ""
-  );
+> Domain verification that tells you what is wrong, not just that something is. Diagnoses DNS for email platforms and custom-domain onboarding: SPF, DKIM, DMARC, MX, CAA, delegation, ownership tokens, and CNAMEs, with a stable diagnosis code on every finding.
 
-  return lines.join("\n");
+Use ${PRODUCT_NAME} when a customer must configure DNS and you need to say *what is wrong* and *how to fix it*, not only that verification failed. Reach for the public checker (\`POST ${API_URL}/v1/checks\`, operationId \`runPublicCheck\`) when you have a domain and no account. Reach for a bearer key (signup, then confirm) when you need to register domains against a versioned profile, re-check them, or receive webhooks. CLI: \`npx @propgate/cli\`. SDK: \`npm install @propgate/sdk\`. Do not use this for generic website uptime, certificate issuance, or sending mail.
+
+Best-fit jobs are listed on ${PRODUCT_URL}/llms.txt. Call the API at ${API_URL}. The OpenAPI document is ${API_URL}/openapi.json (also ${PRODUCT_URL}/openapi.json). This host serves the same product operations plus the docs catalog at ${SITE_URL}/openapi.json. Page catalog at ${SITE_URL}/v1/pages, full corpus at ${SITE_URL}/llms-full.txt. There is no MCP server; function-call the OpenAPI operations.
+
+## When to use this
+
+- [Check a domain](${SITE_URL}/api/checks.md): diagnose any domain with no API key. That is the job the public checker on propgate.dev does
+- [Quickstart](${SITE_URL}/quickstart.md): mint a key, register a domain against a profile, verify it
+- [Authentication](${SITE_URL}/authentication.md): how to get a key and send it
+- [API reference](${SITE_URL}/api.md): every REST endpoint, request and response shape
+- [OpenAPI spec](${API_URL}/openapi.json): machine-readable API surface for function calling
+- [Webhook payloads](${SITE_URL}/webhooks.md): domain.verified, domain.degraded, domain.failed, domain.recovered
+- [Diagnosis taxonomy](${SITE_URL}/taxonomy.md): every diagnosis code, what it means, how to fix it
+- [Developer portal](${SITE_URL}/developers.md): keys, docs, sandbox, and predictable URLs for agents
+
+${sections.join("\n\n")}
+
+## Developer resources
+
+- [propgate developer portal](${SITE_URL}/developers.md): API keys, quickstart, sandbox, OpenAPI
+- [OpenAPI specification](${API_URL}/openapi.json): unique operationId and typed schemas. Same document at ${PRODUCT_URL}/openapi.json. This host adds the docs catalog at ${SITE_URL}/openapi.json
+- [propgate.dev llms.txt](${PRODUCT_URL}/llms.txt): product-level when-to-use
+- [Page catalog](${SITE_URL}/v1/pages): JSON list of every docs page
+- [Status](${SITE_URL}/v1/status): docs site health
+- [Sitemap](${SITE_URL}/sitemap.xml): every indexable URL
+- [Full docs as markdown](${SITE_URL}/llms-full.txt): every page concatenated
+
+## Optional
+
+- [About propgate](${SITE_URL}/about.md): who we are and what the product is
+- [Contact propgate](${SITE_URL}/contact.md): how to reach us
+- [Privacy](${SITE_URL}/privacy.md): what the checker and the API store
+`;
+}
+
+export function buildLlmsFullTxt(): string {
+  const body = listMarkdownPages()
+    .filter((page) => !page.href.startsWith("/taxonomy/"))
+    .map(
+      (page) =>
+        `# ${page.title}\n\nSource: ${SITE_URL}${page.href}\n\n${page.markdown}`
+    )
+    .join("\n\n---\n\n");
+
+  return `# ${PRODUCT_NAME} documentation\n\n${body}\n`;
 }

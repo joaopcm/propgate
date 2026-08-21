@@ -1,0 +1,24 @@
+# About propgate
+
+propgate is domain verification that tells you what is wrong, not just that
+something is. Companies whose customers configure DNS (email platforms,
+custom domains, anything with a "verify your domain" screen) rebuild the
+same brittle checker. This is the part they never get to: the semantics, the
+provider quirks, and the difference between *broken* and *we could not tell*.
+
+The published product is a MIT-licensed DNS library and CLI, a source-available
+API, and a free public checker. It runs on one small server. The library
+(`@propgate/dns`) has zero runtime dependencies. The API at
+`https://api.propgate.dev` registers domains against a versioned profile,
+verifies them, and reports per-requirement results plus a change timeline.
+
+Every finding carries a diagnosis code. There are scores of them, each a
+stable contract you can switch on, each either reproduced by a fixture in the
+test harness or carrying a written reason why it cannot be. Verdicts are four,
+not two: `pass`, `warn`, `fail`, and `indeterminate`, because "this is broken"
+and "we could not tell" are different answers.
+
+Source is on [GitHub](https://github.com/joaopcm/propgate). Documentation lives
+at [docs.propgate.dev](https://docs.propgate.dev). The checker is at
+[propgate.dev](https://propgate.dev). For keys and a sandbox, see the
+[developer portal](/developers). To get in touch, see [contact](/contact).
