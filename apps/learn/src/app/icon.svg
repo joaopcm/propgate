@@ -1,0 +1,35 @@
+<svg
+  height="32"
+  viewBox="0 0 32 32"
+  width="32"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <title>propgate</title>
+  <!--
+    A lowercase p, and the trailing dot of a fully-qualified domain name.
+
+    `example.com.` — that final dot is the root, the thing every delegation this
+    product walks eventually reaches, and it is green because the name checks
+    out. Two shapes rather than three: the earlier draft added a stem, a ring
+    and a dot, and at 16 pixels three elements collapse into a smudge.
+
+    Near-black tile with a white glyph so it survives either browser chrome —
+    on a light tab the tile carries the contrast, on a dark one the glyph does.
+  -->
+  <rect fill="#0b0b0d" height="32" rx="7" width="32" />
+  <path
+    d="M10.5 8v16.5"
+    stroke="#fafafa"
+    stroke-linecap="round"
+    stroke-width="4.6"
+  />
+  <circle
+    cx="18.4"
+    cy="13.6"
+    fill="none"
+    r="4.3"
+    stroke="#fafafa"
+    stroke-width="4.6"
+  />
+  <circle cx="26" cy="21.5" fill="#22c55e" r="3" />
+</svg>
