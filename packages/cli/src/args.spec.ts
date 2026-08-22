@@ -11,8 +11,6 @@ import { domainsCommands } from "./commands/domains";
 import { confirmCommand } from "./commands/signup";
 import { webhooksCommands } from "./commands/webhooks";
 
-/** Argument parsing, with no DNS anywhere near it. */
-
 const domainsAdd = domainsCommands.find((command) => command.path[1] === "add");
 const webhooksRotate = webhooksCommands.find(
   (command) => command.path[1] === "rotate"
@@ -20,11 +18,6 @@ const webhooksRotate = webhooksCommands.find(
 
 describe("optionsFor", () => {
   it("keeps every pair of commands disjoint", () => {
-    /**
-     * The property the two hand-written option tables used to provide, now that
-     * there is a table per command instead of one per module. Losing it would let
-     * `propgate check example.com --code 123456` parse as something.
-     */
     const check = readArgs(
       ["check", "example.com", "--code", "123456"],
       optionsFor(checkCommand)
@@ -41,8 +34,6 @@ describe("optionsFor", () => {
   });
 
   it("offers --api-url only where there is an API to point at", () => {
-    // `check` is networked because `--remote` exists; the command itself refuses
-    // the flag without it, which is a better answer than the flag not existing.
     expect(optionsFor(checkCommand)["api-url"]).toBeDefined();
     expect(optionsFor(checkCommand).json).toBeDefined();
     expect(optionsFor(checkCommand).help).toBeDefined();
@@ -61,8 +52,6 @@ describe("optionsFor", () => {
   });
 
   it("rejects an unknown flag rather than ignoring it", () => {
-    // Silently ignoring a mistyped flag is how someone comes to believe they
-    // ran a stricter check than they did.
     const read = readArgs(
       ["check", "example.com", "--stritc"],
       optionsFor(checkCommand)
@@ -97,7 +86,6 @@ describe("usage", () => {
 
     expect(text).toContain("--window-hours <hours>");
     expect(text).toContain("--json");
-    // Generated from the command, so a field cannot exist without a usage line.
     expect(text).toContain("<id>");
   });
 });
@@ -115,8 +103,6 @@ describe("parseResolver", () => {
   });
 
   it("does not mistake an IPv6 address for a port", () => {
-    // The colons belong to the address. Splitting on the first would send every
-    // query to a port nobody wrote.
     expect(parseResolver("2001:db8::1")).toEqual({
       address: "2001:db8::1",
       port: 53,

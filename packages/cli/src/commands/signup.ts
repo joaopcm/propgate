@@ -5,17 +5,6 @@ import { EXIT_CANCELLED } from "../exit";
 import { type Context, json, out, reportApiError } from "../output";
 import { askText, CANCELLED } from "../prompt";
 
-/**
- * `signup` and `confirm`.
- *
- * Two commands rather than one because a code arrives out of band and the
- * scripted path has to be able to stop in between. In a terminal they run as one
- * flow — `signup` asks for the code and finishes the job — and that is possible
- * only because the key lands in a **config file**. The constraint written down in
- * `config.ts`, that a child process cannot set its parent's environment, was
- * never about the file.
- */
-
 const CODE_LENGTH = 6;
 const DIGITS = /^\d+$/;
 const WHITESPACE = /\s/;
@@ -82,9 +71,6 @@ async function exchange(
   const path = writeConfig({
     ...stored,
     apiKey,
-    // Remember a non-default URL, so the next command does not need the flag
-    // again. Omitted when it is the default, so a stored config does not pin a
-    // hostname that may change.
     ...(context.apiUrl === DEFAULT_API_URL ? {} : { apiUrl: context.apiUrl }),
   });
 
@@ -96,8 +82,6 @@ async function exchange(
   out("");
   out(`  ${apiKey}`);
   out("");
-  // Both halves matter: they need to know it is saved, and that this is the only
-  // time they will see it.
   out(`Stored in ${path}. It will not be shown again.`);
 
   return 0;
@@ -124,9 +108,6 @@ async function signup(input: Input, context: Context): Promise<number> {
     return json(result.body);
   }
 
-  // Deliberately not "we sent you a code": the API answers identically whether or
-  // not the address is known, and claiming a send here would be inventing a fact
-  // this command cannot see.
   out(`If ${email} can receive mail, a six-digit code is on its way.`);
   out("It expires in ten minutes.");
 

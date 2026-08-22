@@ -9,20 +9,6 @@ import { cn } from "@/lib/utils";
 import { CheckPanel } from "./check-panel";
 import { Rail, verdictTone, verdictWord } from "./verdict";
 
-/**
- * The public checker.
- *
- * One field, because anything else asked of a stranger is a reason to leave.
- * Everything the API can be told — selectors, the platform's include, whether
- * the domain receives mail — is a profile decision that belongs to an
- * onboarding flow, not to someone typing a domain to see what happens. So this
- * asks for none of it and reads the domain as it is.
- *
- * The field is `?domain=`, so the URL is always the thing worth sending to
- * whoever owns the DNS, and opening one runs the check rather than waiting for a
- * click.
- */
-
 const DOMAIN = parseAsString.withDefault("");
 
 type State =
@@ -31,9 +17,6 @@ type State =
   | { readonly kind: "done"; readonly result: CheckResult }
   | { readonly kind: "failed"; readonly message: string };
 
-// Reading the query string cannot be prerendered and this app is a static
-// export, so Next requires the boundary. The fallback is the same frame, which
-// is what keeps the field in the exported HTML.
 export function Checker() {
   return (
     <Suspense
@@ -57,8 +40,6 @@ function Live() {
   const running = state.kind === "running";
 
   const run = useCallback((target: string) => {
-    // A second submission replaces the first rather than racing it, so a
-    // slow answer can never overwrite a newer one.
     inFlight.current?.abort();
 
     const controller = new AbortController();
@@ -79,7 +60,6 @@ function Live() {
     });
   }, []);
 
-  // The domain the page was opened with, never a later keystroke.
   useEffect(() => {
     if (opened.current !== "") {
       run(opened.current);
@@ -159,7 +139,6 @@ function Frame({
             name="domain"
             onChange={onChange}
             placeholder="example.com"
-            // Nothing to type into before hydration.
             readOnly={onChange === undefined}
             spellCheck={false}
             value={domain}
@@ -221,8 +200,6 @@ function Failed({ message }: { message: string }) {
 }
 
 function Report({ result }: { result: CheckResult }) {
-  // Worst first: the thing to fix belongs at the top, and the rest is
-  // reference material for whoever scrolls.
   const ordered = [...result.checks].sort(byUrgency);
 
   return (

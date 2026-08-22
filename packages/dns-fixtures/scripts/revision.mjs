@@ -1,20 +1,4 @@
 #!/usr/bin/env node
-/**
- * Content hash of zones/, published by the fixture containers as
- * `_rev.canary.test. TXT` and compared against the committed REVISION file in
- * packages/dns globalSetup.
- *
- *   node revision.mjs           # print the hash
- *   node revision.mjs --write   # print and update REVISION
- *
- * This exists to kill the single worst DX failure of a harness like this: editing
- * a zone file, forgetting to reload, and spending an afternoon debugging a test
- * that is asserting against stale data. The canary turns that into a one-line
- * error telling you to run `pnpm dns:up --build`.
- *
- * The canary zone is generated at container start rather than committed, so its
- * own hash cannot feed back into the value it publishes.
- */
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
@@ -34,8 +18,6 @@ function walk(dir) {
       continue;
     }
 
-    // Keys are inputs to signing, not fixture content: including them would
-    // change the revision on every re-key without changing any served answer.
     if (full.includes(`${sep}keys${sep}`)) {
       continue;
     }
@@ -49,7 +31,6 @@ function walk(dir) {
 const hash = createHash("sha256");
 
 for (const file of walk(zonesDir)) {
-  // Hash the path too, so moving a zone between roles changes the revision.
   hash.update(relative(zonesDir, file).split(sep).join("/"));
   hash.update("\0");
   hash.update(readFileSync(file));

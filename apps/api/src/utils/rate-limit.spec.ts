@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RateLimiter } from "./rate-limit";
 
-/**
- * The token bucket behind every limit in the API.
- *
- * The clock is injected, so none of this sleeps — a limiter spec that waits for
- * real windows to lapse is a slow suite that still cannot test a one-hour window.
- */
-
 describe("RateLimiter", () => {
   it("allows up to the limit and refuses past it", () => {
     const limiter = new RateLimiter({ limit: 2, windowMs: 1000 });
@@ -45,8 +38,6 @@ describe("RateLimiter", () => {
   it("applies a per-call limit over the configured one", () => {
     const limiter = new RateLimiter({ limit: 1, windowMs: 1000 });
 
-    // What a raised `tenants.request_quota_per_second` buys: the same limiter and
-    // the same window, a different ceiling for one caller.
     expect(limiter.take("vetted", 0, 3).allowed).toBe(true);
     expect(limiter.take("vetted", 0, 3).allowed).toBe(true);
     expect(limiter.take("vetted", 0, 3).allowed).toBe(true);
@@ -58,8 +49,6 @@ describe("RateLimiter", () => {
 
     limiter.take("vetted", 0, 5);
 
-    // The 429 message reads this. Reporting the constant instead would send a
-    // partner on an override hunting for a limit they never hit.
     expect(limiter.take("vetted", 0, 5).limit).toBe(5);
   });
 
@@ -71,8 +60,6 @@ describe("RateLimiter", () => {
 
     expect(limiter.size).toBe(2);
 
-    // Otherwise this map is a slow leak keyed by client address, which on a
-    // long-running process surfaces as an OOM weeks after deploy.
     limiter.take("c", 2000);
 
     expect(limiter.size).toBe(1);

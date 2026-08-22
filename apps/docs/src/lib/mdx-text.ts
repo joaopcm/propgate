@@ -1,40 +1,10 @@
-/**
- * Reading an `.mdx` page as prose.
- *
- * The search index needs what a reader sees, and an MDX page is not that: it
- * opens with imports, sometimes declares a constant, and interleaves JSX with
- * the markdown. Everything here exists to get from the file on disk to the
- * sentences on the screen.
- *
- * Tags are scanned rather than matched with a regex, and the reason is on the
- * page: `<EndpointHeader cliCommand="propgate domains list [--state <state>]" …>`
- * carries a `>` inside a quoted attribute, so `<[A-Z][^>]*>` ends the tag in the
- * middle of it and spills the rest into the index as garbage. The same goes for
- * `{…}` — `<ParamsTable rows={[{ … }, { … }]} />` needs balanced braces, not a
- * lazy match to the first `}`. Both are a dozen lines of scanner and neither is
- * a regex that can be made correct.
- *
- * Children are kept, attributes are not: a `<Callout>` body is prose a reader
- * reads and frequently the most quotable line on the page, while `kind="warning"`
- * and `lang="json"` are the kind of noise that makes every API page match a
- * search for "json".
- *
- * `EndpointHeader` is the one exception, and it earns it. Its attributes are the
- * method, the path and the CLI command — the three things printed largest on an
- * endpoint page and the likeliest thing anyone types into a search box on a
- * reference site. Dropping them leaves twenty pages findable by their prose and
- * not by `/v1/domains`.
- */
-
 export interface MdxSection {
-  /** The `h2`/`h3` this text sits under. Absent for a page's opening text. */
   readonly heading?: string;
   readonly text: string;
 }
 
 export interface MdxPage {
   readonly sections: readonly MdxSection[];
-  /** The `h1`. Absent only if a page never writes one. */
   readonly title: string | undefined;
 }
 
@@ -79,7 +49,6 @@ function skipQuoted(source: string, start: number): number {
   return index;
 }
 
-/** From the opening `{` to just past its matching `}`. */
 function skipBraces(source: string, start: number): number {
   let depth = 0;
   let index = start;
@@ -115,7 +84,6 @@ function skipBraces(source: string, start: number): number {
   return index;
 }
 
-/** From the opening `<` to just past the `>` that closes the same tag. */
 function skipTag(source: string, start: number): number {
   let index = start + 1;
 
@@ -142,11 +110,6 @@ function skipTag(source: string, start: number): number {
   return index;
 }
 
-/**
- * A `<` only opens a tag when a name or a slash follows it. MDX would refuse to
- * compile a bare `<` in prose, so in practice this is every `<` in the file —
- * but reading the next character is cheaper than relying on that.
- */
 function isTagStart(source: string, index: number): boolean {
   const next = source.charAt(index + 1);
 
@@ -195,13 +158,6 @@ function braceDelta(line: string): number {
   return delta;
 }
 
-/**
- * Drop `import` and `export` statements, however many lines they run to.
- *
- * `api/page.mdx` declares an `export const METHOD_STYLE = { … }` across seven
- * lines, so this cannot be a per-line filter. A statement ends at the line where
- * its braces balance again.
- */
 function stripEsm(source: string): string {
   const kept: string[] = [];
   let depth = 0;
@@ -229,7 +185,6 @@ function stripEsm(source: string): string {
   return kept.join("\n");
 }
 
-/** The attribute values worth keeping, for the one tag whose are. */
 function contentOfTag(tag: string): string {
   const name = tag.match(TAG_NAME)?.[1];
 
@@ -269,13 +224,6 @@ function stripJsx(source: string): string {
   return output;
 }
 
-/**
- * Markdown syntax off, words left.
- *
- * `_` is deliberately not treated as emphasis: this corpus is full of
- * `next_check_at` and `previous_state`, and stripping underscores would turn
- * every one of them into a token nobody will ever type.
- */
 export function unwrapMarkdown(text: string): string {
   return text
     .replace(TABLE_DELIMITER_ROW, "")

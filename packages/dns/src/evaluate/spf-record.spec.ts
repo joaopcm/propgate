@@ -7,8 +7,6 @@ import {
   parseSpfRecord,
 } from "./spf-record";
 
-/** Syntax is pure. The accounting and the include tree are in the fixture spec. */
-
 function parse(raw: string) {
   const result = parseSpfRecord(raw);
 
@@ -37,8 +35,6 @@ describe("looksLikeSpf", () => {
   });
 
   it("rejects anything else, so unrelated TXT records are not counted", () => {
-    // Filtering before counting is what keeps a domain with one SPF record and
-    // one verification token from being reported as having two.
     expect(looksLikeSpf("propgate-site-verification=abc")).toBe(false);
     expect(looksLikeSpf("v=spf10 -all")).toBe(false);
     expect(looksLikeSpf("v=DMARC1; p=none")).toBe(false);
@@ -75,8 +71,6 @@ describe("ip4 and ip6", () => {
   });
 
   it("rejects an address that is not one", () => {
-    // A permerror, not a term that quietly matches nothing: receivers stop
-    // reading the record here.
     expect(reject("v=spf1 ip4:198.51.100.999 -all")).toContain("not an IPv4");
     expect(reject("v=spf1 ip4:2001:db8::1 -all")).toContain("not an IPv4");
     expect(reject("v=spf1 ip6:198.51.100.1 -all")).toContain("not an IPv6");
@@ -123,8 +117,6 @@ describe("a and mx", () => {
 
 describe("ptr", () => {
   it("parses, so it can be reported rather than rejected", () => {
-    // RFC 7208 §5.5 discourages publishing it; it is still valid syntax, and
-    // treating it as a syntax error would report the wrong problem.
     expect(parse("v=spf1 ptr -all").terms[0]).toMatchObject({ name: "ptr" });
   });
 
@@ -142,15 +134,12 @@ describe("modifiers", () => {
   });
 
   it("keeps unknown modifiers rather than rejecting them", () => {
-    // RFC 7208 §6 requires unrecognised modifiers to be ignored, so a record
-    // carrying one is still a valid record.
     const record = parse("v=spf1 futuremod=whatever -all");
 
     expect(record.terms[0]).toMatchObject({ kind: "modifier" });
   });
 
   it("rejects a second redirect or exp", () => {
-    // Two have no defined precedence, so the record cannot be evaluated at all.
     expect(reject("v=spf1 redirect=a.example redirect=b.example")).toContain(
       "more than once"
     );
@@ -160,8 +149,6 @@ describe("modifiers", () => {
   });
 
   it("does not mistake a colon-bearing mechanism for a modifier", () => {
-    // `=` after a `:` belongs to the domain-spec. Reading this as a modifier
-    // would turn a valid record into a syntax error.
     const record = parse("v=spf1 include:a=b.example -all");
 
     expect(record.terms[0]).toMatchObject({
@@ -203,8 +190,6 @@ describe("countsAsLookup", () => {
   });
 
   it("does not count ip4, ip6, all, or exp", () => {
-    // exp is fetched only to build a rejection message, after the outcome is
-    // already decided, so it is outside the ten.
     const record = parse(
       "v=spf1 ip4:198.51.100.0/24 ip6:2001:db8::/32 exp=why.example -all"
     );
@@ -218,7 +203,6 @@ describe("containsMacro", () => {
   it("spots a macro anywhere in a domain-spec", () => {
     expect(containsMacro("%{i}._spf.example.com")).toBe(true);
     expect(containsMacro("_spf.example.com")).toBe(false);
-    // A literal percent is not a macro.
     expect(containsMacro("100%.example.com")).toBe(false);
   });
 });

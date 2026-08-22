@@ -9,14 +9,6 @@ export interface NavGroup {
   readonly title: string;
 }
 
-/**
- * A section is flat or grouped, never both.
- *
- * "Get started" is four pages and wants no subheadings; the API reference is
- * twenty and is unreadable without them. Modelling that as a union rather than
- * an always-present optional `groups` means the sidebar cannot render a section
- * two ways depending on data, and a section cannot half-declare a hierarchy.
- */
 export type NavSection =
   | { readonly groups: readonly NavGroup[]; readonly title: string }
   | { readonly items: readonly NavItem[]; readonly title: string };
@@ -27,15 +19,6 @@ export function isGroupedSection(
   return "groups" in section;
 }
 
-/**
- * Whether a section has anything to show.
- *
- * A flat section is non-empty when it has items; a grouped section is
- * non-empty when at least one of its groups does — a section can legally
- * hold only empty groups while later tasks fill them in. The sidebar filters
- * on this so a section with nothing to show renders no heading at all,
- * rather than an empty one.
- */
 export function sectionHasItems(section: NavSection): boolean {
   return isGroupedSection(section)
     ? section.groups.some((group) => group.items.length > 0)
@@ -49,17 +32,6 @@ export interface FlatNavEntry {
   readonly title: string;
 }
 
-/**
- * Every section in reading order, some still empty.
- *
- * The sections are declared up front and filled by later tasks, so the sidebar
- * grows downward in place rather than reordering itself under a reader between
- * commits. An empty section renders nothing.
- *
- * Only pages that exist are listed. `navigation.spec.ts` walks this array against
- * the filesystem, which is what makes a link to an unwritten page a failing test
- * rather than a 404 nobody notices — and why this plan has no placeholder pages.
- */
 export const navigation: readonly NavSection[] = [
   {
     items: [

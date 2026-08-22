@@ -1,18 +1,6 @@
 import { codeForStatus, PropgateError } from "./error";
 import type { Answer } from "./http";
 
-/**
- * `{ data, error, meta }`, the same envelope the API writes.
- *
- * Kept rather than flattened, because all three carry something a caller needs:
- * `meta` is where `nextCursor` lives, where a create says whether it *created*,
- * and where a check says which resolver answered.
- *
- * The union is discriminated on `error`, so one `if (result.error !== null)`
- * narrows `data` to non-null for the rest of the function. That is the whole
- * ergonomic argument for returning failures instead of throwing them: a `catch`
- * binds `unknown` and the compiler never mentions the case you forgot.
- */
 export type PropgateResult<T, M = null> =
   | { readonly data: null; readonly error: PropgateError; readonly meta: null }
   | { readonly data: T; readonly error: null; readonly meta: M };
@@ -31,19 +19,10 @@ function parse(text: string): unknown {
   try {
     return JSON.parse(text) as unknown;
   } catch {
-    // Not JSON at all. The caller says what answered instead.
+    // not JSON
   }
 }
 
-/**
- * A response body as a result.
- *
- * Anything that is not this API's envelope becomes `invalid_response` naming the
- * URL, rather than a `TypeError` about a property of undefined. The common cause
- * is a proxy, a captive portal or a tunnel answering instead of the API, and
- * saying so beats a JSON parse error naming a position in a document the reader
- * never asked for.
- */
 export function unwrap<T, M = null>(answer: Answer): PropgateResult<T, M> {
   if ("error" in answer) {
     return fail(answer.error);

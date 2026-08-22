@@ -1,10 +1,3 @@
-/**
- * The request is quoted verbatim from QUICKSTART.md's "Clean up" section, a
- * real command against the live API. It pipes to a formatter without
- * printing the body, so the response is a shape read off the route handler
- * (`route.delete("/:id", ...)` in `apps/api/src/routes/domains.ts`).
- */
-
 export const DELETE_CURL = `curl -s -X DELETE https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
@@ -24,12 +17,5 @@ export const DELETE_NOT_FOUND = `{
   },
   "meta": null
 }`;
-
-/**
- * The SDK calls assume a client constructed once, as `/sdk` shows:
- * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
- * name and shape here is checked against `@propgate/sdk` itself by
- * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
- */
 
 export const DELETE_SDK = `const { data, error } = await propgate.domains.remove("019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a");`;

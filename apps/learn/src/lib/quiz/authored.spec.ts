@@ -5,20 +5,6 @@ import { CURRICULUM } from "@/lib/curriculum";
 import { allQuestions, coveredSlugs, questionsFor } from "./all";
 import { examQuestions } from "./exam";
 
-/**
- * Structure, not truth.
- *
- * This cannot tell whether an explanation is correct — that is what review is
- * for. What it can do is make the ways a question rots impossible: an answer
- * index pointing past the end of the options, an explanation somebody meant to
- * come back to, a `source` path naming a file that has since been renamed.
- *
- * The honest limit is worth stating, because the guard's value depends on
- * nobody mistaking it for more than it is. Same shape as
- * `packages/dns/src/diagnosis/coverage.spec.ts`: it proves the join, not the
- * content.
- */
-
 const REPO_ROOT = join(process.cwd(), "../..");
 const MINIMUM_PER_UNIT = 4;
 
@@ -94,11 +80,6 @@ describe("every question", () => {
     }
   });
 
-  /**
-   * The citation that cannot rot. A reader who disagrees with an explanation
-   * needs somewhere to go, and a path to a file that was renamed three commits
-   * ago sends them nowhere.
-   */
   it("cites a file that exists in this repository", () => {
     for (const question of allQuestions()) {
       expect(

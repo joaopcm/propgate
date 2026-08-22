@@ -1,9 +1,3 @@
-/**
- * `LIST_CURL`/`LIST_CLI` and `LIST_RESPONSE` are shapes read off
- * `apps/api/src/routes/api-keys.ts` (the `GET /` handler and `serialise`),
- * not a captured run.
- */
-
 export const LIST_CURL = `curl -s https://api.propgate.dev/v1/api-keys \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
@@ -37,12 +31,5 @@ export const LIST_RESPONSE = `{
   "error": null,
   "meta": null
 }`;
-
-/**
- * The SDK calls assume a client constructed once, as `/sdk` shows:
- * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
- * name and shape here is checked against `@propgate/sdk` itself by
- * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
- */
 
 export const LIST_SDK = "const { data } = await propgate.apiKeys.list();";

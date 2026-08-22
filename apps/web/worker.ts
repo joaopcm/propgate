@@ -6,17 +6,6 @@ import {
 } from "./src/lib/negotiate";
 import { NOT_FOUND_MARKDOWN } from "./src/lib/site";
 
-/**
- * A Worker in front of the static export, for the one thing the files cannot
- * do themselves: pick HTML or Markdown from `Accept`.
- *
- * Everything else still comes out of `out/`. The Worker is a pass-through
- * plus a Vary header, not a second renderer. `run_worker_first` is on so
- * this runs even when `index.html` exists — otherwise the CDN would serve
- * HTML to an agent that asked for markdown, which is the cache poison
- * acceptmarkdown.com exists to prevent.
- */
-
 export interface Env {
   ASSETS: { fetch: (input: Request | URL) => Promise<Response> };
 }

@@ -1,25 +1,3 @@
-# DNS fixture tier.
-#
-# No Postgres or Redis: Phase 1 has no database. They arrive in Phase 2 with
-# packages/db, as GitHub service containers in CI (which is what buckt does and
-# what works well for them).
-#
-# network_mode: host plus one 127.0.0.x per server, on real port 53. Two reasons
-# this matters more than it looks:
-#
-#  1. DNS glue records carry an address but no port. Serving on high ports would
-#     mean the resolver could never follow a real delegation without an
-#     address-rewriting shim, so the whole delegation / lame / glue family of
-#     diagnoses would be tested through that shim rather than for real.
-#  2. Host networking removes docker-proxy from the UDP path. Fragmented UDP
-#     through the userland proxy is a known source of flakiness.
-#
-# Avoid 127.0.0.53 and 127.0.0.54 (systemd-resolved holds both) and never bind
-# 0.0.0.0:53 — that collides with resolved and fails with EADDRINUSE.
-#
-# macOS: only 127.0.0.1 is up, and Docker Desktop cannot route to container IPs.
-# Use `docker compose -f docker-compose.yml -f docker-compose.darwin.yml up`.
-
 x-dns-common: &dns-common
   build:
     context: .
@@ -28,8 +6,6 @@ x-dns-common: &dns-common
   network_mode: host
   restart: unless-stopped
   volumes:
-    # The mount shadows the image's baked copy, so editing a zone file plus
-    # `pnpm dns:reload` takes effect with no rebuild.
     - ./packages/dns-fixtures/zones:/fixtures/zones:ro
     - ./packages/dns-fixtures/REVISION:/fixtures/REVISION:ro
 
@@ -99,9 +75,6 @@ services:
       BIND_ADDRESS: 127.0.0.6
       ROOT_ADDRESS: 127.0.0.2
     healthcheck:
-      # Asserts the whole chain of trust, not just liveness: an AD flag here
-      # means root hints, the fake trust anchor, the DS chain, and delegation
-      # following are all working.
       test: ["CMD", "sh", "-c", "dig +time=2 +tries=1 @127.0.0.6 secure.test. SOA +dnssec | grep -q 'flags:.* ad'"]
       interval: 3s
       timeout: 5s
@@ -121,8 +94,6 @@ services:
       BIND_ADDRESS: 127.0.0.7
       ROOT_ADDRESS: 127.0.0.2
     healthcheck:
-      # The mirror image of dns-resolver's check: this tier must resolve the
-      # bogus zone happily. If both tiers agree, the differential is broken.
       test: ["CMD", "sh", "-c", "test -n \"$$(dig +short +time=2 +tries=1 @127.0.0.7 bogus-zone.test. TXT)\""]
       interval: 3s
       timeout: 5s
@@ -131,12 +102,6 @@ services:
 
   postgres:
     image: postgres:17-alpine
-    # A published port, not host networking — and the difference from the DNS
-    # services above is deliberate. Those need real port 53 on distinct
-    # loopbacks because glue records carry no port field, so a resolver cannot
-    # follow a delegation to anywhere else. Postgres has no such constraint, and
-    # host networking here only means fighting whatever already owns 5432 on the
-    # developer's machine. 5442 stays clear of the usual range.
     ports:
       - "127.0.0.1:5442:5432"
     restart: unless-stopped
@@ -152,18 +117,9 @@ services:
 
   redis:
     image: redis:8-alpine
-    # 6389 for the same reason Postgres is on 5442: a developer machine often
-    # already has one of these, and colliding produces "port is already
-    # allocated" with no hint that a host port is the cause.
     ports:
       - "127.0.0.1:6389:6379"
     restart: unless-stopped
-    # noeviction even for tests, so the fixture tier and production fail the same
-    # way. Under any other policy Redis drops BullMQ's job keys when memory fills
-    # and the symptom is a job that never runs, with nothing in any log.
-    #
-    # No appendonly here, unlike production: a test Redis has nothing worth
-    # surviving a restart, and fsync on every write only slows the suite down.
     command: ["redis-server", "--maxmemory-policy", "noeviction", "--save", ""]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

@@ -2,14 +2,6 @@ import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { isTestingMode, parseDkimKey, parseDkimRecord } from "./dkim-record";
 
-/**
- * Parsing is pure, so it gets unit tests rather than fixtures — no DNS involved.
- *
- * Keys are generated here rather than hardcoded. A pasted blob would test the
- * parser against one arbitrary key; generating covers whatever OpenSSL produces
- * today, and makes "512 bits" a fact rather than a claim about a string.
- */
-
 function spkiBase64(modulusLength: number): string {
   const { publicKey } = generateKeyPairSync("rsa", { modulusLength });
   return publicKey.export({ format: "der", type: "spki" }).toString("base64");
@@ -17,7 +9,6 @@ function spkiBase64(modulusLength: number): string {
 
 function ed25519Base64(): string {
   const { publicKey } = generateKeyPairSync("ed25519");
-  // RFC 8463 publishes the raw 32-byte key, not the SPKI wrapper.
   return publicKey
     .export({ format: "der", type: "spki" })
     .subarray(-32)
@@ -57,7 +48,6 @@ describe("parseDkimRecord", () => {
   });
 
   it("keeps unknown tags rather than discarding them", () => {
-    // A tag we do not model is still worth showing a customer.
     const parsed = record(`v=DKIM1; p=${RSA_2048}; n=rotated 2026-01`);
 
     expect(parsed.notes).toBe("rotated 2026-01");
@@ -81,7 +71,6 @@ describe("parseDkimRecord", () => {
   });
 
   it("rejects v= that is not the first tag", () => {
-    // RFC 6376 §3.6.1 requires it first, and verifiers do enforce this.
     const parsed = parseDkimRecord(`k=rsa; v=DKIM1; p=${RSA_2048}`);
 
     expect(parsed.ok).toBe(false);
@@ -100,7 +89,6 @@ describe("parseDkimRecord", () => {
   });
 
   it("rejects a duplicated tag rather than picking one", () => {
-    // Which one wins is verifier-dependent, so the honest answer is neither.
     const parsed = parseDkimRecord(`v=DKIM1; p=${RSA_2048}; p=${RSA_512}`);
 
     expect(parsed.ok).toBe(false);
@@ -112,7 +100,6 @@ describe("parseDkimRecord", () => {
   it("rejects text that contains no tags at all", () => {
     const parsed = parseDkimRecord("google-site-verification=abc");
 
-    // That does parse as a tag, so use something that genuinely has none.
     expect(parsed.ok).toBe(false);
     expect(parseDkimRecord("just some text").ok).toBe(false);
   });
@@ -141,8 +128,6 @@ describe("parseDkimKey", () => {
   });
 
   it("treats an empty p= as revocation, not corruption", () => {
-    // RFC 6376 §3.6.1. Calling this malformed would tell someone to fix a
-    // record they revoked deliberately.
     const key = parseDkimKey(record("v=DKIM1; k=rsa; p="));
 
     expect(key.ok).toBe(false);
@@ -152,10 +137,6 @@ describe("parseDkimKey", () => {
   });
 
   it("accepts folding whitespace inside the base64, which §2.10 permits", () => {
-    // Every 2048-bit key is split across character-strings by necessity, and a
-    // provider that rejoins the chunks with a space has produced a record every
-    // conforming verifier accepts. This used to be rejected, which meant telling
-    // a customer their working key was broken.
     const split = `${RSA_2048.slice(0, 100)} ${RSA_2048.slice(100)}`;
     const key = parseDkimKey(record(`v=DKIM1; p=${split}`));
 
@@ -176,8 +157,6 @@ describe("parseDkimKey", () => {
   });
 
   it("still rejects a character that is not base64 and names it", () => {
-    // Not a semicolon: that would be eaten by the tag-list split before the
-    // key parser ever sees it.
     const key = parseDkimKey(
       record(`v=DKIM1; p=${RSA_2048.slice(0, 40)}*oops`)
     );
@@ -225,8 +204,6 @@ describe("parseDkimKey", () => {
   });
 
   it("treats base64 differing only in case as a different key", () => {
-    // DNS names fold case; base64 does not. Both must parse or fail on their
-    // own merits rather than being silently equated.
     const lowered = RSA_2048.toLowerCase();
 
     expect(lowered).not.toBe(RSA_2048);

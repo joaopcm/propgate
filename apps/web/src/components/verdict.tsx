@@ -1,15 +1,6 @@
 import type { Severity, Verdict } from "@/lib/check";
 import { cn } from "@/lib/utils";
 
-/**
- * How a verdict looks.
- *
- * A coloured spine down the left edge of a row rather than a pill: the page is
- * a readout of six parallel signals, and a trace reads faster down a column
- * than six badges do. The word is still written out, because colour alone is
- * not a label.
- */
-
 const VERDICT_TONE: Readonly<Record<Verdict, string>> = {
   fail: "text-destructive",
   indeterminate: "text-unknown",
@@ -26,7 +17,6 @@ const VERDICT_RAIL: Readonly<Record<Verdict, string>> = {
 
 const VERDICT_WORD: Readonly<Record<Verdict, string>> = {
   fail: "failing",
-  // Deliberately not "unknown": the domain is not unknown, our reading of it is.
   indeterminate: "couldn't tell",
   pass: "passing",
   warn: "worth a look",

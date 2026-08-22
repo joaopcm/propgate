@@ -42,15 +42,10 @@ describe("domains", () => {
 
     expect(row?.state).toBe("pending");
     expect(row?.lastCheckedAt).toBeNull();
-    // Immediately due, so the next tick picks it up without registration having
-    // to know the sweeper exists. This asserted null until the sweeper landed;
-    // a null here would now mean "never check this domain again".
     expect(row?.nextCheckAt).not.toBeNull();
   });
 
   it("accepts all five states, including the two nothing reaches yet", async () => {
-    // The enum exists in full from the first migration so milestone 2 adds a
-    // transition rather than migrating an enum under live rows.
     const { profileId, tenantId } = await fixture();
     const states = [
       "pending",
@@ -89,8 +84,6 @@ describe("domains", () => {
   });
 
   it("lets two tenants watch the same domain", async () => {
-    // Two platforms can legitimately both be verifying one customer's domain,
-    // and neither should be able to detect the other.
     const first = await fixture();
     const second = await fixture();
 
@@ -129,9 +122,6 @@ describe("domains", () => {
   });
 
   it("allows many domains with no external id at all", async () => {
-    // Postgres treats NULLs as distinct in a unique index, which is the
-    // behaviour we want: external_id is optional and two domains without one
-    // are not duplicates.
     const { profileId, tenantId } = await fixture();
 
     await db.insert(domains).values({
@@ -149,8 +139,6 @@ describe("domains", () => {
   });
 
   it("will not let a profile version be deleted out from under a domain", async () => {
-    // No cascade here on purpose: a domain pinned to a version that vanished
-    // cannot be re-evaluated, and losing that silently is worse than an error.
     const { profileId, tenantId } = await fixture();
 
     await db.insert(domains).values({

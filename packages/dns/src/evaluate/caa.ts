@@ -11,44 +11,18 @@ const TRAILING_DOT = /\.$/;
 const RCODE_SERVFAIL = 2;
 const RCODE_REFUSED = 5;
 
-/**
- * CAA evaluation (RFC 8659).
- *
- * Three rules here are load-bearing, and each is easy to get wrong in a way that
- * either blocks issuance the owner allowed or permits issuance they forbade:
- *
- *  1. **The climb goes to the TLD, not to the organizational domain.** §3: "The
- *     search for a CAA RRset climbs the DNS name tree from the specified label
- *     up to, but not including, the DNS root." The Public Suffix List plays no
- *     part. A parent binding its children is the point — it is how a platform
- *     restricts which CAs may issue for names it hands out.
- *  2. **The nearest ancestor with a CAA RRset wins outright.** Policies are not
- *     merged up the tree. Merging would authorise CAs the nearer owner excluded.
- *  3. **`issuewild` governs wildcards exclusively when present.** Only when no
- *     `issuewild` exists do wildcards fall back to `issue`.
- */
-
 export interface CaaCheck {
   readonly domain: string;
-  /** The CA that needs to issue, e.g. "letsencrypt.org". */
   readonly issuer: string;
-  /** Checking a wildcard certificate, which `issuewild` governs. */
   readonly wildcard?: boolean;
 }
 
 export interface CaaDiscovery {
-  /** The name the RRset was found on, which may be an ancestor. */
   readonly foundAt: string;
   readonly policy: CaaPolicy;
   readonly records: readonly RdataCAA[];
 }
 
-/**
- * The names to try, nearest first, stopping before the root.
- *
- * `a.b.example.com` yields a.b.example.com, b.example.com, example.com, com —
- * and not the root.
- */
 export function caaClimbPath(domain: string): string[] {
   const labels = domain.replace(TRAILING_DOT, "").split(".").filter(Boolean);
   const path: string[] = [];
@@ -70,9 +44,6 @@ async function climb(
   domain: string
 ): Promise<ClimbOutcome> {
   for (const name of caaClimbPath(domain)) {
-    // Deliberately sequential. The nearest ancestor with an RRset wins outright,
-    // so every lookup past the first answer is one we must not make: it would
-    // spend the shared lookup budget on names whose policies cannot apply.
     // biome-ignore lint/performance/noAwaitInLoops: the climb stops at the first answer
     const outcome = await context.lookup({
       name,
@@ -88,9 +59,6 @@ async function climb(
       outcome.status === "unreachable" ||
       outcome.status === "malformed"
     ) {
-      // A gap in the middle of the climb means we cannot know which policy
-      // applies. Continuing would risk reporting a grandparent's policy as
-      // governing when a nearer one exists and simply did not answer.
       return { at: name, kind: "indeterminate" };
     }
 
@@ -98,11 +66,6 @@ async function climb(
       return { at: name, kind: "indeterminate" };
     }
 
-    // SERVFAIL and REFUSED both mean the server would not tell us. Treating
-    // either as "no policy here" and climbing past it is the dangerous reading:
-    // a policy may exist at this exact name, and assuming none would authorise
-    // issuance the owner forbade. NXDOMAIN and NODATA are genuine absences and
-    // do continue the climb.
     if (
       outcome.message.rcode === RCODE_SERVFAIL ||
       outcome.message.rcode === RCODE_REFUSED
@@ -114,7 +77,6 @@ async function climb(
       (record) => record.rdata
     );
 
-    // First non-empty RRset wins, and wins alone.
     if (records.length > 0) {
       return {
         discovery: { foundAt: name, policy: parseCaaPolicy(records), records },
@@ -143,8 +105,6 @@ export async function evaluateCaa(
   }
 
   if (result.kind === "none") {
-    // No policy is a legitimate, common configuration: it means any CA may
-    // issue. Reporting it as a problem would be noise on most domains.
     context.report(DiagnosisCode.CAA_UNRESTRICTED, {
       detail: `no CAA record between ${check.domain} and the top-level domain, so ${check.issuer} may issue`,
       name: check.domain,
@@ -180,9 +140,6 @@ export async function evaluateCaa(
     return finish("fail");
   }
 
-  // A wildcard blocked specifically by issuewild is worth its own code: ordinary
-  // certificates still work, so "CAA is blocking us" would send someone looking
-  // in the wrong place.
   const wildcardSpecific =
     check.wildcard === true && discovery.policy.issueWild.length > 0;
 

@@ -7,19 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { configPath, readConfig } from "./config";
 import { main } from "./index";
 
-/**
- * Every command that talks to the API, against a real HTTP server.
- *
- * A `node:http` listener rather than a stubbed `fetch`, for the same reason the
- * webhook delivery spec runs one: the thing worth testing is what goes over the
- * wire — the method, the path, the bearer header, the body — and a stub asserts
- * only that the code called the function the test expected it to call.
- *
- * Driven through `main`, so the registry lookup, the per-command option table and
- * `resolve` are all in the path. A command that exists but is unreachable from
- * the dispatcher would pass a unit test and fail a user.
- */
-
 interface Received {
   readonly authorization: string | undefined;
   readonly body: string;
@@ -30,7 +17,6 @@ interface Received {
 let server: Server;
 let baseUrl: string;
 let received: Received[];
-/** status and body, keyed by `METHOD path`. */
 let replies: Map<string, { body: unknown; status: number }>;
 let written: string[];
 let originalXdg: string | undefined;
@@ -45,7 +31,6 @@ function ok(data: unknown, meta: unknown = null): unknown {
   return { data, error: null, meta };
 }
 
-/** The permission bits as octal digits — `& 0o777` spelled without a bitwise op. */
 function permissions(path: string): string {
   return statSync(path).mode.toString(8).slice(-3);
 }
@@ -59,15 +44,9 @@ beforeEach(async () => {
   originalKey = process.env.PROPGATE_API_KEY;
   originalNoInput = process.env.PROPGATE_NO_INPUT;
   process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "propgate-cli-"));
-  // Belt and braces. The runner's stdin is not a terminal, so nothing would
-  // prompt anyway — but a spec that hangs waiting for input is the single worst
-  // failure mode this suite could have, and one env var removes the possibility.
   process.env.PROPGATE_NO_INPUT = "1";
-  // Deleted, not assigned undefined: assigning it would set the literal string
-  // "undefined", which the CLI would then treat as a perfectly good API key.
   delete process.env.PROPGATE_API_KEY;
 
-  // Captured rather than silenced, so the specs can assert on what a person sees.
   const capture = ((chunk: unknown) => {
     written.push(String(chunk));
 
@@ -159,9 +138,6 @@ describe("dispatch", () => {
   });
 
   it("reports the version, which also takes no positionals", async () => {
-    // The regression this exists for: `--version` and "no arguments" look
-    // identical to a positional count, so a help branch checked first ate it and
-    // `propgate --version` printed usage in every release that shipped.
     expect(await main(["--version"])).toBe(0);
     expect(output()).not.toContain("propgate check <domain>");
 
@@ -203,16 +179,11 @@ describe("signup", () => {
       email: "me@example.com",
     });
 
-    // The API answers identically whether or not the address is known, so the CLI
-    // must not translate that into "we sent you a code" — that would be inventing
-    // a fact this command cannot see.
     expect(output()).toContain("If me@example.com can receive mail");
     expect(output()).not.toContain("We sent");
   });
 
   it("names the missing flag and exits 64", async () => {
-    // 64, not 1. A script cannot tell a typo from a rejection when both are 1,
-    // and this used to be 1 while the identical mistake on `check` was 64.
     expect(await run("signup")).toBe(64);
     expect(output()).toContain("signup needs --email");
     expect(received).toHaveLength(0);
@@ -227,8 +198,6 @@ describe("signup", () => {
     reply("POST /v1/signup", ok({}));
     await run("signup", "--email", "me@example.com");
 
-    // It is unauthenticated by design; sending an empty Authorization header would
-    // be a 401 from the middleware rather than a signup.
     expect(received[0]?.authorization).toBeUndefined();
   });
 });
@@ -254,7 +223,6 @@ describe("confirm", () => {
     expect(readConfig().apiKey).toBe("pg_live_abc123");
     expect(permissions(configPath())).toBe("600");
 
-    // Both halves matter: that it is saved, and that this is the only sight of it.
     expect(output()).toContain("pg_live_abc123");
     expect(output()).toContain("will not be shown again");
   });
@@ -333,8 +301,6 @@ describe("keys", () => {
     );
 
     expect(await run("keys", "revoke", "pg_live_Bbbb")).toBe(0);
-    // The route takes an id on purpose — a four-character prefix carries no unique
-    // index — so the translation happens here, where ambiguity can be reported.
     expect(calls()).toEqual([
       "GET /v1/api-keys",
       "DELETE /v1/api-keys/key_two",
@@ -354,8 +320,6 @@ describe("keys", () => {
     );
 
     expect(await run("keys", "revoke", "pg_live_Aaaa")).toBe(1);
-    // Revoking the wrong key is not a thing to do on a coin flip, so it names the
-    // candidates and asks for an id.
     expect(output()).toContain("matches 2 keys");
     expect(received.some((entry) => entry.method === "DELETE")).toBe(false);
   });
@@ -392,7 +356,6 @@ describe("keys", () => {
     );
 
     expect(await run("keys", "revoke", "pg_live_Bbbb")).toBe(1);
-    // Re-phrasing it here would mean two places to keep in step.
     expect(output()).toContain("last active api key");
   });
 
@@ -405,8 +368,6 @@ describe("keys", () => {
     await run("keys", "create", "another");
 
     expect(output()).toContain("pg_live_fresh");
-    // Silently replacing the stored key would move the caller's footing out from
-    // under their next command without being asked.
     expect(readConfig().apiKey).toBeUndefined();
   });
 });
@@ -483,8 +444,6 @@ describe("profiles", () => {
 
     await run("profiles", "create", "--key", "sending", "--require", "r:mx");
 
-    // Domains pin the version they were registered against, so "created" would be
-    // the wrong word and an unhelpful one.
     expect(output()).toContain("version 3");
     expect(output()).toContain("registered against");
   });
@@ -537,7 +496,6 @@ describe("domains", () => {
       name: "example.com",
       profile: "sending",
     });
-    // `state: pending` reads as a failure unless this is said out loud.
     expect(output()).toContain("Nothing has been checked yet");
   });
 
@@ -550,7 +508,6 @@ describe("domains", () => {
     reply("GET /v1/domains", ok([]));
 
     expect(await run("domains", "list")).toBe(0);
-    // Printing nothing looks like a failure.
     expect(output()).toContain("No domains yet");
   });
 
@@ -611,15 +568,12 @@ describe("domains", () => {
 
     expect(code).toBe(0);
     expect(received).toHaveLength(3);
-    // Asks for the server's maximum, so a walk is one round trip per 200 rows.
     expect(received[0]?.url).toContain("limit=200");
     expect(received[1]?.url).toContain("cursor=cursor1");
     expect(output()).toContain("page3.example.com");
   });
 
   it("stops rather than spinning if a cursor ever repeats", async () => {
-    // A tripwire past where any good response goes. A server that answered with
-    // the cursor it was handed would otherwise loop here in silence.
     await new Promise<void>((done) => server.close(() => done()));
     server = createServer((request, response) => {
       received.push({
@@ -685,8 +639,6 @@ describe("domains", () => {
     reply(`GET /v1/domains/${DOMAIN.id}/timeline`, ok([]));
 
     expect(await run("domains", "timeline", DOMAIN.id)).toBe(0);
-    // "Nothing has changed" is a different statement from "nothing has happened",
-    // and only the first one is true of a domain checked hourly and never altered.
     expect(output()).toContain("Only differences are recorded");
   });
 
@@ -752,8 +704,6 @@ describe("webhooks", () => {
       url: "https://example.com/hooks",
     });
     expect(output()).toContain("whsec_abc");
-    // The endpoint is idempotent on the URL and returns a secret only on the call
-    // that created the row, so there is no second chance at it.
     expect(output()).toContain("Shown once");
   });
 
@@ -774,13 +724,6 @@ describe("webhooks", () => {
   });
 
   it("lets loopback through and leaves the decision to the server", async () => {
-    /**
-     * The https rule is a statement about a network, and loopback has none —
-     * the same line browsers draw for secure contexts. Refusing it here would
-     * mean the CLI could never talk to a self-hosted API, because this runs
-     * before any request and the CLI cannot know what that server permits.
-     * api.propgate.dev still refuses it, which is where the answer belongs.
-     */
     reply("POST /v1/webhooks", ok(ENDPOINT), 201);
 
     expect(
@@ -832,8 +775,6 @@ describe("webhooks", () => {
 
     await run("webhooks", "update", "wh_1", "--events", "domain.verified");
 
-    // Leaving the state alone must not send `disabled: false`, which would turn
-    // an events-only edit into an enable nobody asked for.
     expect(JSON.parse(String(received[0]?.body))).toEqual({
       events: ["domain.verified"],
     });
@@ -858,8 +799,6 @@ describe("webhooks", () => {
   });
 
   it("refuses an update that would change nothing", async () => {
-    // A PATCH with an empty body is a request the server accepts and a mistake
-    // the caller made. Saying so beats reporting success for a no-op.
     expect(await run("webhooks", "update", "wh_1")).toBe(64);
     expect(
       await run("webhooks", "update", "wh_1", "--state", "unchanged")
@@ -868,8 +807,6 @@ describe("webhooks", () => {
   });
 
   it("cannot be told to enable and disable at once", async () => {
-    // One `select` rather than `--disable` plus `--enable`: the contradiction
-    // the two-flag shape allowed is not expressible here at all.
     expect(await run("webhooks", "update", "wh_1", "--state", "sideways")).toBe(
       64
     );
@@ -971,7 +908,6 @@ describe("check --remote", () => {
 
     const code = await run("check", "example.com", "--remote", "--only", "spf");
 
-    // Exit 1 for an error-severity finding, exactly as the local path reports it.
     expect(code).toBe(1);
     expect(JSON.parse(String(received[0]?.body))).toEqual({
       checks: ["spf"],
@@ -988,8 +924,6 @@ describe("check --remote", () => {
   });
 
   it("survives a diagnosis code this build has never heard of", async () => {
-    // An API newer than the installed CLI. Printing the bare code is a worse
-    // report than the summary and a far better one than a crash.
     reply(
       "POST /v1/checks",
       ok({
@@ -1024,8 +958,6 @@ describe("check --remote", () => {
   });
 
   it("refuses --api-url without --remote rather than ignoring it", async () => {
-    // Silently ignoring it would let someone believe they had pointed this at a
-    // local stack when it had resolved locally the whole time.
     expect(await run("check", "example.com")).toBe(64);
     expect(received).toHaveLength(0);
   });
@@ -1039,9 +971,6 @@ describe("check <id>", () => {
     expect(code).toBe(64);
     expect(output()).toContain("looks like a domain id");
     expect(output()).toContain(`propgate domains check ${id}`);
-    // Nothing over the wire either way. `domains check` writes state and can fire
-    // a webhook, and reaching that by typing the wrong shape at the wrong verb is
-    // exactly what this declines to do.
     expect(received).toHaveLength(0);
   });
 });
@@ -1052,8 +981,6 @@ describe("credentials", () => {
 
     expect(code).toBe(1);
     expect(output()).toContain("propgate signup");
-    // No request at all: a 401 from the server would be a worse error message
-    // than the one we can write here.
     expect(received).toHaveLength(0);
   });
 
@@ -1068,14 +995,12 @@ describe("credentials", () => {
     ]);
 
     expect(code).toBe(1);
-    // The usual cause is a stale --api-url, so the message says which one it used.
     expect(output()).toContain("could not reach http://127.0.0.1:1");
   });
 
   it("says when the answer is not JSON at all", async () => {
     authenticated();
 
-    // A proxy error page, a captive portal, a tunnel that is down.
     await new Promise<void>((done) => server.close(() => done()));
     server = createServer((_request, response) => {
       response.writeHead(502, { "content-type": "text/html" });

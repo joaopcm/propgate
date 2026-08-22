@@ -2,14 +2,6 @@ import { DNSSEC_ALGORITHM_NAMES, RecordType } from "./constants";
 import { WireFormatError } from "./errors";
 import type { Reader } from "./reader";
 
-/**
- * RDATA decoders.
- *
- * Each returns a typed shape plus keeps the raw bytes, because several
- * diagnosis codes depend on details a normalised view would discard — the exact
- * TXT chunk boundaries, the RRSIG label count, the DNSKEY flags.
- */
-
 export interface RdataA {
   readonly address: string;
   readonly kind: "A";
@@ -20,16 +12,6 @@ export interface RdataAAAA {
   readonly kind: "AAAA";
 }
 
-/**
- * The three record types whose rdata is a single name.
- *
- * Deliberately three interfaces rather than one with a union `kind`. They are
- * structurally identical, but a union in the discriminant makes
- * `Extract<Rdata, { kind: "NS" }>` resolve to `never`, so `recordsOfType` —
- * this package's only way to pull records of one type out of a section —
- * silently returns nothing for all three. That is a compile-time trap with a
- * runtime-looking symptom.
- */
 export interface RdataCNAME {
   readonly kind: "CNAME";
   readonly target: string;
@@ -45,15 +27,10 @@ export interface RdataPTR {
   readonly target: string;
 }
 
-/** Any of the single-name rdata types, when which one does not matter. */
 export type RdataName = RdataCNAME | RdataNS | RdataPTR;
 
 export interface RdataMX {
   readonly exchange: string;
-  /**
-   * RFC 7505: `MX 0 .` means "this domain accepts no mail". Distinct from a
-   * preference of 0 pointing at a real host, which providers confuse.
-   */
   readonly isNullMx: boolean;
   readonly kind: "MX";
   readonly preference: number;
@@ -71,22 +48,12 @@ export interface RdataSOA {
 }
 
 export interface RdataTXT {
-  /**
-   * The individual character-strings, in order and unjoined.
-   *
-   * Kept separate on purpose. A TXT rdata is a *sequence* of ≤255-byte strings,
-   * and how a provider split a long DKIM key — and whether it inserted
-   * whitespace at the boundary — is the finding. Concatenating here would
-   * destroy the evidence for TXT_VALUE_SPLIT_MANGLED.
-   */
   readonly chunks: readonly Buffer[];
   readonly kind: "TXT";
-  /** RFC 6763 §6.1 concatenation: joined with no separator. */
   readonly value: string;
 }
 
 export interface RdataCAA {
-  /** RFC 8659 §4.1: bit 0 of flags. An unknown critical property must fail. */
   readonly critical: boolean;
   readonly flags: number;
   readonly kind: "CAA";
@@ -98,9 +65,7 @@ export interface RdataDNSKEY {
   readonly algorithm: number;
   readonly algorithmName: string;
   readonly flags: number;
-  /** Bit 0 of flags: this key signs the DNSKEY RRset. */
   readonly isSecureEntryPoint: boolean;
-  /** Bit 7 of flags: this is a zone key rather than a bare public key. */
   readonly isZoneKey: boolean;
   readonly kind: "DNSKEY";
   readonly protocol: number;
@@ -123,14 +88,6 @@ export interface RdataRRSIG {
   readonly inception: number;
   readonly keyTag: number;
   readonly kind: "RRSIG";
-  /**
-   * The label count of the *original* owner name.
-   *
-   * This is the authoritative wildcard signal: if `labels` is smaller than the
-   * queried name's label count, the answer was synthesised from a wildcard. It
-   * is also the single field that makes WILDCARD_FALSE_POSITIVE detectable
-   * without a second probe — and c-ares cannot surface it at all.
-   */
   readonly labels: number;
   readonly originalTtl: number;
   readonly signature: Buffer;
@@ -150,7 +107,6 @@ export interface RdataNSEC3 {
   readonly iterations: number;
   readonly kind: "NSEC3";
   readonly nextHashedOwnerName: Buffer;
-  /** Bit 0 of flags: unsigned delegations may exist in the covered range. */
   readonly optOut: boolean;
   readonly salt: Buffer;
   readonly types: readonly number[];
@@ -193,7 +149,6 @@ function readIpv4(reader: Reader): string {
   return `${raw[0]}.${raw[1]}.${raw[2]}.${raw[3]}`;
 }
 
-/** RFC 5952 canonical form: lowercase hex, longest run of zero groups elided. */
 function readIpv6(reader: Reader): string {
   const raw = reader.bytes(16);
   const groups: number[] = [];
@@ -225,7 +180,6 @@ function readIpv6(reader: Reader): string {
 
   const parts = groups.map((group) => group.toString(16));
 
-  // A single zero group is written out; only runs of two or more are elided.
   if (bestLength < 2) {
     return parts.join(":");
   }
@@ -235,7 +189,6 @@ function readIpv6(reader: Reader): string {
   return `${head}::${tail}`;
 }
 
-/** RFC 4034 §4.1.2 type bitmaps, shared by NSEC and NSEC3. */
 function readTypeBitmap(reader: Reader, end: number): number[] {
   const types: number[] = [];
 
@@ -267,21 +220,6 @@ function readTypeBitmap(reader: Reader, end: number): number[] {
   return types;
 }
 
-/**
- * Decode RDATA for a known type, or report it as UNKNOWN.
- *
- * **Never call `reader` inside an object literal here.** Object properties
- * evaluate in source order, so a formatter that sorts keys alphabetically
- * silently reorders the reads and corrupts every byte after the first field.
- * That happened once during development: SOA became
- * expire/hostmaster/minimum/primary/... instead of wire order, and only the
- * fixture tests caught it. Read into locals in wire order, then build the
- * object — the code is then immune to key ordering entirely.
- *
- * `end` is the byte offset where this record's rdata stops. Every branch must
- * consume exactly up to it; the caller enforces that, which is what catches a
- * server whose rdlength disagrees with its own rdata.
- */
 export function decodeRdata(reader: Reader, type: number, end: number): Rdata {
   switch (type) {
     case RecordType.A:
@@ -312,8 +250,6 @@ export function decodeRdata(reader: Reader, type: number, end: number): Rdata {
     }
 
     case RecordType.SOA: {
-      // Wire order, held in locals. See the note in decodeRdata's header about
-      // why nothing here may read inside an object literal.
       const primary = reader.name();
       const hostmaster = reader.name();
       const serial = reader.uint32();
@@ -469,9 +405,6 @@ export function decodeRdata(reader: Reader, type: number, end: number): Rdata {
     }
 
     default:
-      // Unknown types are skipped rather than rejected: a zone can legitimately
-      // hold record types we do not model, and refusing to parse the message
-      // because of one would lose the records we do care about.
       reader.bytes(end - reader.offset);
       return { kind: "UNKNOWN", type };
   }

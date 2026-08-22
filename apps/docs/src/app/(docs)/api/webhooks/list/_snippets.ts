@@ -1,7 +1,3 @@
-/**
- * Shapes from `serialise` in `apps/api/src/routes/webhooks.ts`.
- */
-
 export const LIST_CURL = `curl -s https://api.propgate.dev/v1/webhooks \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
@@ -22,12 +18,5 @@ export const LIST_RESPONSE = `{
   "error": null,
   "meta": null
 }`;
-
-/**
- * The SDK calls assume a client constructed once, as `/sdk` shows:
- * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
- * name and shape here is checked against `@propgate/sdk` itself by
- * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
- */
 
 export const LIST_SDK = "const { data } = await propgate.webhooks.list();";

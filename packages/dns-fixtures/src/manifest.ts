@@ -1,12 +1,3 @@
-/**
- * Where the fixture servers live.
- *
- * Defaults are in code rather than in a .env so `pnpm dns:up && pnpm test`
- * works with no setup. The PROPGATE_FIXTURE_* overrides exist for the macOS
- * compose override, and are listed in turbo.json's `test.env` so Turbo does not
- * serve a cached result across a topology change.
- */
-
 export const FIXTURE_ROLES = [
   "root",
   "auth",
@@ -22,7 +13,6 @@ export interface FixtureServer {
   readonly address: string;
   readonly description: string;
   readonly port: number;
-  /** True for the two Unbound tiers, which accept recursive queries. */
   readonly recursive: boolean;
   readonly role: FixtureRole;
 }
@@ -36,8 +26,6 @@ function portFor(role: FixtureRole, fallback: number): number {
     return Number(explicit);
   }
 
-  // The macOS override publishes 53xx on 127.0.0.1 instead of using distinct
-  // loopback addresses, because only 127.0.0.1 is up on Darwin.
   const offset = process.env.PROPGATE_FIXTURE_PORT_OFFSET;
 
   return offset ? Number(offset) + fallback : DEFAULT_PORT;
@@ -96,10 +84,6 @@ export const FIXTURE_SERVERS: Readonly<Record<FixtureRole, FixtureServer>> = {
   },
 };
 
-/**
- * Root hints for the fixture namespace. Phase 1's resolver takes these as an
- * option so production can pass the vendored IANA list instead.
- */
 export const FIXTURE_ROOT_HINTS = [
   {
     address: FIXTURE_SERVERS.root.address,
@@ -108,11 +92,8 @@ export const FIXTURE_ROOT_HINTS = [
   },
 ] as const;
 
-/** Published by dns-auth as `_rev.canary.test. TXT`. */
 export const CANARY_NAME = "_rev.canary.test";
 
-/** Resolves and returns AD=1 through the validating tier. */
 export const DNSSEC_CONTROL_ZONE = "secure.test";
 
-/** SERVFAILs through `resolver`, resolves through `permissive`. */
 export const DNSSEC_BOGUS_ZONE = "bogus-zone.test";

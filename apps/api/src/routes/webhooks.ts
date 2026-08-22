@@ -15,30 +15,6 @@ import type { AuthVariables } from "../middleware/auth";
 import { error, success } from "../utils/response";
 import { firstIssue } from "../utils/validation";
 
-/**
- * One endpoint family: `/v1/webhooks`.
- *
- * Deliveries are nested under the endpoint they belong to rather than listed
- * tenant-wide, because a delivery belongs to exactly one endpoint and that is the
- * shape that answers the real question — "did *this* endpoint receive it". It also
- * removes a route-ordering trap: a tenant-wide `/v1/webhooks/deliveries` would
- * collide with `/v1/webhooks/:id` and work or not depending on which was declared
- * first.
- *
- * Rotation is `POST /:id/secret` rather than `/:id/rotate-secret`. It creates a
- * secret, so the noun is the resource and POST is the verb; putting the verb in
- * the path is how one family ends up with three spellings of the same idea.
- */
-
-/**
- * How long the previous secret keeps being accepted after a rotation.
- *
- * Twenty-four hours, which is a deploy window rather than a measurement. It has
- * to be long enough that a customer who rotates and then redeploys on their own
- * schedule is never broken, and short enough that a leaked secret is not accepted
- * for a week. Overridable per request for a customer who wants it shorter, because
- * somebody rotating *because* of a leak wants the window closed sooner.
- */
 const DEFAULT_ROTATION_WINDOW_HOURS = 24;
 const MAX_ROTATION_WINDOW_HOURS = 168;
 
@@ -52,31 +28,9 @@ const DELIVERY_STATUSES: readonly DeliveryStatus[] = [
   "failed",
 ];
 
-/**
- * `https` only, and not a private address.
- *
- * A webhook carries a customer's domain state to a URL they gave us, and we sign
- * it — over plain HTTP that signature protects nothing in transit. Refusing
- * loopback and link-local is the other half: an endpoint pointing at `127.0.0.1`
- * or `169.254.169.254` would make this service a request forwarder into its own
- * network, which is the classic SSRF shape.
- */
 const BLOCKED_HOSTS =
   /^(localhost|127\.|0\.0\.0\.0|10\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?)/i;
 
-/**
- * A complaint about a URL, or null to accept it.
- *
- * Injected rather than read from the environment, and the distinction is the
- * whole point: an env flag that relaxes this would exist in the production
- * binary, one `docker run -e` away from being switched on during an incident by
- * someone who needed a webhook to work. A parameter cannot be set by a
- * deployment — the only caller that can pass a different policy is one that
- * constructs the app in-process, which is a test.
- *
- * The reason it needs relaxing at all: an end-to-end spec has to register a
- * receiver it can actually observe, and that receiver is on loopback.
- */
 export type WebhookUrlPolicy = (raw: string) => string | null;
 
 export const rejectPublicWebhookUrl: WebhookUrlPolicy = (raw) => {
@@ -124,7 +78,6 @@ function serialise(endpoint: EndpointRow) {
   return {
     createdAt: endpoint.createdAt.toISOString(),
     disabled: endpoint.disabledAt !== null,
-    // Empty means every event, which is what an omitted `events` produces.
     events: endpoint.events,
     id: endpoint.id,
     object: "webhook" as const,
@@ -174,13 +127,6 @@ export function createWebhooksRoute(options: {
       c,
       {
         ...serialise(outcome.endpoint),
-        /**
-         * Returned once, and only when this call actually created the endpoint.
-         *
-         * On an existing endpoint the stored secret is not ours to hand back — we
-         * only keep it to sign with, and a retry that returned it would turn an
-         * idempotent create into a way to read a secret somebody else set up.
-         */
         ...(outcome.kind === "created" ? { secret } : {}),
       },
       { created: outcome.kind === "created" }
@@ -272,13 +218,6 @@ export function createWebhooksRoute(options: {
       c,
       { id: c.req.param("id"), object: "webhook_secret" as const, secret },
       {
-        /**
-         * When the old secret stops being accepted, so a customer can schedule
-         * their redeploy against a date rather than guessing.
-         *
-         * `windowHours: 0` expires it immediately, which is the right answer when
-         * you are rotating because something leaked.
-         */
         previousSecretExpiresAt: expiresAt.toISOString(),
       }
     );
@@ -288,8 +227,6 @@ export function createWebhooksRoute(options: {
     const tenantId = c.get("tenantId");
     const endpointId = c.req.param("id");
 
-    // Checked first so a wrong id is a 404 rather than an empty list, which would
-    // otherwise be indistinguishable from an endpoint that has received nothing.
     const endpoint = await endpointById(db, { endpointId, tenantId });
 
     if (endpoint === undefined) {
@@ -327,8 +264,6 @@ export function createWebhooksRoute(options: {
         domainId: delivery.domainId,
         event: delivery.event,
         id: delivery.id,
-        // The reason a dead-lettered delivery is answerable at all. Null while
-        // pending and after an eventual success.
         lastError: delivery.lastError,
         object: "webhook_delivery" as const,
         payload: delivery.payload,

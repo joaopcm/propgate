@@ -7,14 +7,6 @@ import type { MxCheck } from "./mx";
 import { evaluateMx } from "./mx";
 import type { EvaluationResult, Evidence } from "./types";
 
-/**
- * Mail routing against real servers.
- *
- * The pair of tests that matters most is the null MX one: the same zone, the
- * same query, and two different correct answers depending on what the caller
- * says the domain is for.
- */
-
 const TIMEOUT_MS = 2000;
 
 function target(role: Parameters<typeof fixtureTarget>[0]): ServerAddress {
@@ -72,8 +64,6 @@ describe("a null MX means different things to different domains", () => {
   });
 
   it("is a failure for a domain that expects mail", async () => {
-    // Same records, same query. Only the caller's statement of intent differs,
-    // which is why the observation and the judgement are separate codes.
     const result = await evaluate({
       domain: "nomail.mx.test",
       expectsMail: true,
@@ -85,9 +75,6 @@ describe("a null MX means different things to different domains", () => {
   });
 
   it("says nothing about delivery when the caller did not state an intent", async () => {
-    // Three states, not two. A caller who did not say has not asserted that the
-    // domain receives mail, and defaulting to "it should" reports every
-    // correctly configured sending-only domain as broken.
     const result = await evaluate({ domain: "nomail.mx.test" });
 
     expect(codes(result)).toEqual([DiagnosisCode.MX_NULL]);
@@ -95,8 +82,6 @@ describe("a null MX means different things to different domains", () => {
   });
 
   it("rejects a null MX published alongside a real one", async () => {
-    // RFC 7505 §3. Broken regardless of intent, because senders disagree about
-    // what the pair means.
     const result = await evaluate({
       domain: "ambiguous.mx.test",
       expectsMail: false,
@@ -122,8 +107,6 @@ describe("exchanges that cannot receive anything", () => {
   });
 
   it("accepts an IPv6-only exchange", async () => {
-    // Unusual and legitimate. Declaring it unresolvable because it has no A
-    // record would fail a domain that works.
     const result = await evaluate({ domain: "sixth.mx.test" });
 
     expect(codes(result)).toEqual([]);
@@ -131,8 +114,6 @@ describe("exchanges that cannot receive anything", () => {
   });
 
   it("reports an address written where a name belongs", async () => {
-    // The zone file accepts it and dig prints it; senders look it up as a name
-    // and find nothing.
     const result = await evaluate({ domain: "literal.mx.test" });
 
     expect(codes(result)).toContain(DiagnosisCode.MX_TARGET_IS_IP_LITERAL);
@@ -150,8 +131,6 @@ describe("exchanges that cannot receive anything", () => {
 
 describe("an aliased exchange", () => {
   it("is a warning, not a failure", async () => {
-    // RFC 2181 §10.3 forbids it and most senders follow the alias anyway. The
-    // mail is arriving; the risk is the senders that refuse.
     const result = await evaluate({ domain: "aliased.mx.test" });
 
     expect(codes(result)).toContain(DiagnosisCode.MX_TARGET_IS_CNAME);
@@ -166,7 +145,6 @@ describe("no MX at all", () => {
 
     expect(codes(result)).toContain(DiagnosisCode.MX_RECORDS_MISSING);
     expect(codes(result)).toContain(DiagnosisCode.MX_IMPLICIT_A);
-    // Mail does arrive, so this is not a delivery failure.
     expect(codes(result)).not.toContain(DiagnosisCode.MX_MAIL_NOT_ACCEPTED);
     expect(result.verdict).toBe("warn");
   });

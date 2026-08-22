@@ -6,23 +6,6 @@ import {
 } from "@propgate/dns";
 import { EXIT_OK, EXIT_PROBLEM, EXIT_UNKNOWN } from "./exit";
 
-/**
- * Turning a result into something a terminal can show.
- *
- * Pure: takes a result, returns lines. The process writes them. That split is
- * what makes the output testable without a fixture tier, and the formatting is
- * where a CLI is usually least tested and most often wrong.
- */
-
-/**
- * What rendering actually needs.
- *
- * Structural rather than `CheckResult`, so the same renderer serves both the
- * local run and `--remote`. A `CheckResult` satisfies it as-is; the API's JSON
- * satisfies it once its `server: "addr:port"` strings are left behind, which the
- * report never looks at anyway. The alternative was a second renderer, and two
- * of these drift the first time a finding gains a field.
- */
 export interface Renderable {
   readonly checks: readonly {
     readonly findings: readonly Finding[];
@@ -42,7 +25,6 @@ export interface Renderable {
 
 const RESET = "\u001B[0m";
 
-/** Written as escapes rather than literal bytes, so the file stays readable. */
 const COLOURS = {
   dim: "\u001B[2m",
   green: "\u001B[32m",
@@ -57,13 +39,6 @@ const VERDICT_COLOUR: Readonly<Record<Verdict, keyof typeof COLOURS>> = {
   warn: "yellow",
 };
 
-/**
- * Right-aligned in two columns, so the check names line up whatever the mark.
- *
- * `?` is neither a cross nor a tick on purpose: the check did not run, and
- * every other surface here goes out of its way to keep that separate from a
- * failure.
- */
 const VERDICT_MARK: Readonly<Record<Verdict, string>> = {
   fail: " x",
   indeterminate: " ?",
@@ -72,7 +47,6 @@ const VERDICT_MARK: Readonly<Record<Verdict, string>> = {
 };
 
 export interface Style {
-  /** Colour is off when stdout is not a terminal, so pipes stay clean. */
   readonly colour: boolean;
 }
 
@@ -99,14 +73,6 @@ export function recordTypeName(type: number): string {
   return RECORD_TYPES[type] ?? String(type);
 }
 
-/**
- * The code itself when the registry has never heard of it.
- *
- * Reachable only under `--remote`, where an API newer than the installed CLI can
- * name a diagnosis this build does not carry. Printing the bare code is a worse
- * report than the summary and a far better one than a crash on the line that was
- * about to explain what went wrong.
- */
 function summaryOf(finding: Finding): string {
   return (
     DIAGNOSIS_REGISTRY[finding.code as DiagnosisCode]?.summary ?? finding.code
@@ -143,13 +109,6 @@ function findingLines(finding: Finding, style: Style): string[] {
   return lines;
 }
 
-/**
- * The human-readable report.
- *
- * Ordered worst first, like the web checker, so the thing to fix is the first
- * thing read. Nothing is hidden behind a flag except the query trail, which is
- * long and only wanted when the answer is being argued with.
- */
 export function render(
   result: Renderable,
   options: { style: Style; trace: boolean }

@@ -1,195 +1,91 @@
-/**
- * The diagnosis taxonomy.
- *
- * This is the product. "Record not found" creates a support ticket;
- * PROVIDER_APPENDED_ZONE_NAME deflects one. Codes are a stable public contract:
- * consumers switch on them, so changing or removing one is a breaking change.
- *
- * Phase 0 seeds only the codes the starter fixtures actually exercise, plus the
- * ones documented as not locally reproducible. Phase 1 grows this to ~50
- * alongside the full fixture catalogue. `coverage.spec.ts` enforces that every
- * code here is either produced by a fixture or has a written reason why not, so
- * the taxonomy cannot drift ahead of its tests.
- */
-
 export const DIAGNOSIS_SEVERITIES = ["error", "warning", "info"] as const;
 
 export type DiagnosisSeverity = (typeof DIAGNOSIS_SEVERITIES)[number];
 
 export const DiagnosisCode = {
-  /**
-   * Authoritative answers disagree across vantage points.
-   *
-   * Reproduced by the `split.test` fixture pair — the same name served
-   * differently by dns-auth and dns-divergent. Real GeoDNS and anycast are still
-   * out of reach from one host; see TESTING.md.
-   */
   ANSWER_DIVERGES_BY_VANTAGE_POINT: "ANSWER_DIVERGES_BY_VANTAGE_POINT",
-  /** An unrecognised property with the critical bit, which blocks all issuance. */
   CAA_CRITICAL_UNKNOWN_PROPERTY: "CAA_CRITICAL_UNKNOWN_PROPERTY",
-  /** issue ";" — no CA may issue at all. */
   CAA_ISSUANCE_DENIED: "CAA_ISSUANCE_DENIED",
-  /** The CA we need is not among those authorised. */
   CAA_ISSUER_NOT_AUTHORIZED: "CAA_ISSUER_NOT_AUTHORIZED",
-  /** The policy governing this name is published on an ancestor, not here. */
   CAA_POLICY_FROM_ANCESTOR: "CAA_POLICY_FROM_ANCESTOR",
 
-  // --- CAA ---
-  /** No CAA anywhere up the tree: any CA may issue. */
   CAA_UNRESTRICTED: "CAA_UNRESTRICTED",
-  /** issuewild forbids the wildcard certificate being requested. */
   CAA_WILDCARD_DENIED: "CAA_WILDCARD_DENIED",
 
-  // --- CNAME ---
-  /** Nothing at all at the name the alias was meant to go at. */
   CNAME_RECORD_MISSING: "CNAME_RECORD_MISSING",
-  /** Something is published here and it does not point at the issued target. */
   CNAME_TARGET_MISMATCH: "CNAME_TARGET_MISMATCH",
-  /** Some addresses here are the target's and some are somebody else's. */
   CNAME_TARGET_PARTIAL: "CNAME_TARGET_PARTIAL",
-  /** A valid key, but not the one the profile expects. */
   DKIM_KEY_MISMATCH: "DKIM_KEY_MISMATCH",
-  /** p= is empty, which RFC 6376 defines as revocation. */
   DKIM_KEY_REVOKED: "DKIM_KEY_REVOKED",
-  /** Key is valid but shorter than receivers now expect. */
   DKIM_KEY_TOO_SHORT: "DKIM_KEY_TOO_SHORT",
-  /** p= parses but is not a usable key. */
   DKIM_KEY_UNPARSEABLE: "DKIM_KEY_UNPARSEABLE",
-  /** The record exists but is not a parseable DKIM key record. */
   DKIM_RECORD_MALFORMED: "DKIM_RECORD_MALFORMED",
 
-  // --- DKIM ---
-  /** No TXT record at the selector, and no sign of one nearby. */
   DKIM_RECORD_MISSING: "DKIM_RECORD_MISSING",
-  /** t=y — receivers must ignore failures, so the key is not yet protecting anything. */
   DKIM_TESTING_MODE: "DKIM_TESTING_MODE",
-  /** A report address at another domain that has not authorised receiving them. */
   DMARC_EXTERNAL_REPORT_UNAUTHORIZED: "DMARC_EXTERNAL_REPORT_UNAUTHORIZED",
-  /** More than one DMARC record, which RFC 7489 treats as no policy at all. */
   DMARC_MULTIPLE_RECORDS: "DMARC_MULTIPLE_RECORDS",
-  /** Policy inherited from the organizational domain rather than published here. */
   DMARC_POLICY_INHERITED: "DMARC_POLICY_INHERITED",
-  /** p=none: reports only, nothing is enforced. */
   DMARC_POLICY_NONE: "DMARC_POLICY_NONE",
-  /** pct< 100: the policy applies to only some messages. */
   DMARC_POLICY_PARTIAL: "DMARC_POLICY_PARTIAL",
-  /** A v=DMARC1 record exists but does not parse. */
   DMARC_RECORD_MALFORMED: "DMARC_RECORD_MALFORMED",
 
-  // --- DMARC ---
-  /** No DMARC policy at the domain or its organizational domain. */
   DMARC_RECORD_MISSING: "DMARC_RECORD_MISSING",
-  /** A rua/ruf entry that is not a usable URI. */
   DMARC_REPORT_URI_INVALID: "DMARC_REPORT_URI_INVALID",
-  /** Signatures failed validation; validating resolvers see nothing at all. */
   DNSSEC_BOGUS: "DNSSEC_BOGUS",
-  /** Signed parent, unsigned delegation, no DS — resolves, but unsigned. */
   DNSSEC_INSECURE_ISLAND: "DNSSEC_INSECURE_ISLAND",
-  /** More than one TXT RR where the record type permits exactly one. */
   MULTIPLE_DKIM_RECORDS: "MULTIPLE_DKIM_RECORDS",
-  /** No MX, so mail is delivered to the address record. */
   MX_IMPLICIT_A: "MX_IMPLICIT_A",
-  /** The domain is expected to receive mail and nothing can deliver to it. */
   MX_MAIL_NOT_ACCEPTED: "MX_MAIL_NOT_ACCEPTED",
-  /** A null MX: the domain states that it accepts no mail. */
   MX_NULL: "MX_NULL",
-  /** A null MX alongside ordinary exchanges. */
   MX_NULL_WITH_OTHER_RECORDS: "MX_NULL_WITH_OTHER_RECORDS",
-  /** No MX records at all. */
   MX_RECORDS_MISSING: "MX_RECORDS_MISSING",
-  /** An MX points at an alias, which RFC 2181 forbids. */
   MX_TARGET_IS_CNAME: "MX_TARGET_IS_CNAME",
-  /** An MX holds an address where a name belongs. */
   MX_TARGET_IS_IP_LITERAL: "MX_TARGET_IS_IP_LITERAL",
-  /** A mail exchange has no address. */
   MX_TARGET_UNRESOLVABLE: "MX_TARGET_UNRESOLVABLE",
-  /** NXDOMAIN whose authority SOA implies a long negative cache. */
   NEGATIVE_CACHE_LIKELY: "NEGATIVE_CACHE_LIKELY",
-  /** Name exists but has no record of the queried type. Not NXDOMAIN. */
   NODATA_NOT_NXDOMAIN: "NODATA_NOT_NXDOMAIN",
-  /** No delegated nameserver answered at all. */
   NS_ALL_UNREACHABLE: "NS_ALL_UNREACHABLE",
-  /** A delegated nameserver is not authoritative for the delegated zone. */
   NS_DELEGATION_LAME: "NS_DELEGATION_LAME",
-  /** The parent's delegation and the zone's own NS records differ. */
   NS_PARENT_CHILD_MISMATCH: "NS_PARENT_CHILD_MISMATCH",
-  /** No delegation at the parent and no NS records at the zone. */
   NS_RECORDS_MISSING: "NS_RECORDS_MISSING",
-  /** Authoritative servers disagree on the SOA serial. */
   NS_SERIAL_MISMATCH: "NS_SERIAL_MISMATCH",
-  /** Only one nameserver, which is a single point of failure. */
   NS_SINGLE_NAMESERVER: "NS_SINGLE_NAMESERVER",
-  /** A delegated nameserver did not answer. */
   NS_UNREACHABLE: "NS_UNREACHABLE",
 
-  // --- Ownership ---
-  /** Text records at the name, none of them the token we issued. */
   OWNERSHIP_TOKEN_MISMATCH: "OWNERSHIP_TOKEN_MISMATCH",
-  /** No text record at the name at all. */
   OWNERSHIP_TOKEN_MISSING: "OWNERSHIP_TOKEN_MISSING",
-  /** Record exists at `<name>.<zone>.<zone>` — the provider appended the zone. */
   PROVIDER_APPENDED_ZONE_NAME: "PROVIDER_APPENDED_ZONE_NAME",
-  /** A CNAME was expected but an A/AAAA was observed at the same address. */
   PROVIDER_FLATTENED_CNAME: "PROVIDER_FLATTENED_CNAME",
-  /** Records in one RRset carry different TTLs, so the set expires piecemeal. */
   RRSET_TTL_MISMATCH: "RRSET_TTL_MISMATCH",
 
-  // --- SPF ---
-  /** No all mechanism, so the result for an unlisted sender is neutral. */
   SPF_ALL_MISSING: "SPF_ALL_MISSING",
-  /** ?all states no opinion, so the record protects nothing. */
   SPF_ALL_NEUTRAL: "SPF_ALL_NEUTRAL",
-  /** +all authorises every host on the internet. */
   SPF_ALL_PASS: "SPF_ALL_PASS",
-  /** An include: chain returns to a domain it already visited. */
   SPF_INCLUDE_LOOP: "SPF_INCLUDE_LOOP",
-  /** An include: or redirect= target publishes no SPF record. */
   SPF_INCLUDE_UNRESOLVABLE: "SPF_INCLUDE_UNRESOLVABLE",
-  /** The record authorises this sending address. */
   SPF_IP_AUTHORIZED: "SPF_IP_AUTHORIZED",
-  /** The record states no opinion about this address. */
   SPF_IP_NEUTRAL: "SPF_IP_NEUTRAL",
-  /** The record rejects this sending address. */
   SPF_IP_NOT_AUTHORIZED: "SPF_IP_NOT_AUTHORIZED",
-  /** The record marks this address as probably unauthorised. */
   SPF_IP_SOFTFAIL: "SPF_IP_SOFTFAIL",
-  /** A term depends on the connection, so the address cannot be decided. */
   SPF_IP_UNDETERMINED: "SPF_IP_UNDETERMINED",
-  /** More than ten DNS lookups, so receivers return permerror. */
   SPF_LOOKUP_LIMIT_EXCEEDED: "SPF_LOOKUP_LIMIT_EXCEEDED",
-  /** Close enough to the ten-lookup limit that one more service breaks it. */
   SPF_LOOKUP_LIMIT_NEAR: "SPF_LOOKUP_LIMIT_NEAR",
-  /** A term contains a macro that depends on the connection. */
   SPF_MACRO_NOT_EVALUATED: "SPF_MACRO_NOT_EVALUATED",
-  /** More than one SPF record, which RFC 7208 makes a permanent error. */
   SPF_MULTIPLE_RECORDS: "SPF_MULTIPLE_RECORDS",
-  /** An mx mechanism expands to more than ten names. */
   SPF_MX_LIMIT_EXCEEDED: "SPF_MX_LIMIT_EXCEEDED",
-  /** ptr is published, which RFC 7208 says it should not be. */
   SPF_PTR_MECHANISM: "SPF_PTR_MECHANISM",
-  /** The record does not parse, so receivers return permerror. */
   SPF_RECORD_MALFORMED: "SPF_RECORD_MALFORMED",
-  /** No SPF record at all. */
   SPF_RECORD_MISSING: "SPF_RECORD_MISSING",
-  /** redirect= alongside an all mechanism, so it never runs. */
   SPF_REDIRECT_IGNORED: "SPF_REDIRECT_IGNORED",
-  /** The expected sending source is not in the expanded record. */
   SPF_SOURCE_NOT_AUTHORIZED: "SPF_SOURCE_NOT_AUTHORIZED",
-  /** A lookup during expansion failed temporarily. */
   SPF_TEMPORARY_FAILURE: "SPF_TEMPORARY_FAILURE",
-  /** Mechanisms after all, which never run. */
   SPF_TERMS_AFTER_ALL: "SPF_TERMS_AFTER_ALL",
-  /** A term resolves to nothing while still costing a lookup. */
   SPF_VOID_LOOKUP: "SPF_VOID_LOOKUP",
-  /** More than two terms resolve to nothing. */
   SPF_VOID_LOOKUP_LIMIT_EXCEEDED: "SPF_VOID_LOOKUP_LIMIT_EXCEEDED",
-  /** A middlebox silently drops TCP/53, so oversized answers never arrive. */
   TCP_SILENTLY_BLOCKED: "TCP_SILENTLY_BLOCKED",
-  /** Response was truncated and the TCP retry succeeded. */
   TRUNCATED_FELL_BACK_TO_TCP: "TRUNCATED_FELL_BACK_TO_TCP",
-  /** Multi-string TXT reassembled with an unexpected separator. */
   TXT_VALUE_SPLIT_MANGLED: "TXT_VALUE_SPLIT_MANGLED",
-  /** A wildcard synthesised the answer; the specific record is absent. */
   WILDCARD_FALSE_POSITIVE: "WILDCARD_FALSE_POSITIVE",
 } as const;
 
@@ -198,9 +94,7 @@ export type DiagnosisCode = (typeof DiagnosisCode)[keyof typeof DiagnosisCode];
 export interface DiagnosisDefinition {
   readonly code: DiagnosisCode;
   readonly severity: DiagnosisSeverity;
-  /** Anchor within the published taxonomy page. */
   readonly slug: string;
-  /** Shown to the end user. Plain, specific, and actionable. */
   readonly summary: string;
 }
 
@@ -754,12 +648,6 @@ export const DIAGNOSIS_REGISTRY: Readonly<
   },
 };
 
-/**
- * Codes that cannot be reproduced against the local fixture harness, each with
- * the reason. `coverage.spec.ts` requires every code to be either fixture-backed
- * or listed here, so "we forgot to write the fixture" and "this genuinely can't
- * be tested locally" can never be confused for one another.
- */
 export const NOT_LOCALLY_REPRODUCIBLE: Readonly<
   Partial<Record<DiagnosisCode, string>>
 > = {
@@ -767,25 +655,5 @@ export const NOT_LOCALLY_REPRODUCIBLE: Readonly<
     "A zone file cannot express it. Measured: named-checkzone silently rewrites a mismatched TTL to the first one it saw, and nsd-checkzone warns — so a fixture would be normalised before it was served and the test would assert nothing. In the wild it comes from a server assembling an answer from several sources, or a resolver merging cached records. The comparison itself is pure and unit-tested.",
 };
 
-/**
- * Codes that are published but that no evaluator can produce yet.
- *
- * A code in the taxonomy with nothing behind it is a promise we do not keep: it
- * is on the docs site, in the API's registry, and a consumer switching on it
- * waits forever. `emission.spec.ts` requires every code to be reported
- * somewhere or listed here with the reason and what it would take.
- *
- * This is deliberately separate from `NOT_LOCALLY_REPRODUCIBLE`, which is about
- * whether a *fixture* can produce a code. A code can be perfectly reproducible
- * and still unreachable because nothing looks for it — which is exactly how
- * nine of these came to be published.
- *
- * Empty, and worth keeping rather than deleting: the last entry was
- * `PROVIDER_FLATTENED_CNAME`, which sat here because telling a flattened alias
- * from a wrong one needs the addresses of the target to compare against and
- * nothing had one. The `cname` evaluator does — the target is the whole point of
- * the check — so it emits it now. The next code published ahead of its evaluator
- * belongs here rather than in a commit message.
- */
 export const NOT_YET_EMITTED: Readonly<Partial<Record<DiagnosisCode, string>>> =
   {};

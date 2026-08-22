@@ -3,19 +3,8 @@ import { authenticateApiKey } from "@propgate/db";
 import { createMiddleware } from "hono/factory";
 import { error } from "../utils/response";
 
-/**
- * Bearer authentication against the `api_keys` table.
- *
- * Every authenticated route reads its tenant from here and from nowhere else.
- * A route that takes a tenant id from the request body, or from anything a
- * caller controls, is a tenancy bug with a straight line to another partner's
- * data — so the tenant is set once, by this middleware, from a value only the
- * key holder could have presented.
- */
-
 export interface AuthVariables {
   readonly apiKeyId: string;
-  /** The tenant's rate-limit override, or null for the default. */
   readonly requestQuotaPerSecond: number | null;
   readonly tenantId: string;
 }
@@ -43,8 +32,6 @@ export function bearerAuth(db: Database) {
     const outcome = await authenticateApiKey(db, presented);
 
     if (!outcome.ok) {
-      // The holder of a key already knows the key. Naming its state leaks
-      // nothing and saves them hunting for a typo that is not there.
       return error(
         c,
         401,

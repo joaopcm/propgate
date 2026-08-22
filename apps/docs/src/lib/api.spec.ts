@@ -3,14 +3,6 @@ import { CHECK_KINDS, REPEATABLE_CHECK_KINDS } from "@propgate/dns";
 import { describe, expect, it } from "vitest";
 import { ENDPOINTS, REQUIREMENT_TYPES, VERDICTS } from "./api";
 
-/**
- * The published reference against the code it describes.
- *
- * `Record<CheckKind, …>` already makes a missing requirement type a `tsc`
- * error. These cover what the types cannot: that the tables are populated
- * rather than merely present, and that nothing is documented twice.
- */
-
 describe("requirement types", () => {
   it("documents every check the resolver can run", () => {
     expect(Object.keys(REQUIREMENT_TYPES).toSorted()).toEqual(
@@ -19,10 +11,6 @@ describe("requirement types", () => {
   });
 
   it("documents the repeatable requirements, and only those", () => {
-    // Three kinds answer a question per record: DKIM per selector, ownership and
-    // cname per label. Everything else answers one per domain. `rejectDefinition`
-    // in the API and `REPEATABLE_CHECK_KINDS` in the resolver both encode the
-    // same fact, so a page that disagrees with them is a page that lies.
     const repeatable = Object.entries(REQUIREMENT_TYPES)
       .filter(([, type]) => type.repeatable)
       .map(([kind]) => kind)
@@ -38,12 +26,6 @@ describe("requirement types", () => {
   });
 
   it("documents exactly the fields a profile can defer to the domain", () => {
-    /**
-     * A deep import rather than a package one, and in the spec rather than in
-     * `api.ts`, so the Next build does not pull a database driver in to render a
-     * table. The published reference still cannot omit a deferrable field or
-     * invent one: this is the source of truth, and the docs are the copy.
-     */
     for (const [kind, type] of Object.entries(REQUIREMENT_TYPES)) {
       expect([...type.perDomain].toSorted(), kind).toEqual(
         [
@@ -56,8 +38,6 @@ describe("requirement types", () => {
   });
 
   it("only advertises a per-domain field it also documents", () => {
-    // Otherwise a field appears in `requiredPerDomain` with nothing on the page
-    // explaining what value it takes.
     for (const [kind, type] of Object.entries(REQUIREMENT_TYPES)) {
       const documented = type.fields.map((field) => field.name);
 
@@ -70,8 +50,6 @@ describe("requirement types", () => {
 
 describe("verdicts", () => {
   it("is the only one where nothing changes", () => {
-    // The distinction the whole stack preserves. If a second verdict ever
-    // becomes a no-op, the state machine and this page have both moved.
     const inert = Object.entries(VERDICTS)
       .filter(([, meaning]) => meaning.effect.startsWith("Changes nothing"))
       .map(([verdict]) => verdict);
@@ -90,8 +68,6 @@ describe("endpoints", () => {
   });
 
   it("keeps registration and verification as separate calls", () => {
-    // Documented as one call, they would be built as one call, and importing
-    // tens of thousands of domains would fire tens of thousands of DNS runs.
     expect(
       ENDPOINTS.some(
         (endpoint) =>

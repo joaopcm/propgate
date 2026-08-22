@@ -45,10 +45,6 @@ describe("parsing stored progress", () => {
     expect(parseProgress("{not json")).toEqual(EMPTY_PROGRESS);
   });
 
-  /**
-   * The reason the version is in the key as well as the value. A v2 reader
-   * finding a v1 payload starts clean rather than reinterpreting it.
-   */
   it("ignores a payload from another schema version rather than migrating it", () => {
     const foreign = JSON.stringify({
       units: {
@@ -98,10 +94,6 @@ describe("recording an outcome", () => {
     expect(passed.units.unit).toMatchObject({ outcome: "passed" });
   });
 
-  /**
-   * The asymmetry is the point. Passing establishes something a later skip
-   * does not, so a skip must never overwrite it.
-   */
   it("never downgrades a pass to a skip", () => {
     const passed = recordUnit(EMPTY_PROGRESS, "unit", "passed", 0, AT);
     const after = recordUnit(passed, "unit", "skipped", 0, AT);
@@ -125,9 +117,6 @@ describe("what is locked", () => {
     expect(statusFor(slugAt(1), progress)).toBe("open");
   });
 
-  /**
-   * An escape hatch that does not let you out is not one. Principle 6.
-   */
   it("opens the next unit after a skip", () => {
     const progress = recordUnit(EMPTY_PROGRESS, slugAt(0), "skipped", 0, AT);
 

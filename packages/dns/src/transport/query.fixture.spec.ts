@@ -8,15 +8,6 @@ import { query } from "./query";
 const DKIM_PREFIX = /^v=DKIM1; k=rsa; p=/;
 const DKIM_TAG = /^v=DKIM1/;
 
-/**
- * The codec against real servers.
- *
- * Every assertion here is something `node:dns` cannot express. That is the
- * justification for ~1.2 kLOC of hand-rolled wire format in a package that
- * promises zero runtime dependencies, so it deserves to be demonstrated rather
- * than asserted in a comment.
- */
-
 function target(role: Parameters<typeof fixtureTarget>[0]): ServerAddress {
   const fixture = fixtureTarget(role);
   return { address: fixture.address, port: fixture.port };
@@ -33,7 +24,6 @@ describe("TC bit and TCP fallback", () => {
   it("sets TC for a 4096-bit key when no OPT record is sent", async () => {
     const outcome = await query({
       name: "big4096._domainkey.tcp.test",
-      // No ednsBufferSize: the response is capped at 512 by protocol.
       retryOverTcp: false,
       target: AUTH(),
       timeoutMs: TIMEOUT_MS,
@@ -43,8 +33,6 @@ describe("TC bit and TCP fallback", () => {
     expect(outcome.status).toBe("truncated");
     if (outcome.status === "truncated") {
       expect(outcome.message.flags.tc).toBe(true);
-      // A truncated answer carries no usable records — which is precisely why
-      // reading this as "record not found" is the bug we are preventing.
       expect(outcome.message.answers).toHaveLength(0);
     }
   });
@@ -67,9 +55,7 @@ describe("TC bit and TCP fallback", () => {
 
     const [txt] = recordsOfType(outcome.message.answers, "TXT");
     expect(txt?.rdata.value).toMatch(DKIM_PREFIX);
-    // 736 base64 chars of key plus the 18-char "v=DKIM1; k=rsa; p=" prefix.
     expect(txt?.rdata.value.length).toBe(754);
-    // Over the 512-byte cap, which is why the retry was needed at all.
     expect(outcome.message.byteLength).toBeGreaterThan(512);
   });
 
@@ -82,8 +68,6 @@ describe("TC bit and TCP fallback", () => {
       type: RecordType.TXT,
     });
 
-    // The other side of the boundary. Reporting truncation here would be as
-    // wrong as missing it for the 4096-bit case.
     expect(outcome.status).toBe("answered");
     if (outcome.status === "answered") {
       expect(outcome.message.flags.tc).toBe(false);
@@ -121,25 +105,15 @@ describe("TXT chunk boundaries", () => {
     }
 
     const [txt] = recordsOfType(outcome.message.answers, "TXT");
-    // Three chunks on the wire, concatenated with no separator. Keeping the
-    // chunks is what makes TXT_VALUE_SPLIT_MANGLED detectable at all: the
-    // joined value alone cannot tell a clean split from a mangled one.
     expect(txt?.rdata.chunks).toHaveLength(3);
     expect(txt?.rdata.chunks.map((chunk) => chunk.length)).toEqual([
       60, 60, 57,
     ]);
     expect(txt?.rdata.value).toHaveLength(177);
-    // The clean case: no whitespace inside the base64 payload. Note the value
-    // legitimately contains spaces in its tag prefix ("v=DKIM1; k=rsa; p="),
-    // so the check has to be on the key material, not the whole string — which
-    // is itself a small illustration of why the chunks matter.
     expect(txt?.rdata.value.slice(18)).not.toContain(" ");
   });
 
   it("hands the whitespace at a chunk boundary through untouched", async () => {
-    // Not a mangle: RFC 6376 §2.10 permits folding whitespace inside base64,
-    // and the DKIM evaluator strips it. The transport's job is to report what
-    // is on the wire and leave the judging to the layer that knows the rules.
     const outcome = await query({
       name: "s2._domainkey.txt-split.test",
       target: AUTH(),
@@ -191,10 +165,6 @@ describe("negative caching", () => {
       throw new Error("expected a SOA in the authority section");
     }
 
-    // RFC 2308: the negative TTL is min(SOA MINIMUM, the SOA record's own TTL).
-    // Taking MINIMUM alone would tell a customer to wait an hour instead of
-    // five minutes. c-ares discards the authority section entirely, so this
-    // computation is impossible through node:dns.
     expect(soa.rdata.minimum).toBe(3600);
     expect(soa.ttl).toBe(300);
     expect(Math.min(soa.rdata.minimum, soa.ttl)).toBe(300);
@@ -218,8 +188,6 @@ describe("negative caching", () => {
       throw new Error("expected both queries to answer");
     }
 
-    // NODATA is RCODE 0 with an empty answer section; the name exists, the type
-    // does not. The remedies differ, so conflating them misleads the customer.
     expect(nodata.message.rcode).toBe(0);
     expect(nodata.message.answers).toHaveLength(0);
     expect(nxdomain.message.rcode).toBe(3);
@@ -293,9 +261,6 @@ describe("DNSSEC state", () => {
       throw new Error(`expected an answer, got ${outcome.status}`);
     }
 
-    // Resolves, but AD is unset. "Insecure" is a warning a customer can live
-    // with; "bogus" means their mail is already broken. Reporting one as the
-    // other is exactly the false alarm the product exists to avoid.
     expect(outcome.message.rcode).toBe(0);
     expect(outcome.message.flags.ad).toBe(false);
     expect(recordsOfType(outcome.message.answers, "TXT")[0]?.rdata.value).toBe(
@@ -342,9 +307,6 @@ describe("wildcard synthesis via RRSIG labels", () => {
       throw new Error("expected an RRSIG");
     }
 
-    // The queried name has 3 labels; the signature was made over a 2-label
-    // owner, so the answer came from a wildcard. This is the authoritative
-    // signal, needing no second probe — and it is invisible through node:dns.
     const queriedLabels = "never-configured.wildcard-signed.test".split(
       "."
     ).length;
@@ -367,7 +329,6 @@ describe("wildcard synthesis via RRSIG labels", () => {
     }
 
     const [rrsig] = recordsOfType(outcome.message.answers, "RRSIG");
-    // No false positive: an explicitly configured name has a full label count.
     expect(rrsig?.rdata.labels).toBe(3);
   });
 });
@@ -385,8 +346,6 @@ describe("rcode distinctions", () => {
       throw new Error(`expected an answer, got ${outcome.status}`);
     }
 
-    // REFUSED (5), not SERVFAIL (2) and not NXDOMAIN (3). node:dns collapses
-    // all three into an error code that loses the distinction.
     expect(outcome.message.rcode).toBe(5);
   });
 
@@ -405,7 +364,6 @@ describe("rcode distinctions", () => {
       type: RecordType.SOA,
     });
 
-    // dns-auth is not authoritative for decoy.test, so no AA.
     if (authoritative.status === "answered") {
       expect(authoritative.message.flags.aa).toBe(false);
     }

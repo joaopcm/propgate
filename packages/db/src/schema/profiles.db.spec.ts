@@ -57,9 +57,6 @@ describe("profiles", () => {
   });
 
   it("lets two tenants use the same profile key", async () => {
-    // The key is a tenant's own name for the profile, not a global identifier.
-    // Making it globally unique would mean the second tenant to want "sending"
-    // could not have it.
     const first = await tenant();
     const second = await tenant();
 

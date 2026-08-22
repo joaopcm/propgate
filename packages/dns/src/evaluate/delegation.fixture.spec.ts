@@ -6,14 +6,6 @@ import { createEvaluationContext } from "./context";
 import { evaluateDelegation, parentOf } from "./delegation";
 import type { EvaluationResult, Evidence } from "./types";
 
-/**
- * Delegation health against real servers.
- *
- * Nothing here can be checked from one server's answers, which is the point:
- * every finding is a disagreement between two servers, or a fact about one that
- * the others cannot report.
- */
-
 const TIMEOUT_MS = 2000;
 
 function target(role: Parameters<typeof fixtureTarget>[0]): ServerAddress {
@@ -21,13 +13,6 @@ function target(role: Parameters<typeof fixtureTarget>[0]): ServerAddress {
   return { address: fixture.address, port: fixture.port };
 }
 
-/**
- * Always through the recursive tier.
- *
- * Unlike the other evaluators, this one cannot talk straight to an
- * authoritative server: finding the parent's nameservers is itself a
- * resolution, and dns-auth is not authoritative for `test`.
- */
 async function evaluate(domain: string): Promise<EvaluationResult> {
   const context = createEvaluationContext({
     recursionDesired: true,
@@ -58,8 +43,6 @@ describe("parentOf", () => {
 
 describe("a healthy delegation", () => {
   it("reports nothing at all", async () => {
-    // Worth its own fixture: a checker that finds something wrong with every
-    // domain is a checker nobody reads.
     const result = await evaluate("healthy.test");
 
     expect(codes(result)).toEqual([]);
@@ -81,9 +64,6 @@ describe("a healthy delegation", () => {
 
 describe("lame delegation", () => {
   it("names the server that is not authoritative", async () => {
-    // ns-decoy is authoritative for decoy.test and nothing else, so it refuses
-    // lame.test outright. A resolver that picks it gets SERVFAIL while every
-    // other resolver is fine.
     const result = await evaluate("lame.test");
 
     expect(codes(result)).toContain(DiagnosisCode.NS_DELEGATION_LAME);
@@ -94,8 +74,6 @@ describe("lame delegation", () => {
   });
 
   it("does not confuse a refusal with an unreachable server", async () => {
-    // The two need different fixes: one is a misconfigured server that is up,
-    // the other is a server that is gone.
     const result = await evaluate("lame.test");
 
     expect(codes(result)).not.toContain(DiagnosisCode.NS_UNREACHABLE);
@@ -105,9 +83,6 @@ describe("lame delegation", () => {
 
 describe("an unreachable nameserver", () => {
   it("is a warning while the others still answer", async () => {
-    // stale.test is delegated to ns1 and to ns-dead, which has nothing
-    // listening. The domain resolves fine today, which is exactly why nobody
-    // notices until the remaining server goes too.
     const result = await evaluate("stale.test");
 
     expect(codes(result)).toContain(DiagnosisCode.NS_UNREACHABLE);
@@ -133,8 +108,6 @@ describe("serial drift", () => {
   });
 
   it("says which server holds which serial", async () => {
-    // Without the pairing the finding is unactionable: the fix is to look at
-    // the server that is behind, and the report has to say which that is.
     const observed =
       evidenceFor(
         await evaluate("drift.test"),
@@ -146,8 +119,6 @@ describe("serial drift", () => {
   });
 
   it("does not call either server lame", async () => {
-    // Both are authoritative. Being out of date is not the same as not serving
-    // the zone, and the fixes are unrelated.
     const result = await evaluate("drift.test");
 
     expect(codes(result)).not.toContain(DiagnosisCode.NS_DELEGATION_LAME);
@@ -156,8 +127,6 @@ describe("serial drift", () => {
 
 describe("parent and child disagreeing", () => {
   it("reports a nameserver the zone claims and the parent does not", async () => {
-    // mismatch.test lists ns1 and ns-decoy; the delegation is ns1 alone. The
-    // operator believes they have two nameservers and has one.
     const result = await evaluate("mismatch.test");
 
     expect(codes(result)).toContain(DiagnosisCode.NS_PARENT_CHILD_MISMATCH);
@@ -172,8 +141,6 @@ describe("parent and child disagreeing", () => {
   });
 
   it("probes only the servers the parent delegates to", async () => {
-    // Resolvers follow the delegation, so a lame server the zone lists but the
-    // parent does not is not a fault anyone experiences.
     const result = await evaluate("mismatch.test");
 
     expect(codes(result)).not.toContain(DiagnosisCode.NS_DELEGATION_LAME);
@@ -182,7 +149,6 @@ describe("parent and child disagreeing", () => {
 
 describe("a single nameserver", () => {
   it("is a warning even when everything works", async () => {
-    // spf.test is delegated to ns1 alone and is otherwise perfectly healthy.
     const result = await evaluate("spf.test");
 
     expect(codes(result)).toEqual([DiagnosisCode.NS_SINGLE_NAMESERVER]);
@@ -199,9 +165,6 @@ describe("uncertainty is not failure", () => {
 
     const result = await evaluateDelegation(context, { domain: "spf.test" });
 
-    // Never "no nameservers": not being able to look is not evidence of
-    // absence, and reporting it as a missing delegation would page someone
-    // over a network blip on our side.
     expect(result.verdict).toBe("indeterminate");
     expect(codes(result)).not.toContain(DiagnosisCode.NS_DELEGATION_LAME);
   });

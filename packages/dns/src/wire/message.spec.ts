@@ -3,12 +3,6 @@ import { RecordType } from "./constants";
 import { decodeMessage, encodeQuery } from "./message";
 import { Writer } from "./writer";
 
-/**
- * Round-trip and malformed-input coverage for the message layer. The
- * fixture-backed specs exercise real servers; these pin behaviour that would be
- * awkward or impossible to provoke from a well-behaved one.
- */
-
 function record(
   name: string,
   type: number,
@@ -78,8 +72,6 @@ describe("encodeQuery", () => {
       type: RecordType.TXT,
     });
 
-    // arcount must be 0. This is what makes the 512-byte cap apply, and it is
-    // the whole mechanism behind the truncation fixtures.
     expect(query.readUInt16BE(10)).toBe(0);
     expect(unwrap(query).edns).toBeUndefined();
   });
@@ -143,7 +135,6 @@ describe("encodeQuery", () => {
 
 describe("decodeMessage flags", () => {
   it("decodes the TC bit, which c-ares cannot expose at all", () => {
-    // qr + aa + tc
     const message = unwrap(response({ flags: 0x80_00 | 0x04_00 | 0x02_00 }));
 
     expect(message.flags.tc).toBe(true);
@@ -160,12 +151,11 @@ describe("decodeMessage flags", () => {
   });
 
   it("reconstructs an extended RCODE from the OPT record", () => {
-    // BADVERS is 16: low 4 bits in the header, upper bits in OPT's ttl field.
     const writer = new Writer();
     writer.name(".");
     writer.uint16(RecordType.OPT);
     writer.uint16(1232);
-    writer.uint32(0x01_00_00_00); // extended rcode 1 -> 1<<4 = 16
+    writer.uint32(0x01_00_00_00);
     writer.uint16(0);
 
     const message = unwrap(
@@ -197,7 +187,6 @@ describe("decodeMessage sections", () => {
       "first",
       "second",
     ]);
-    // Concatenation is separator-free per RFC 6763 §6.1.
     expect(txt.value).toBe("firstsecond");
   });
 
@@ -222,8 +211,6 @@ describe("decodeMessage sections", () => {
   });
 
   it("exposes the authority-section SOA of an NXDOMAIN", () => {
-    // The negative-cache TTL is min(SOA MINIMUM, the SOA record's own TTL), and
-    // reading it requires the authority section — which c-ares discards.
     const soa = new Writer()
       .name("ns1.test")
       .name("hostmaster.test")
@@ -255,7 +242,7 @@ describe("decodeMessage sections", () => {
     const rrsig = new Writer()
       .uint16(RecordType.TXT)
       .uint8(8)
-      .uint8(2) // labels: the original owner had 2, so a 3-label answer is synthesised
+      .uint8(2)
       .uint32(300)
       .uint32(2_000_000_000)
       .uint32(1_000_000_000)
@@ -305,7 +292,6 @@ describe("decodeMessage sections", () => {
   it("decodes an NSEC type bitmap", () => {
     const rdata = Buffer.concat([
       new Writer().name("next.a.test").toBuffer(),
-      // window 0, 1 byte, bits for A (1) and NS (2)
       Buffer.from([0, 1, 0b0110_0000]),
     ]);
     const message = unwrap(
@@ -381,8 +367,6 @@ describe("decodeMessage failures are values, not throws", () => {
   });
 
   it("reports an rdlength that disagrees with the rdata it frames", () => {
-    // rdlength says 8 but an A record consumes 4, which would silently
-    // desynchronise every following record.
     const result = decodeMessage(
       response({
         answers: [
@@ -408,7 +392,7 @@ describe("decodeMessage failures are values, not throws", () => {
     writer.uint16(1);
     writer.uint16(0x80_00);
     writer.uint16(0);
-    writer.uint16(5); // claims five answers, sends none
+    writer.uint16(5);
     writer.uint16(0);
     writer.uint16(0);
 

@@ -10,14 +10,6 @@ import { fixtureTarget } from "@propgate/dns-fixtures";
 import { describe, expect, it } from "vitest";
 import { attributeResults, compileProfile, overallVerdict } from "./compile";
 
-/**
- * Compilation and attribution against the real resolver.
- *
- * The unit specs hand `attributeResults` a `CheckResult` someone typed, which
- * proves the filing but not that the shape is the one the evaluators actually
- * return. This is the half that would still pass if the two drifted.
- */
-
 const TIMEOUT_MS = 2000;
 
 function target() {
@@ -50,19 +42,9 @@ async function evaluate(
     },
   });
 
-  // The same values the compile got. Passing `null` here would make every
-  // deferred-selector assertion below pass for the wrong reason.
   return attributeResults(definition, result, expectations);
 }
 
-/**
- * The key `customer.test` actually publishes, read from the zone at run time.
- *
- * Deliberately discovered rather than pasted into this file. A hardcoded copy is
- * a second source of truth that goes stale the next time the fixtures are
- * re-signed, and the test that would then fail is the one asserting a *match* —
- * so it would look like the merge broke rather than like the constant did.
- */
 async function publishedKey(selector: string, domain: string): Promise<string> {
   const outcome = await query({
     name: `${selector}._domainkey.${domain}`,
@@ -76,8 +58,6 @@ async function publishedKey(selector: string, domain: string): Promise<string> {
     throw new Error(`fixture lookup was ${outcome.status}`);
   }
 
-  // `value` is the RFC 6763 concatenation. A key this long is always published
-  // as two character-strings, and the split is not what this test is about.
   const [record] = recordsOfType(outcome.message.answers, "TXT");
   const parsed = parseDkimRecord(record?.rdata.value ?? "");
 
@@ -115,8 +95,6 @@ describe("a partner's profile against a correctly configured customer", () => {
   });
 
   it("names the one requirement that is unmet, and only that one", async () => {
-    // "3 of 4 requirements met", with the missing one identified — which is
-    // what the product promises without rendering instructions.
     const attributed = await evaluate("customer.test", {
       requirements: [
         { check: "spf", include: "one.spf.test", key: "spf" },
@@ -135,8 +113,6 @@ describe("a partner's profile against a correctly configured customer", () => {
   });
 
   it("keeps two selectors' findings apart, not merged", async () => {
-    // Before the per-selector split this was impossible: one DKIM outcome
-    // carried both selectors' findings and neither could be filed.
     const attributed = await evaluate("customer.test", {
       requirements: [
         { check: "dkim", key: "issued", selector: "pg1" },
@@ -153,8 +129,6 @@ describe("a partner's profile against a correctly configured customer", () => {
   });
 
   it("is indeterminate, not failed, when the resolver cannot be reached", async () => {
-    // The property the state machine in step 4 is built on: a domain whose
-    // check could not complete keeps whatever state it had.
     const definition: ProfileDefinition = {
       requirements: [{ check: "dmarc", key: "dmarc" }],
     };
@@ -178,8 +152,6 @@ describe("a partner's profile against a correctly configured customer", () => {
 
 describe("a per-domain DKIM key against the zone that publishes it", () => {
   it("passes when the domain's own key is the one published", async () => {
-    // Uses the value the zone really serves, so this proves the merge reaches
-    // the *evaluator* rather than merely producing the right-looking object.
     const attributed = await evaluate("customer.test", DEFERS_KEY, {
       dkim: { expectedPublicKey: await publishedKey("pg1", "customer.test") },
     });
@@ -188,8 +160,6 @@ describe("a per-domain DKIM key against the zone that publishes it", () => {
   });
 
   it("fails with a mismatch when a different valid key is expected", async () => {
-    // The domain that pasted a competitor's record. Without the expectation this
-    // zone passes, because a valid key really is published here.
     const attributed = await evaluate("customer.test", DEFERS_KEY, {
       dkim: { expectedPublicKey: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8ANOTTHEKEY" },
     });
@@ -201,13 +171,6 @@ describe("a per-domain DKIM key against the zone that publishes it", () => {
   });
 
   it("fails when the key differs only in letter case", async () => {
-    /**
-     * DNS names fold case; base64 does not.
-     *
-     * `pg1._domainkey` and `PG1._domainkey` are the same query, but a key
-     * differing in case is a different key and cannot sign anything. Comparing
-     * case-insensitively here would pass a domain whose DKIM is broken.
-     */
     const key = await publishedKey("pg1", "customer.test");
     const attributed = await evaluate("customer.test", DEFERS_KEY, {
       dkim: { expectedPublicKey: key.toLowerCase() },
@@ -217,16 +180,6 @@ describe("a per-domain DKIM key against the zone that publishes it", () => {
   });
 
   it("attributes a deferred selector's outcome to its requirement", async () => {
-    /**
-     * A DKIM outcome is keyed by selector, and this requirement carries none —
-     * the domain supplies it. Attribution has to resolve it the same way the
-     * compile did, or it looks for `undefined` among the selectors the resolver
-     * actually reported and finds nothing.
-     *
-     * The symptom is the worst shape available: a check that passed, filed as
-     * `indeterminate`, so the domain can never reach `verified` and nothing in the
-     * result says why.
-     */
     const attributed = await evaluate(
       "customer.test",
       {
@@ -241,34 +194,12 @@ describe("a per-domain DKIM key against the zone that publishes it", () => {
   });
 
   it("does not pass when the required key was never supplied", () => {
-    /**
-     * The one test that separates the design from the bug it replaced.
-     *
-     * `customer.test` publishes a perfectly valid key at `pg1`, so the old
-     * behaviour — collapsing an absent expectation into the bare selector
-     * spelling — reported this exact profile and this exact domain as `pass`.
-     * Per invariant 1 a mocked resolver would have agreed with whichever of those
-     * two answers we believed when we wrote the mock; only the real zone can tell
-     * them apart.
-     */
     const compiled = compileProfile(DEFERS_KEY, "version-1", null);
 
     expect(compiled.kind).toBe("incomplete");
   });
 });
 
-/**
- * The shape every sending platform issues, as one profile.
- *
- * This is the case the two-domain workaround existed for: Resend, SES and
- * Postmark all put DKIM and DMARC on the domain and SPF and MX on a bounce host
- * beneath it. Before `label` there was no way to say that, so a partner
- * registered two domains and reassembled one answer out of two states.
- *
- * `customer.test` publishes exactly that layout — a null MX at the apex, a
- * deliverable one at `send` — so this asserts the whole thing end to end rather
- * than the label mechanism on its own.
- */
 const RETURN_PATH: ProfileDefinition = {
   requirements: [
     { check: "dkim", key: "dkim", selector: "pg1" },
@@ -294,20 +225,8 @@ describe("a platform that sends from a bounce host", () => {
   });
 
   it("files each name's answer against the requirement that asked for it", async () => {
-    /**
-     * The half that cannot be checked by looking at the verdict.
-     *
-     * Two `mx` requirements assert opposite things about two names. If
-     * attribution keyed them by kind instead of by label, both would receive the
-     * first outcome — and the second would read `satisfied` for a name nothing
-     * checked, which is the false pass this file's header calls the worst thing
-     * it can produce.
-     */
     const attributed = await evaluate("customer.test", {
       requirements: [
-        // Wrong on purpose: the apex publishes a null MX, so demanding mail
-        // there fails — and it must fail *there* rather than on the bounce host
-        // asking the identical question one name down.
         { check: "mx", expectsMail: true, key: "apex-mail" },
         { check: "mx", expectsMail: true, key: "bounce-mx", label: "send" },
       ],
@@ -322,8 +241,6 @@ describe("a platform that sends from a bounce host", () => {
   });
 
   it("names the labelled record in the finding, not the domain", async () => {
-    // What a partner renders for their customer. "SPF is missing" is not
-    // actionable; "SPF is missing at send.customer.test" is the whole answer.
     const attributed = await evaluate("customer.test", {
       requirements: [
         {

@@ -12,48 +12,19 @@ import {
 } from "./dkim-record";
 import type { EvaluationResult, Verdict } from "./types";
 
-/**
- * DKIM selector evaluation.
- *
- * The job is not "is there a TXT record" — it is "will a receiver be able to
- * verify a signature made with this selector, and if not, what should the
- * customer change". Those differ in every interesting case.
- */
-
 export interface DkimCheck {
-  /** The domain the customer is configuring, e.g. example.com. */
   readonly domain: string;
-  /**
-   * The base64 key we issued, when there is one.
-   *
-   * Omit for a generic health check. Supplying it is what turns "a valid key is
-   * published" into "the *right* key is published", which is the difference
-   * between passing a domain that copied a competitor's record and catching it.
-   */
   readonly expectedPublicKey?: string;
-  /** The selector, e.g. "resend" — the label before _domainkey. */
   readonly selector: string;
-  /**
-   * Whether the zone answers for names nobody published.
-   *
-   * Passed in rather than probed here: it is a fact about the zone, and DKIM is
-   * the check most likely to run several times over one domain. Probing per
-   * selector would ask the same question three times.
-   */
   readonly wildcardSynthesised?: boolean;
 }
 
-/** Below this, receivers have started refusing keys outright. */
 const MINIMUM_KEY_BITS = 1024;
 
 export function dkimRecordName(check: DkimCheck): string {
   return `${check.selector}._domainkey.${check.domain}`;
 }
 
-/**
- * The name a provider produces when it appends the zone to an already-absolute
- * name. Probing for it is what turns "record not found" into an instruction.
- */
 function appendedRecordName(check: DkimCheck): string {
   return `${dkimRecordName(check)}.${check.domain}`;
 }
@@ -62,14 +33,6 @@ function txtValues(records: ReturnType<typeof recordsOfType<"TXT">>): string[] {
   return records.map((record) => record.rdata.value);
 }
 
-/**
- * DKIM records are identified by content, not just by name.
- *
- * A selector can legitimately carry unrelated TXT records — verification tokens
- * end up there surprisingly often. Filtering to the ones that look like DKIM
- * avoids reporting MULTIPLE_DKIM_RECORDS for a domain that has one DKIM record
- * and one Google site verification.
- */
 function looksLikeDkim(value: string): boolean {
   const lowered = value.toLowerCase();
   return lowered.includes("v=dkim1") || lowered.includes("p=");
@@ -86,12 +49,7 @@ async function findRecords(
       readonly values: string[];
     }
   | { readonly kind: "appended"; readonly name: string }
-  // The outcome travels with the absence: the *shape* of the nothing that came
-  // back is as actionable as the nothing. See `reportAnswerShape`.
   | { readonly kind: "absent"; readonly outcome: QueryOutcome }
-  // The outcome travels here too, for the same reason it travels with `absent`:
-  // "we could not tell" has shapes, and one of them — a swallowed TCP retry — is
-  // specific enough to name.
   | {
       readonly kind: "indeterminate";
       readonly detail: string;
@@ -115,8 +73,6 @@ async function findRecords(
     }
   }
 
-  // A timeout, a refusal, or a SERVFAIL means we could not tell. Probing for a
-  // mangled name would be guessing, and reporting "missing" would be a lie.
   if (
     outcome.status === "timeout" ||
     outcome.status === "unreachable" ||
@@ -133,8 +89,6 @@ async function findRecords(
     };
   }
 
-  // Nothing at the right name. Before calling it missing, check the single most
-  // common provider mistake: the zone name appended to an absolute name.
   const doubled = appendedRecordName(check);
   const probe = await context.lookup({
     name: doubled,
@@ -204,8 +158,6 @@ function checkKey(
     verdict = "warn";
   }
 
-  // Byte-exact. DNS names fold case; base64 does not, so a key differing only in
-  // case is a different key and must not be treated as a match.
   if (
     check.expectedPublicKey !== undefined &&
     record.publicKeyBase64 !== check.expectedPublicKey
@@ -226,25 +178,6 @@ function checkKey(
   return verdict;
 }
 
-/**
- * Evaluate one DKIM selector.
- *
- * Returns the verdict, the findings with their evidence, and every lookup made
- * with the reason it happened. Callers render the derivation; they should not
- * have to re-run anything to explain the result.
- */
-/**
- * A record whose chunks were rejoined with the tag prefix repeated.
- *
- * The signature is a second `v=DKIM1` inside what should be one tag-value list:
- * the provider emitted the whole prefix on every character-string instead of
- * splitting the base64. Worth its own finding, because "duplicate tag k=" sends
- * someone to look at their key when the fault is in how it was stored.
- *
- * Whitespace at a chunk boundary is *not* this. RFC 6376 §2.10 permits folding
- * whitespace inside base64, and reporting it here told people a working key was
- * broken.
- */
 function reportRejoin(
   context: EvaluationContext,
   name: string,
@@ -270,14 +203,8 @@ export async function evaluateDkim(
   const name = dkimRecordName(check);
 
   if (found.kind === "indeterminate") {
-    // Why we could not tell, when the reason is nameable. The verdict stays
-    // `indeterminate` — a blocked retry means the key may well be published and
-    // simply unreachable at this size, so calling it broken would be a guess —
-    // but a finding turns "we could not tell" into something actionable.
     reportTcpBlocked(context, found.outcome, name);
 
-    // Deliberately not a failure. See the Verdict docs: "we could not tell" and
-    // "it is broken" must never collapse into one another.
     return {
       findings: context.findings,
       lookups: context.lookups,
@@ -327,18 +254,12 @@ export async function evaluateDkim(
     };
   }
 
-  // Working today, and one middlebox away from not working — worth saying even
-  // when the record itself is perfect.
   reportTransport(context, found.outcome, found.name);
 
   const raw = found.values[0] ?? "";
   const parsed = parseDkimRecord(raw);
 
   if (check.wildcardSynthesised === true) {
-    // Reported here rather than the moment the record was found: a wildcard
-    // alongside a genuinely published selector is not a false positive. It is
-    // one only when the answer we are about to trust could have been
-    // synthesised, which is exactly now.
     context.report(DiagnosisCode.WILDCARD_FALSE_POSITIVE, {
       detail:
         "this zone answers names nobody published, so a selector appearing to exist is not evidence that it was added — verify the value rather than its presence",
@@ -354,9 +275,6 @@ export async function evaluateDkim(
       observed: raw,
     });
 
-    // A repeated prefix trips the duplicate-tag check first, and "duplicate tag
-    // k=" sends someone to look at their key when the fault is in how the
-    // provider stored it.
     reportRejoin(context, name, raw);
 
     return {

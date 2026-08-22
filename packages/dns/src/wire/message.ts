@@ -10,29 +10,13 @@ import { decodeRdata, type Rdata } from "./rdata";
 import { Reader } from "./reader";
 import { Writer } from "./writer";
 
-/**
- * Message encode and decode.
- *
- * The public surface is `encodeQuery` and `decodeMessage`. Decoding never
- * throws: a malformed response is a finding, so it comes back as a
- * `DecodeResult` the caller switches on.
- */
-
 export interface Flags {
-  /** Authoritative Answer. Set when the server owns the zone. */
   readonly aa: boolean;
-  /** Authentic Data: the resolver validated DNSSEC for this answer. */
   readonly ad: boolean;
-  /** Checking Disabled: the client asked to skip validation. */
   readonly cd: boolean;
-  /** Response rather than query. */
   readonly qr: boolean;
   readonly ra: boolean;
   readonly rd: boolean;
-  /**
-   * TrunCation. The single most important flag here, and one c-ares will not
-   * surface — without it, an oversized DKIM key looks like a missing record.
-   */
   readonly tc: boolean;
 }
 
@@ -54,9 +38,7 @@ export interface Message {
   readonly additional: readonly ResourceRecord[];
   readonly answers: readonly ResourceRecord[];
   readonly authority: readonly ResourceRecord[];
-  /** Wire size, for the truncation-boundary assertions. */
   readonly byteLength: number;
-  /** The OPT pseudo-RR, if the responder sent one. */
   readonly edns:
     | {
         readonly udpPayloadSize: number;
@@ -68,28 +50,16 @@ export interface Message {
   readonly id: number;
   readonly opcode: number;
   readonly questions: readonly Question[];
-  /** Includes the extended bits from OPT, so BADVERS surfaces correctly. */
   readonly rcode: number;
 }
 
 export interface EncodeQueryOptions {
-  /** Ask the resolver not to validate, so bogus data can be inspected. */
   readonly checkingDisabled?: boolean;
   readonly class?: number;
-  /** Request DNSSEC records. Implies an OPT record. */
   readonly dnssecOk?: boolean;
-  /**
-   * Advertised EDNS0 UDP payload size.
-   *
-   * **Omit to send no OPT record at all.** That is not a micro-optimisation: a
-   * query without OPT is capped at 512 bytes by RFC 1035, which is the only way
-   * to drive truncation from the client rather than by tuning the server. Any
-   * value here, even a small one, changes the semantics.
-   */
   readonly ednsBufferSize?: number;
   readonly id: number;
   readonly name: string;
-  /** Recursion Desired. False when talking straight to an authoritative server. */
   readonly recursionDesired?: boolean;
   readonly type: number;
 }
@@ -121,36 +91,29 @@ export function encodeQuery(options: EncodeQueryOptions): Buffer {
 
   writer.uint16(options.id);
   writer.uint16(flags);
-  writer.uint16(1); // qdcount
-  writer.uint16(0); // ancount
-  writer.uint16(0); // nscount
-  writer.uint16(wantsOpt ? 1 : 0); // arcount
+  writer.uint16(1);
+  writer.uint16(0);
+  writer.uint16(0);
+  writer.uint16(wantsOpt ? 1 : 0);
 
   writer.name(options.name);
   writer.uint16(options.type);
   writer.uint16(options.class ?? RecordClass.IN);
 
   if (wantsOpt) {
-    // OPT is a pseudo-RR: root owner name, type OPT, and the "class" field
-    // repurposed as the advertised payload size (RFC 6891 §6.1.2).
     writer.name(".");
     writer.uint16(RecordType.OPT);
     writer.uint16(options.ednsBufferSize ?? CLASSIC_UDP_LIMIT);
-    writer.uint8(0); // extended rcode
-    writer.uint8(0); // version
+    writer.uint8(0);
+    writer.uint8(0);
     writer.uint16(options.dnssecOk ? EDNS_DO : 0);
-    writer.uint16(0); // rdlength
+    writer.uint16(0);
   }
 
   return writer.toBuffer();
 }
 
 function decodeQuestion(reader: Reader): Question {
-  // Read into locals in wire order, never inline in the object literal.
-  // Object properties evaluate in source order, so a formatter that sorts keys
-  // alphabetically would silently reorder the reads — which is exactly what
-  // happened once here, turning "name, type, class" into "class, name, type"
-  // and corrupting every subsequent byte. Locals make the code immune to it.
   const name = reader.name();
   const type = reader.uint16();
   const recordClass = reader.uint16();
@@ -177,9 +140,6 @@ function decodeRecord(reader: Reader): ResourceRecord {
 
   const rdata = decodeRdata(reader, type, end);
 
-  // A decoder that consumed the wrong number of bytes would silently corrupt
-  // every subsequent record, so this mismatch is worth failing on rather than
-  // resynchronising past.
   if (reader.offset !== end) {
     throw new WireFormatError(
       reader.offset > end ? "rdlength-overrun" : "rdlength-underrun",
@@ -233,9 +193,6 @@ export function decodeMessage(buffer: Buffer): DecodeResult<Message> {
     let edns: Message["edns"];
 
     if (opt) {
-      // The OPT record smuggles data through fields that mean something else in
-      // a normal RR: "class" is the payload size and "ttl" holds the extended
-      // rcode, version, and the DO bit.
       const extendedRcode = (opt.ttl >>> 24) & 0xff;
       rcode |= extendedRcode << 4;
       edns = {
@@ -277,7 +234,6 @@ export function decodeMessage(buffer: Buffer): DecodeResult<Message> {
   }
 }
 
-/** Records of one type from a section, narrowed to their rdata shape. */
 export function recordsOfType<K extends Rdata["kind"]>(
   records: readonly ResourceRecord[],
   kind: K

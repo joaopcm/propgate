@@ -11,8 +11,6 @@ describe("blocksFrom", () => {
   });
 
   it("turns a dash list into a ul, not one paragraph", () => {
-    // Single newlines between items is how the contact copy is written.
-    // Wrapping that chunk in a <p> is what inlined the list on the page.
     expect(blocksFrom("- API\n- CLI\n- SDK")).toEqual([
       { items: ["API", "CLI", "SDK"], kind: "ul" },
     ]);

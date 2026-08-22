@@ -9,19 +9,6 @@ import {
 } from "@propgate/sdk";
 import { describe, expect, it } from "vitest";
 
-/**
- * The SDK pages against the SDK, and the API reference against both.
- *
- * `cli.spec.ts` does this for the CLI, and the reasoning is identical: prose is
- * a person's job, but a method that was renamed, an example that would not
- * compile, and an endpoint whose page never learned the SDK can call it are not.
- *
- * A published example naming a method that does not exist is worse than no
- * example — a reader concludes the client cannot do the thing, or pastes it and
- * gets `propgate.domains.delete is not a function`. Both are silent until
- * somebody hits them.
- */
-
 const DOCS = join(process.cwd(), "src/app/(docs)");
 const SDK_DOCS = join(DOCS, "sdk");
 const API_DOCS = join(DOCS, "api");
@@ -34,13 +21,6 @@ function walk(directory: string): string[] {
   });
 }
 
-/**
- * The snippets as *rendered*, not as source.
- *
- * Imported rather than read off disk, for the reason `cli.spec.ts` gives:
- * reading the file gets the TypeScript around the strings too, and every
- * explanatory header comment becomes a phantom example.
- */
 async function snippetsIn(directory: string): Promise<readonly string[]> {
   const modules = await Promise.all(
     walk(directory)
@@ -69,12 +49,6 @@ function proseIn(directory: string): string {
 const SDK_TEXT = `${proseIn(SDK_DOCS)}\n${await examplesIn(SDK_DOCS)}`;
 const API_TEXT = `${proseIn(API_DOCS)}\n${await examplesIn(API_DOCS)}`;
 
-/**
- * Every method the client exposes, found by reflection.
- *
- * A hand-kept list would only prove this file agrees with itself, and the
- * failure being guarded against is somebody adding a method and not the page.
- */
 const RESOURCES = [
   "apiKeys",
   "checks",
@@ -98,7 +72,6 @@ function methods(): readonly string[] {
   return [...found, "health"];
 }
 
-/** `propgate.domains.listAll(` and `propgate.health(`, as written in the docs. */
 const CALL = /\bpropgate\.([A-Za-z]+(?:\.[A-Za-z]+)?)\s*\(/g;
 
 function callsIn(text: string): readonly string[] {
@@ -107,8 +80,6 @@ function callsIn(text: string): readonly string[] {
 
 describe("the SDK pages", () => {
   it("finds the examples at all, so a silent zero cannot pass", () => {
-    // Without this, every assertion below goes vacuously green the moment the
-    // extraction stops matching anything.
     expect(callsIn(SDK_TEXT).length).toBeGreaterThan(15);
   });
 
@@ -129,16 +100,6 @@ describe("the SDK pages", () => {
   });
 
   it("checks the timestamp in every example that verifies a signature", async () => {
-    /**
-     * `verifyPayload` validates the HMAC and nothing else — freshness is the
-     * receiver's job, which is why `TOLERANCE_SECONDS` is exported rather than
-     * enforced. An example that calls it and skips the comparison publishes a
-     * handler that accepts a captured request forever, and it is the kind of
-     * thing readers paste verbatim.
-     *
-     * Asserted on the rendered snippets rather than the prose: an admonition
-     * beside a vulnerable example is not a fix.
-     */
     const examples = (await snippetsIn(SDK_DOCS)).filter((snippet) =>
       snippet.includes("verifyPayload")
     );
@@ -151,13 +112,6 @@ describe("the SDK pages", () => {
   });
 
   it("states a worst case that the client's own defaults produce", () => {
-    /**
-     * The number this page quotes is arithmetic over three constants, and it was
-     * wrong on the first draft — 65 seconds, for a client whose defaults give
-     * 100. A reader who wraps a call in a deadline sized from it gets a timeout
-     * that fires before the retries finish, which is exactly the failure a
-     * receipt is supposed to prevent.
-     */
     const worstCaseMs =
       DEFAULT_TIMEOUT_MS * (1 + DEFAULT_MAX_RETRIES) +
       DEFAULT_MAX_RETRIES * MAX_RETRY_WAIT_MS;
@@ -166,11 +120,6 @@ describe("the SDK pages", () => {
   });
 
   it("names every error code a consumer can receive", () => {
-    /**
-     * The table on `/sdk/errors` is the only place a code is explained, and a
-     * code that arrives at runtime and appears nowhere in the docs is exactly
-     * the moment somebody starts parsing `message` instead.
-     */
     const missing = PROPGATE_ERROR_CODES.filter(
       (code) => !SDK_TEXT.includes(code)
     );
@@ -179,13 +128,6 @@ describe("the SDK pages", () => {
   });
 });
 
-/**
- * Endpoint pages whose request cannot be made from the SDK.
- *
- * Signup is a mailbox flow — a six-digit code out, a key back — and a
- * server-side client is on the wrong side of it. Both pages say so and point at
- * the CLI. Any other page missing an SDK tab is an oversight.
- */
 const NO_SDK_EQUIVALENT = ["accounts/signup", "accounts/confirm"];
 
 describe("the API reference", () => {
@@ -209,7 +151,6 @@ describe("the API reference", () => {
   );
 
   it("excludes only the two flows the SDK deliberately omits", () => {
-    // A stale exclusion is how a page silently stops being covered.
     const names = new Set(pages.map((page) => page.name));
 
     expect(NO_SDK_EQUIVALENT.filter((name) => !names.has(name))).toEqual([]);

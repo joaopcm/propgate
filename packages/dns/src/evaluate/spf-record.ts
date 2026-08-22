@@ -1,21 +1,6 @@
 import { isIPv4, isIPv6 } from "node:net";
 import { validateMacroString } from "./spf-macro";
 
-/**
- * SPF record syntax (RFC 7208 §4, §5, §6, ABNF in §12).
- *
- * Pure: takes the text of one record, returns its terms or the reason it is not
- * a record. No DNS, so every syntax rule below is a unit test.
- *
- * Syntax errors here are `permerror` territory, and that distinction is the
- * whole reason this file is separate from the evaluator: a record that does not
- * parse is permanently broken and the domain owner must fix it, whereas a
- * lookup that fails while *expanding* a record that parsed fine is a
- * `temperror` and may be gone in a minute. Conflating the two either tells
- * someone their DNS is broken when a resolver blipped, or tells them to wait
- * when nothing will ever change.
- */
-
 export const SPF_QUALIFIERS = ["+", "-", "~", "?"] as const;
 
 export type SpfQualifier = (typeof SPF_QUALIFIERS)[number];
@@ -36,19 +21,15 @@ export type SpfMechanismName = (typeof SPF_MECHANISMS)[number];
 export interface SpfMechanism {
   readonly kind: "mechanism";
   readonly name: SpfMechanismName;
-  /** CIDR prefix applied to IPv4 addresses, for `a`, `mx`, `ip4`. */
   readonly prefix4?: number;
-  /** CIDR prefix applied to IPv6 addresses, for `a`, `mx`, `ip6`. */
   readonly prefix6?: number;
   readonly qualifier: SpfQualifier;
   readonly raw: string;
-  /** The domain-spec or network, absent for a bare `a`, `mx`, `ptr`, `all`. */
   readonly value?: string;
 }
 
 export interface SpfModifier {
   readonly kind: "modifier";
-  /** Lowercased. `redirect` and `exp` are the two RFC 7208 defines. */
   readonly name: string;
   readonly raw: string;
   readonly value: string;
@@ -57,10 +38,6 @@ export interface SpfModifier {
 export type SpfTerm = SpfMechanism | SpfModifier;
 
 export interface SpfRecord {
-  /**
-   * The first `all`, if any. It is the only one that can ever match, because
-   * `all` always matches and evaluation stops at the first match.
-   */
   readonly all?: SpfMechanism;
   readonly exp?: string;
   readonly raw: string;
@@ -81,29 +58,14 @@ const NAME_SEPARATOR = /[:=]/;
 const TRAILING_DUAL_CIDR = /(\/\d{1,2})?(\/\/\d{1,3})?$/;
 const WHITESPACE = /\s+/;
 
-/**
- * Whether a TXT record claims to be SPF.
- *
- * Applied before counting records, exactly as RFC 7208 §4.5 requires: a domain
- * with one SPF record and one verification token has one SPF record, not an
- * ambiguity. Skipping this filter is how a checker reports "multiple SPF
- * records" for a domain that publishes one.
- */
 export function looksLikeSpf(txt: string): boolean {
   return SPF_VERSION.test(txt.trim());
 }
 
-/** Whether a domain-spec contains a macro, which needs the connection to expand. */
 export function containsMacro(value: string): boolean {
   return MACRO.test(value);
 }
 
-/**
- * Terms that cost one of the ten DNS lookups RFC 7208 §4.6.4 allows.
- *
- * `ip4`, `ip6` and `all` are free — they resolve nothing. `exp` is free too: it
- * is only fetched to build a rejection message, after the outcome is decided.
- */
 export function countsAsLookup(term: SpfTerm): boolean {
   if (term.kind === "modifier") {
     return term.name === "redirect";
@@ -130,7 +92,6 @@ function parseQualifier(token: string): {
     }
   }
 
-  // RFC 7208 §4.6.2: an absent qualifier means "+".
   return { qualifier: "+", rest: token };
 }
 
@@ -216,7 +177,6 @@ function mechanismNameOf(candidate: string): SpfMechanismName | undefined {
   return SPF_MECHANISMS.find((name) => name === candidate);
 }
 
-/** Split `a:example.com/24//64` into its name, argument, and CIDR suffix. */
 function splitMechanism(body: string): {
   head: string;
   argument: string | undefined;
@@ -245,13 +205,6 @@ function splitMechanism(body: string): {
   };
 }
 
-/**
- * Where a domain-spec's CIDR suffix ends and the name begins.
- *
- * Only for `a` and `mx`, the two mechanisms that take both. A domain-spec may
- * legally contain "/" inside a macro, so this looks for the suffix at the end
- * rather than splitting on the first slash.
- */
 function splitDomainSpec(argument: string): {
   domain: string;
   suffix: string;
@@ -309,7 +262,6 @@ function parseMechanism(token: string): SpfMechanism | string {
   return parseDomainMechanism(name, qualifier, token, parts);
 }
 
-/** `a`, `mx`, `ptr`: an optional domain, and for the first two a dual CIDR. */
 function parseDomainMechanism(
   name: SpfMechanismName,
   qualifier: SpfQualifier,
@@ -361,12 +313,6 @@ function parseModifier(token: string, equals: number): SpfModifier | string {
   return { kind: "modifier", name, raw: token, value };
 }
 
-/**
- * A term is a modifier only if `=` comes before any `:`.
- *
- * `include:a=b` is a mechanism whose domain happens to contain `=`; `redirect=x`
- * is a modifier. Getting this backwards turns valid records into syntax errors.
- */
 function isModifier(token: string): number {
   const equals = token.indexOf("=");
   const colon = token.indexOf(":");
@@ -400,13 +346,6 @@ function duplicateModifier(terms: readonly SpfTerm[], name: string): boolean {
   );
 }
 
-/**
- * The first term whose macros do not parse, if any.
- *
- * Only domain-specs are checked. An unknown modifier's value is a macro-string
- * too, but nothing ever evaluates it — rejecting a whole record over a term no
- * receiver reads would fail domains that work today.
- */
 function firstBadMacro(
   terms: readonly SpfTerm[]
 ): { detail: string; term: string } | undefined {
@@ -456,9 +395,6 @@ export function parseSpfRecord(raw: string): SpfParse {
     }
   }
 
-  // RFC 7208 §6: redirect and exp "MUST NOT appear in a record more than once".
-  // Two redirects have no defined precedence, so the record is unevaluable
-  // rather than merely odd.
   for (const name of ["redirect", "exp"]) {
     if (duplicateModifier(terms, name)) {
       return { detail: `${name}= appears more than once`, ok: false };
@@ -495,13 +431,6 @@ export function parseSpfRecord(raw: string): SpfParse {
   };
 }
 
-/**
- * How many of the ten allowed lookups this record costs before expansion.
- *
- * Only the record's own terms — an `include:` costs one here and however many
- * its target costs once expanded, which is why the real accounting lives in the
- * evaluator against a shared counter.
- */
 export function directLookupCost(record: SpfRecord): number {
   return record.terms.filter(countsAsLookup).length;
 }

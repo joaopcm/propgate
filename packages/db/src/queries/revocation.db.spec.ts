@@ -63,7 +63,6 @@ describe("revokeApiKeyByReference", () => {
       ok: false,
       reason: "revoked",
     });
-    // And the other one still works.
     expect((await authenticateApiKey(db, keep.key)).ok).toBe(true);
   });
 
@@ -76,8 +75,6 @@ describe("revokeApiKeyByReference", () => {
   });
 
   it("takes effect on the very next request", async () => {
-    // No cache to wait out: bearerAuth reads revoked_at on every lookup, which
-    // is the property that makes revocation worth having at all.
     const tenantId = await tenant("Partner");
     await createApiKey(db, { name: "other", tenantId });
     const doomed = await createApiKey(db, { name: "leaked", tenantId });
@@ -94,16 +91,12 @@ describe("revokeApiKeyByReference", () => {
   });
 
   it("refuses to guess when a prefix matches more than one key", async () => {
-    // Four base64url characters with no unique index. A collision is unlikely
-    // and not impossible, and revoking the wrong partner's access is not a
-    // thing to decide on a coin flip.
     const first = await tenant("First");
     const second = await tenant("Second");
     const a = await createApiKey(db, { name: "a", tenantId: first });
     await createApiKey(db, { name: "b", tenantId: first });
     await createApiKey(db, { name: "c", tenantId: second });
 
-    // Force the collision rather than hope for one.
     await db
       .update(apiKeys)
       .set({ prefix: a.prefix })
@@ -113,7 +106,6 @@ describe("revokeApiKeyByReference", () => {
 
     expect(outcome.kind).toBe("ambiguous");
     expect(outcome.kind === "ambiguous" && outcome.matches).toHaveLength(2);
-    // Nothing was revoked.
     expect((await authenticateApiKey(db, a.key)).ok).toBe(true);
   });
 
@@ -129,8 +121,6 @@ describe("revokeApiKeyByReference", () => {
   });
 
   it("will not lock a tenant out by accident", async () => {
-    // The mistake that is easy to make under pressure and annoying to undo:
-    // there is no un-revoke, only minting a new key and getting it to them.
     const tenantId = await tenant("Partner");
     const only = await createApiKey(db, { name: "production", tenantId });
 
@@ -159,7 +149,6 @@ describe("revokeApiKeyByReference", () => {
     await createApiKey(db, { name: "b", tenantId: second });
     const only = await createApiKey(db, { name: "c", tenantId: second });
 
-    // Two keys exist overall, but only two belong to Second and one to First.
     expect(await activeApiKeyCount(db, first)).toBe(1);
     expect(await activeApiKeyCount(db, second)).toBe(2);
     expect((await revokeApiKeyByReference(db, only.prefix)).kind).toBe(

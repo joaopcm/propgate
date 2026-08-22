@@ -1,5 +1,3 @@
-/** The webhook family. Output shapes follow `packages/cli/src/commands/webhooks.ts`. */
-
 export const CREATE_CLI = `propgate webhooks create \\
   --url https://example.com/hooks/propgate \\
   --events domain.failed,domain.recovered`;

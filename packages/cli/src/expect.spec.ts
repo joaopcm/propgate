@@ -15,9 +15,6 @@ describe("parseExpectations", () => {
   });
 
   it("keeps the base64 padding on a DKIM key", () => {
-    // The value this flag exists for ends in `=` or `==`. Splitting on every
-    // equals sign would truncate exactly the key it was added to carry, and a key
-    // that lost its padding is a key that silently fails to match.
     expect(parseExpectations(["dkim.expectedPublicKey=MIGfMA0GCSq=="])).toEqual(
       {
         dkim: { expectedPublicKey: "MIGfMA0GCSq==" },
@@ -26,7 +23,6 @@ describe("parseExpectations", () => {
   });
 
   it("takes the last dot, so a dotted requirement key survives", () => {
-    // No field name contains a dot; a requirement key may.
     expect(parseExpectations(["mail.dkim.selector=acme-1"])).toEqual({
       "mail.dkim": { selector: "acme-1" },
     });
@@ -58,8 +54,6 @@ describe("parseExpectations", () => {
   });
 
   it("is empty for no input, which is not an error", () => {
-    // A profile that requires nothing per domain needs nothing here, and the
-    // server is the one that knows which profiles those are.
     const parsed = parseExpectations([]);
 
     expect(parsed).toEqual({});

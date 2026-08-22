@@ -5,29 +5,10 @@ import { resolvePort, type ServerAddress } from "../types";
 import { decodeMessage, encodeQuery, type Message } from "../wire/message";
 import type { QueryOutcome, QuerySpec } from "./types";
 
-/**
- * UDP and TCP transports.
- *
- * Deliberately built on node:dgram and node:net rather than node:dns. c-ares
- * cannot expose the TC bit, set DO, return RRSIGs, read the authority-section
- * SOA of an NXDOMAIN, or control the advertised EDNS buffer size — and each of
- * those is load-bearing for a diagnosis code. See README.md for the full table.
- */
-
 const DEFAULT_TIMEOUT_MS = 5000;
-/** RFC 1035 §4.2.2: TCP messages carry a 2-byte big-endian length prefix. */
 const TCP_LENGTH_PREFIX_BYTES = 2;
 const MAX_MESSAGE_ID = 0x1_00_00;
 
-/**
- * Random message ID, checked against the response.
- *
- * The socket is connected, so the kernel already drops datagrams from other
- * peers; the ID check catches a stale reply on a reused ephemeral port. Using
- * node:crypto rather than Math.random costs nothing here (one call per query)
- * and removes the "is this good enough?" question from a security-adjacent
- * decision entirely.
- */
 function nextId(): number {
   return randomInt(MAX_MESSAGE_ID);
 }
@@ -85,8 +66,6 @@ function sendUdp(
       })
     );
 
-    // Connecting the socket is what turns "port closed" into an ECONNREFUSED
-    // we can report, instead of a silent timeout.
     socket.connect(resolvePort(target), target.address, () => {
       socket.send(payload, (error) => {
         if (error) {
@@ -167,8 +146,6 @@ function sendTcp(
       })
     );
 
-    // A close before the full message arrived is its own failure: reporting it
-    // as a timeout would hide a server that hung up mid-answer.
     socket.on("close", () =>
       finish({
         code: "ECONNCLOSED",
@@ -195,8 +172,6 @@ function interpret(
       kind: "outcome",
       outcome: {
         elapsedMs: elapsedSince(start),
-        // `interpret` cannot know: it sees one exchange, not the pair. The caller
-        // that performed the fallback sets it.
         retriedOverTcp: false,
         status: "timeout",
         timeoutMs,
@@ -251,14 +226,6 @@ function interpret(
   return { kind: "message", message: decoded.value };
 }
 
-/**
- * Send one query and return what happened.
- *
- * On a truncated UDP answer the query is retried over TCP by default, because
- * that is what a resolver must do for a 4096-bit DKIM key. Pass
- * `retryOverTcp: false` to observe the TC bit instead — which is how the
- * truncation fixtures assert both sides of the 512-byte boundary.
- */
 export async function query(spec: QuerySpec): Promise<QueryOutcome> {
   const timeoutMs = spec.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const id = nextId();
@@ -311,9 +278,6 @@ export async function query(spec: QuerySpec): Promise<QueryOutcome> {
   const retry = interpret(retryRaw, "tcp", timeoutMs, start, id);
 
   if (retry.kind === "outcome") {
-    // The one place that knows UDP answered and TCP then did not. Losing it here
-    // is what made `TCP_SILENTLY_BLOCKED` unreachable: downstream, a swallowed
-    // TCP retry was indistinguishable from a server that never answered at all.
     return retry.outcome.status === "timeout"
       ? { ...retry.outcome, retriedOverTcp: true }
       : retry.outcome;

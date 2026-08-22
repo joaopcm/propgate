@@ -7,35 +7,10 @@ import { reportBogusIfServfail, reportInsecureIsland } from "./dnssec";
 import type { EvaluationResult, Verdict } from "./types";
 import { verdictFromFindings, worstVerdict } from "./types";
 
-/**
- * Delegation health (RFC 1034 §4.2.2, RFC 2181 §5.4.1).
- *
- * Every other evaluator asks one server a question and reads the answer. This
- * one asks *each* nameserver the same question, because the interesting faults
- * are disagreements between them and no single server can report on another:
- *
- *  - **Lame delegation.** A server the parent delegates to is not authoritative
- *    for the zone. Resolvers that happen to pick it get SERVFAIL while everyone
- *    else is fine, so the domain works for most people and is broken for some —
- *    the hardest kind of fault to get a customer to believe in.
- *  - **Serial drift.** Two authoritative servers, two different SOA serials, is
- *    a zone transfer that stopped. The answers are all valid; some of them are
- *    just old, and which one a customer sees depends on which server they hit.
- *  - **Parent and child disagreeing.** The delegation at the parent is what
- *    resolvers follow; the NS RRset at the child is what the operator thinks is
- *    true. A nameserver present in only one of them is either doing work nobody
- *    knows about or getting no traffic it should.
- *
- * That is also why this needs a recursive target where the other evaluators can
- * talk straight to an authoritative server: finding the parent's nameservers is
- * itself a resolution.
- */
-
 const RCODE_SERVFAIL = 2;
 const RCODE_REFUSED = 5;
 const TRAILING_DOT = /\.$/;
 
-/** Below this, losing one server takes the domain down. RFC 1034 §4.1 wants two. */
 const MINIMUM_NAMESERVERS = 2;
 
 export interface DelegationCheck {
@@ -58,7 +33,6 @@ function normalise(name: string): string {
   return name.trim().replace(TRAILING_DOT, "").toLowerCase();
 }
 
-/** The zone one label up, or null at a top-level domain. */
 export function parentOf(domain: string): string | null {
   const labels = normalise(domain).split(".").filter(Boolean);
 
@@ -69,13 +43,6 @@ function namesFrom(records: ReturnType<typeof recordsOfType<"NS">>): string[] {
   return records.map((record) => normalise(record.rdata.target));
 }
 
-/**
- * Resolve a nameserver's address.
- *
- * Glue first, because a nameserver inside the zone it serves can only be
- * reached through glue — resolving it the ordinary way would need the very
- * server whose address is being looked up.
- */
 async function addressOf(
   context: EvaluationContext,
   name: string,
@@ -121,13 +88,6 @@ interface Delegation {
   readonly names: readonly string[];
 }
 
-/**
- * The delegation as the parent publishes it.
- *
- * Read from the authority section of a non-recursive query to one of the
- * parent's own nameservers. This is the set resolvers actually follow, which is
- * why it is the one worth trusting when the two disagree.
- */
 async function parentDelegation(
   context: EvaluationContext,
   domain: string
@@ -167,9 +127,6 @@ async function parentDelegation(
     return;
   }
 
-  // Non-recursive, straight to the parent: the delegation lives in the
-  // authority section of a referral, and a recursive resolver would follow it
-  // and hand back the child's own answer instead.
   const referral = await context.lookup({
     name: domain,
     purpose: `how ${parent} delegates ${domain}`,
@@ -191,7 +148,6 @@ async function parentDelegation(
   };
 }
 
-/** The NS RRset the zone publishes about itself. */
 async function childNameservers(
   context: EvaluationContext,
   domain: string
@@ -209,13 +165,6 @@ async function childNameservers(
   return namesFrom(recordsOfType(outcome.message.answers, "NS"));
 }
 
-/**
- * Ask one nameserver whether it serves the zone.
- *
- * Non-recursive and for SOA, because both answers matter: the AA bit says
- * whether this server considers itself authoritative, and the serial says
- * whether it agrees with its peers about which version of the zone it holds.
- */
 async function probe(
   context: EvaluationContext,
   domain: string,
@@ -247,9 +196,6 @@ async function probe(
     };
   }
 
-  // REFUSED and SERVFAIL from a server the parent delegated to are the two
-  // shapes lameness takes in the wild: "I do not serve this" and "I tried to
-  // and could not".
   if (
     outcome.message.rcode === RCODE_REFUSED ||
     outcome.message.rcode === RCODE_SERVFAIL
@@ -378,12 +324,6 @@ function reportSetMismatch(
   });
 }
 
-/**
- * Addresses for every nameserver, together.
- *
- * Concurrent because nothing here is ordered: unlike SPF's include tree, no
- * budget is spent in sequence and no answer depends on which resolves first.
- */
 async function resolveAll(
   context: EvaluationContext,
   names: readonly string[],
@@ -408,20 +348,12 @@ export async function evaluateDelegation(
 ): Promise<EvaluationResult> {
   const domain = normalise(check.domain);
 
-  // DNSSEC state first, and the order matters. A bogus zone SERVFAILs every
-  // question a validating resolver is asked about it, so reading the delegation
-  // afterwards produces a pile of "could not read" findings whose actual cause
-  // is one broken signature. Establishing that first means the report names the
-  // cause rather than six symptoms.
   const bogus = await reportBogusIfServfail(context, domain, RecordType.SOA);
 
   if (bogus) {
     return {
       findings: context.findings,
       lookups: context.lookups,
-      // Not a failure of the domain's configuration in the sense the other
-      // codes mean: we genuinely cannot see the zone through a validating
-      // resolver, and everything else we would say about it would be a guess.
       verdict: "fail",
     };
   }
@@ -437,16 +369,10 @@ export async function evaluateDelegation(
     verdict: worstVerdict([verdictFromFindings(context.findings), ...extra]),
   });
 
-  // Neither view could be read at all, which is a fact about the network
-  // between us and them rather than about the domain. Reporting it as a missing
-  // delegation would page someone over a blip on our side.
   if (parent === undefined && child === undefined) {
     return finish(["indeterminate"]);
   }
 
-  // The parent's delegation is what resolvers follow, so it is the set to probe
-  // when the two disagree. Falling back to the child's own NS records covers
-  // the case where only the parent could not be read.
   const delegated = parent?.names ?? child ?? [];
 
   if (delegated.length === 0) {
@@ -483,8 +409,6 @@ export async function evaluateDelegation(
   reportLameness(context, domain, probes);
   reportSerials(context, domain, probes);
 
-  // Every server unreachable is a fact about the network between us and them as
-  // much as about the domain, so it stays indeterminate alongside the finding.
   const blind = probes.every((p) => !p.reachable);
 
   return finish(blind ? ["indeterminate"] : []);

@@ -1,31 +1,14 @@
 import { createPublicKey } from "node:crypto";
 
-/**
- * DKIM public-key record parsing (RFC 6376 §3.6.1).
- *
- * Pure: takes the reassembled TXT value, returns what it means. No DNS here, so
- * every case below is a unit test rather than a fixture.
- *
- * The key itself is parsed with node:crypto rather than measured by base64
- * length. That is the difference between "this looks about 2048 bits" and "this
- * is a valid SPKI RSA key of exactly 2048 bits", and it catches the truncated
- * and re-wrapped keys that providers actually produce.
- */
-
 export type DkimKeyType = "rsa" | "ed25519";
 
 export interface DkimRecord {
-  /** Flags from t=. "y" is testing mode; "s" forbids subdomain use. */
   readonly flags: readonly string[];
   readonly keyType: DkimKeyType | string;
   readonly notes: string | undefined;
-  /** Raw base64 of p=, exactly as published. Empty string means revoked. */
   readonly publicKeyBase64: string;
-  /** Service types from s=, defaulting to ["*"]. */
   readonly serviceTypes: readonly string[];
-  /** Every tag as published, so unknown tags survive for display. */
   readonly tags: Readonly<Record<string, string | undefined>>;
-  /** v=, when present. RFC 6376 requires DKIM1 if given, and it must come first. */
   readonly version: string | undefined;
 }
 
@@ -55,7 +38,6 @@ export type DkimKeyResult =
   | {
       readonly ok: true;
       readonly type: "rsa";
-      /** Real modulus length from the parsed key, not an estimate. */
       readonly bits: number;
     }
   | { readonly ok: true; readonly type: "ed25519"; readonly bits: 256 }
@@ -67,31 +49,9 @@ export type DkimKeyResult =
 
 const STRICT_BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
 
-/**
- * Folding whitespace, which RFC 6376 §2.10 permits *inside* a base64 value:
- *
- *   base64string = ALPHADIGITPS *([FWS] ALPHADIGITPS)
- *                  [ [FWS] "=" [ [FWS] "=" ] ]
- *
- * and the note under key-p-tag says it outright — "a base64string is permitted
- * to include whitespace (FWS) at arbitrary places". Every 2048-bit key is split
- * across character-strings by necessity, and a provider that rejoins the chunks
- * with a space has produced a record every conforming verifier accepts.
- *
- * This file used to reject those, which meant telling a customer their working
- * DKIM key was broken. Stripped before validating, never before comparing: two
- * keys differing only in whitespace are the same key.
- */
 const FOLDING_WHITESPACE = /[\t\n\r ]/g;
 const ED25519_KEY_BYTES = 32;
 
-/**
- * Split a tag-value list on semicolons.
- *
- * Whitespace around tags and values is legal and ignored (RFC 6376 §3.2), so it
- * is stripped here. Whitespace *inside* a base64 value is legal too — see
- * FOLDING_WHITESPACE — and `parseDkimKey` strips that before decoding.
- */
 export function parseDkimRecord(value: string): DkimParseResult {
   const trimmed = value.trim();
 
@@ -104,8 +64,6 @@ export function parseDkimRecord(value: string): DkimParseResult {
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
 
-  // Explicitly optional: an absent tag reads as undefined, and saying so keeps
-  // the `?? default` fallbacks below honest rather than merely defensive.
   const tags: Record<string, string | undefined> = {};
   const order: string[] = [];
 
@@ -154,8 +112,6 @@ export function parseDkimRecord(value: string): DkimParseResult {
       };
     }
 
-    // RFC 6376 §3.6.1: "This tag MUST be the first tag in the record."
-    // Verifiers that see it elsewhere may reject the key outright.
     if (order[0] !== "v") {
       return {
         detail: `v= appears after ${order[0]}=`,
@@ -187,16 +143,7 @@ export function parseDkimRecord(value: string): DkimParseResult {
   };
 }
 
-/**
- * Validate the public key by actually parsing it.
- *
- * An empty `p=` is not an error: RFC 6376 §3.6.1 defines it as *revocation*.
- * Treating it as malformed would tell a customer to fix a record they revoked
- * deliberately, so it gets its own issue and its own diagnosis code.
- */
 export function parseDkimKey(record: DkimRecord): DkimKeyResult {
-  // §2.10 permits FWS at arbitrary places inside the value, so it is removed
-  // before anything judges the encoding.
   const base64 = record.publicKeyBase64.replace(FOLDING_WHITESPACE, "");
 
   if (base64.length === 0) {
@@ -208,10 +155,6 @@ export function parseDkimKey(record: DkimRecord): DkimKeyResult {
   }
 
   if (!STRICT_BASE64.test(base64)) {
-    // Naming the character that broke it: "invalid base64" alone sends people
-    // looking in the wrong place. A ";" or a mid-string "=" here almost always
-    // means the provider re-emitted the tag prefix on every chunk, which the
-    // evaluator reports separately as a mangled split.
     const offender = [...base64].find((char) => !STRICT_BASE64.test(char));
 
     return {
@@ -273,7 +216,6 @@ export function parseDkimKey(record: DkimRecord): DkimKeyResult {
   }
 }
 
-/** Testing mode: receivers must not treat a failure as a real DKIM failure. */
 export function isTestingMode(record: DkimRecord): boolean {
   return record.flags.includes("y");
 }

@@ -1,14 +1,5 @@
 import { SITE_URL } from "./site";
 
-/**
- * The 404 body an agent can recover from.
- *
- * A status of 404 is necessary but not sufficient: without a sitemap and a
- * next step, an agent that guessed a path has nowhere to go. Markdown rather
- * than HTML so a client that asked for text/markdown still gets something it
- * can parse.
- */
-
 export function notFoundMarkdown(path = "/"): string {
   return `# Not found
 

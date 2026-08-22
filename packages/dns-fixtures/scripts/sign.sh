@@ -1,37 +1,4 @@
 #!/usr/bin/env bash
-# Sign the DNSSEC fixture zones. Output is committed.
-#
-#   pnpm dns:sign
-#
-# Signing happens offline, never in the serving container. An online signer
-# (CoreDNS's dnssec plugin, Knot with signing enabled, PowerDNS in live mode)
-# would re-sign — and therefore silently *repair* — the zones whose brokenness is
-# the entire point of this harness.
-#
-# Order matters: children first, so their DS records can be threaded into the
-# signed parent, and test. before the root. Get this backwards and every signed
-# zone is bogus for the wrong reason, which is a confusing afternoon.
-#
-# Algorithms: RSASHA256 (alg 8) almost everywhere, because PKCS#1 v1.5 signing is
-# deterministic — the same key over the same RRset yields the same signature.
-# wildcard-signed.test deliberately uses ECDSAP256SHA256 (alg 13), the dominant
-# real-world algorithm, whose signatures embed a random nonce and so differ on
-# every run.
-#
-# Determinism, measured rather than assumed: the RSA zones' *content* is
-# reproducible (identical when sorted), but dnssec-signzone's record *ordering*
-# is not stable between runs — roughly 30 lines shuffle each time. So re-signing
-# always produces a diff, and a byte-for-byte CI drift check is not possible.
-# A sorted-content comparison would work for the alg-8 zones if one is ever
-# wanted. In practice this script runs rarely: only when a signed fixture's
-# source changes or keys are rolled.
-#
-# The `; File written on <date>` header dnssec-signzone emits is stripped, so at
-# least a build timestamp never lands in a committed file.
-#
-# Validity is far-future so the "good" fixtures do not rot. expiry.spec.ts fails
-# if any of them comes within a year of expiring, so the suite tells you to
-# re-sign years before anything breaks mysteriously.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,25 +14,15 @@ trap 'rm -rf "$WORK"' EXIT
 INCEPTION=20260101000000
 EXPIRY=20400101000000
 
-# Children of test., signed and DS-linked. insecure-island.test is deliberately
-# absent: it stays unsigned with no DS so it forms a real insecure island.
 CHILDREN=(secure.test bogus-zone.test wildcard-signed.test)
 
 mkdir -p "$KEYS" "$OUT_ROOT" "$OUT_AUTH"
 
-# --- tool runner ------------------------------------------------------------
-# A pinned container keeps output reproducible across machines. Local BIND tools
-# are used when Docker is unavailable (or PROPGATE_SIGN_LOCAL=1); that can differ
-# subtly between BIND versions, so prefer the container when committing output.
 BIND_IMAGE=internetsystemsconsortium/bind9:9.20
 
 if [[ "${PROPGATE_SIGN_LOCAL:-}" != "1" ]] && command -v docker >/dev/null 2>&1; then
   echo "signing via $BIND_IMAGE"
   bind_tool() {
-    # $WORK is mounted as well as $PKG. It is a mktemp directory outside the
-    # package, so without this the container cannot see the staged zones and
-    # every run fails with "file not found" — which is why this path had never
-    # actually run, and the local-tools fallback silently covered for it.
     docker run --rm -u "$(id -u):$(id -g)" \
       -v "$PKG:$PKG" -v "$WORK:$WORK" -w "$1" \
       --entrypoint "$2" "$BIND_IMAGE" "${@:3}"
@@ -86,14 +43,6 @@ fi
 keygen() { bind_tool "$KEYS" dnssec-keygen "$@"; }
 signzone() { bind_tool "$WORK" dnssec-signzone "$@"; }
 
-# --- keys -------------------------------------------------------------------
-# Idempotent: existing keys are reused, so re-signing does not churn every
-# signature. Delete a zone's keys to force a rollover.
-# BIND names key files K<fqdn>+<alg>+<tag>, where <fqdn> carries its trailing
-# dot — so the root's keys are K.+008+NNNNN, not K..+008+NNNNN. Getting this
-# wrong makes the existence check never match for the root, so every run
-# generates a fresh root KSK, which rewrites the trust anchor and invalidates
-# the entire committed chain. Silent, and thoroughly confusing.
 key_prefix_for() {
   if [[ "$1" == "." ]]; then
     printf 'K.+'
@@ -121,10 +70,6 @@ ensure_keys() {
   fi
 }
 
-# -S is smart signing: dnssec-signzone finds the zone's keys in -K and adds the
-# DNSKEY RRset itself. Without it, dnssec-signzone expects the DNSKEY records to
-# already be present in the zone file and fails with the memorable-but-unhelpful
-# "failed to find keys at the zone apex".
 sign_one() {
   local zone="$1" origin="$2" output="$3"
 
@@ -133,16 +78,11 @@ sign_one() {
     -s "$INCEPTION" -e "$EXPIRY" -P \
     -f "$output" -d "$WORK" "$WORK/$zone.zone" >/dev/null
 
-  # Drop the generated header so a wall-clock timestamp and the local BIND
-  # version string never get committed.
   grep -v -e '^; File written on ' -e '^; dnssec_signzone version ' \
     "$output" > "$output.tmp"
   mv "$output.tmp" "$output"
 }
 
-# --- DS injection -----------------------------------------------------------
-# Rewrites the block between the markers in a source zone. Idempotent, so the
-# script can be re-run without accumulating duplicate DS records.
 inject_ds() {
   local target="$1" dsfile="$2"
 
@@ -163,7 +103,6 @@ inject_ds() {
   mv "$target.tmp" "$target"
 }
 
-# --- sign the children ------------------------------------------------------
 echo "signing children of test."
 : > "$WORK/child-ds"
 
@@ -182,23 +121,16 @@ done
 
 inject_ds "$SRC/test.zone" "$WORK/child-ds"
 
-# --- sign test. -------------------------------------------------------------
 echo "signing test."
 ensure_keys test RSASHA256 2048 1024
 sign_one test test "$OUT_ROOT/test.zone.signed"
 
 inject_ds "$SRC/root.zone" "$WORK/dsset-test."
 
-# --- sign the root ----------------------------------------------------------
 echo "signing the root"
 ensure_keys . RSASHA256 2048 1024
 sign_one root . "$OUT_ROOT/root.zone.signed"
 
-# --- trust anchor -----------------------------------------------------------
-# The root KSK's DNSKEY, in zone-file form, is the validating resolver's only
-# trust anchor. Deliberately a static file: `auto-trust-anchor-file` plus
-# unbound-anchor would reach for the REAL root KSK, against which every fixture
-# answer is bogus.
 echo "writing root.anchor"
 {
   echo "; propgate fixture root trust anchor. Regenerated by scripts/sign.sh."
@@ -206,14 +138,9 @@ echo "writing root.anchor"
   grep -h 'DNSKEY.*257' "$KEYS"/K.+*.key | grep -v '^;'
 } > "$ZONES/signed/root.anchor"
 
-# --- break the bogus zone ---------------------------------------------------
-# Last, so signing itself stays clean and only this step introduces the fault.
-# Corrupting the DNSKEY RRSIG makes the whole zone bogus — the botched-key-rollover
-# case, and the more common real-world failure than a single bad RRset.
 echo "corrupting bogus-zone.test"
 node "$HERE/corrupt-rrsig.mjs" "$OUT_AUTH/bogus-zone.test.zone.signed" DNSKEY
 
-# --- revision ---------------------------------------------------------------
 node "$HERE/revision.mjs" --write >/dev/null
 echo "revision: $(cat "$PKG/REVISION")"
 echo "done"

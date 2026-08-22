@@ -27,8 +27,6 @@ describe("observationFor", () => {
   });
 
   it("does not change when the same findings arrive in a different order", () => {
-    // A set of findings has no inherent order. Treating a reordering as a
-    // change appends a timeline entry saying nothing happened.
     const findings: RequirementResult["findings"] = [
       { code: DiagnosisCode.DKIM_KEY_TOO_SHORT },
       { code: DiagnosisCode.DKIM_TESTING_MODE },
@@ -47,9 +45,6 @@ describe("observationFor", () => {
   });
 
   it("ignores a record edit that changed nothing we assert", () => {
-    // Comparing raw record text would append an entry every time a customer
-    // reordered their SPF mechanisms. What is stored is the property that was
-    // checked, not the string that satisfied it.
     const before = observationFor({
       findings: [],
       key: "spf",

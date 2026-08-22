@@ -6,14 +6,6 @@ export interface SitemapUrl {
   readonly loc: string;
 }
 
-/**
- * Indexable HTML URLs, with lastmod.
- *
- * Built from the same catalog as the markdown surface so a page that exists
- * for agents also exists for crawlers. lastmod is the build date: these pages
- * are prerendered, and a per-file mtime would change with every checkout.
- */
-
 export function sitemapEntries(now = new Date()): readonly SitemapUrl[] {
   const lastmod = now.toISOString();
   const pages = listMarkdownPages().map((page) => ({

@@ -8,14 +8,6 @@ import { truncateAll } from "../test/truncate";
 import { createProfileVersion } from "./profiles";
 import { claimDueDomains, dueCount } from "./sweep";
 
-/**
- * The claim, against a real Postgres.
- *
- * `for update skip locked` is the reason the sweeper needs no coordination
- * between workers, and it is not something you can verify by reading the query —
- * two sessions have to actually contend. That is the spec worth having here.
- */
-
 const db: Database = createDb(process.env.DATABASE_URL ?? "", {
   maxConnections: 6,
 });
@@ -89,9 +81,6 @@ describe("claimDueDomains", () => {
   });
 
   it("pushes the claimed row out by the lease, so it cannot be claimed twice", async () => {
-    // The lease is the whole de-duplication mechanism — there is no `verifying`
-    // flag doing this job. A second tick in the same instant must come back
-    // empty.
     await seed(1, PAST);
 
     const first = await claimDueDomains(
@@ -110,8 +99,6 @@ describe("claimDueDomains", () => {
   });
 
   it("makes the row due again once the lease has lapsed", async () => {
-    // Crash recovery, and the reason nobody ever has to unstick a domain by
-    // hand: a worker that died mid-check simply never wrote a new next_check_at.
     await seed(1, PAST);
 
     await claimDueDomains(db, { leaseSeconds: 300, limit: 10 }, NOW);
@@ -139,13 +126,6 @@ describe("claimDueDomains", () => {
   });
 
   it("gives two concurrent claims disjoint sets", async () => {
-    // The property `skip locked` exists for, and the one that cannot be checked
-    // by reading the SQL. Both statements are issued before either is awaited, so
-    // they genuinely contend inside Postgres.
-    //
-    // Without `skip locked` the second session blocks on the first's row locks and
-    // then re-reads rows the first already claimed — every domain checked twice,
-    // every tick, with nothing anywhere to indicate it.
     const { ids } = await seed(20, PAST);
 
     const [first, second] = await Promise.all([
@@ -160,8 +140,6 @@ describe("claimDueDomains", () => {
   });
 
   it("returns identifiers and nothing else", async () => {
-    // A job payload carries ids so the worker re-reads. Widening this return type
-    // is how claim-time state starts leaking into decisions made later.
     await seed(1, PAST);
 
     const [claimed] = await claimDueDomains(

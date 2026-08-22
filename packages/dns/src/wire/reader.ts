@@ -6,14 +6,6 @@ import {
 } from "./constants";
 import { WireFormatError } from "./errors";
 
-/**
- * Bounds-checked cursor over a DNS message.
- *
- * Every read validates against the buffer end. That is not defensive
- * programming for its own sake: a truncated or hostile response is a routine
- * observation here, and reading past the end would surface as an
- * ERR_OUT_OF_RANGE from Node rather than as a diagnosable finding.
- */
 export class Reader {
   readonly buffer: Buffer;
   private cursor: number;
@@ -66,7 +58,6 @@ export class Reader {
     return value;
   }
 
-  /** RRSIG and friends carry 48-bit-safe timestamps as unsigned 32-bit seconds. */
   uint48(): number {
     this.require(6);
     const high = this.buffer.readUInt16BE(this.cursor);
@@ -77,8 +68,6 @@ export class Reader {
 
   bytes(length: number): Buffer {
     this.require(length);
-    // Copy rather than subarray: callers keep these past the life of the
-    // response buffer, and an aliased slice would pin the whole message.
     const value = Buffer.from(
       this.buffer.subarray(this.cursor, this.cursor + length)
     );
@@ -86,36 +75,11 @@ export class Reader {
     return value;
   }
 
-  /** RFC 1035 §3.3: a length-prefixed byte string, as used by TXT and CAA. */
   characterString(): Buffer {
     const length = this.uint8();
     return this.bytes(length);
   }
 
-  /**
-   * Decode a domain name, following compression pointers.
-   *
-   * Two limits, and it is worth being precise about why there are only two:
-   *
-   *  - **Pointers must point strictly backwards.** A forward pointer is the
-   *    classic decompression-loop vector and no legitimate encoder emits one.
-   *  - **The assembled name is capped at 255 bytes** (RFC 1035 §2.3.4), so a
-   *    chain of valid backward pointers cannot inflate into an unbounded name.
-   *
-   * There is deliberately no visited-offset set. Given backward-only pointers,
-   * each jump strictly decreases a non-negative offset, so the chain must
-   * terminate — a cycle is unreachable by construction. A guard that can never
-   * fire is worse than no guard: it implies a threat the design already rules
-   * out, and the next reader has to work out that it is dead code.
-   *
-   * Returns the name in presentation form with a trailing dot; the root is ".".
-   */
-  /**
-   * Validate and resolve a compression pointer at `offset`.
-   *
-   * Enforcing "strictly backwards" here is what makes the name loop
-   * guaranteed-terminating, so it lives in one place rather than inline.
-   */
   private pointerTarget(offset: number): number {
     if (offset + 1 >= this.buffer.length) {
       throw new WireFormatError(
@@ -138,13 +102,6 @@ export class Reader {
     return target;
   }
 
-  /**
-   * Read one label at `offset`, or null at the root terminator.
-   *
-   * Split out of `name()` so that method stays a readable state machine:
-   * pointer, label, terminator. The length and overrun checks belong with the
-   * read they guard.
-   */
   private readLabel(
     offset: number
   ): { text: string; byteLength: number } | null {
@@ -188,8 +145,6 @@ export class Reader {
       if ((marker & COMPRESSION_POINTER_MASK) === COMPRESSION_POINTER_MASK) {
         const target = this.pointerTarget(at);
 
-        // Only the first pointer advances the outer at; everything after it
-        // is a jump within the message.
         if (!followed) {
           this.cursor = at + 2;
           followed = true;
@@ -229,19 +184,11 @@ export class Reader {
   }
 }
 
-/**
- * Presentation-form escaping per RFC 1035 §5.1.
- *
- * Labels are arbitrary bytes on the wire, and providers do put odd things in
- * them. Escaping rather than assuming ASCII means a weird label is reported
- * faithfully instead of being silently mangled into something that looks fine.
- */
 function escapeLabel(label: Buffer): string {
   let out = "";
 
   for (const byte of label) {
     if (byte === 0x2e || byte === 0x5c) {
-      // "." and "\" would otherwise change the name's structure.
       out += `\\${String.fromCharCode(byte)}`;
     } else if (byte > 0x20 && byte < 0x7f) {
       out += String.fromCharCode(byte);

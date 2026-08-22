@@ -1,17 +1,4 @@
 #!/usr/bin/env node
-/**
- * Renders the RFC conformance table into README.md, between two markers.
- *
- * A generated block inside a hand-written file, checked rather than trusted:
- * `--check` exits non-zero when the file has drifted, which is what makes the
- * table in the README a fact about the current build rather than a snapshot of
- * whenever someone last remembered to update it.
- *
- * Run through tsx rather than plain node: the ledger is TypeScript and this
- * codebase imports without file extensions, which Node's ESM resolver will not
- * do. Same shape as `generate-psl.mjs` otherwise — run without arguments to
- * write, with `--check` to verify.
- */
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

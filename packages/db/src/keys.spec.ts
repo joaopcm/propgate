@@ -11,8 +11,6 @@ describe("generateApiKey", () => {
   });
 
   it("carries at least 256 bits of entropy in the secret", () => {
-    // The whole reason a fast hash is the right choice. base64url packs 6 bits
-    // per character, so 32 random bytes land as 43 characters.
     const { key } = generateApiKey();
 
     expect(key.slice(API_KEY_PREFIX.length)).toHaveLength(43);
@@ -22,7 +20,6 @@ describe("generateApiKey", () => {
     const { key, prefix } = generateApiKey();
 
     expect(key.startsWith(prefix)).toBe(true);
-    // Four characters of the secret is 24 bits. What is left is still 232.
     expect(prefix).toHaveLength(API_KEY_PREFIX.length + 4);
   });
 

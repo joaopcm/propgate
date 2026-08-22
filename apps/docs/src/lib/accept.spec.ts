@@ -58,16 +58,6 @@ describe("prefersMarkdown", () => {
   });
 });
 
-/**
- * The headers a browser actually sends for subresources.
- *
- * Every one of these resolved to markdown before the wildcard fix, so every
- * stylesheet, script and font on docs.propgate.dev was answered with a markdown
- * 404 and the site rendered unstyled. They are written out verbatim rather than
- * abbreviated, because the bug was in the interaction between a concrete type
- * we do not offer and a low-q wildcard, and a tidied-up header does not have
- * that shape.
- */
 describe("a wildcard expresses no preference", () => {
   it("treats a bare */* as HTML rather than the head of the offered list", () => {
     expect(negotiateType("*/*")).toBe("html");
@@ -96,10 +86,6 @@ describe("a wildcard expresses no preference", () => {
     expect(prefersMarkdown("text/*")).toBe(false);
   });
 
-  /**
-   * The other direction, and the reason the fix is about wildcards rather than
-   * about reordering `OFFERED`: an explicit ask must still work.
-   */
   it("still serves markdown when it is named explicitly", () => {
     expect(prefersMarkdown("text/markdown")).toBe(true);
     expect(prefersMarkdown("text/markdown,text/html;q=0.5")).toBe(true);
@@ -110,11 +96,6 @@ describe("a wildcard expresses no preference", () => {
     expect(prefersMarkdown("text/html,text/markdown;q=0.5")).toBe(false);
   });
 
-  /**
-   * `prefersJson` shares the wildcard path, so it moves with it. A catalog path
-   * forces JSON in `handleDocsRequest` regardless, so this only governs whether
-   * a 404 elsewhere is JSON — and "no preference" should not opt into it.
-   */
   it("does not treat a wildcard as a JSON request", () => {
     expect(prefersJson("*/*")).toBe(false);
     expect(prefersJson("application/json")).toBe(true);

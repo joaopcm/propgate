@@ -1,12 +1,3 @@
-/**
- * Split the trust-page copy into paragraphs and lists.
- *
- * `Prose` used to wrap every `\n\n` chunk in a `<p>`. A markdown list is
- * one chunk — items separated by a single newline — so the browser collapsed
- * them onto one line and the dashes read as punctuation. Lists have to be
- * their own elements.
- */
-
 export type ProseBlock =
   | { readonly items: readonly string[]; readonly kind: "ul" }
   | { readonly kind: "p"; readonly text: string };

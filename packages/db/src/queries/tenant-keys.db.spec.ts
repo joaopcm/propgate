@@ -12,15 +12,6 @@ import {
   revokeApiKeyForTenant,
 } from "./tenant-keys";
 
-/**
- * The tenant-scoped key queries.
- *
- * `api-keys.db.spec.ts` in `apps/api` covers the route. What lives here is the
- * concurrency property the route cannot reach: revoking two keys at once needs
- * both calls to arrive without either being the key that authenticated them, and
- * over HTTP one of them always is.
- */
-
 const db = createDb(process.env.DATABASE_URL ?? "", { maxConnections: 4 });
 
 beforeEach(async () => {
@@ -50,9 +41,6 @@ describe("listApiKeysForTenant", () => {
 
     await tenant("theirs", 3);
 
-    // The distinction this file exists for: `listApiKeys` in revocation.ts would
-    // return all five, which is right for an operator and a cross-tenant leak
-    // behind a bearer token.
     expect(await listApiKeysForTenant(db, mine)).toHaveLength(2);
   });
 
@@ -68,10 +56,6 @@ describe("attribution", () => {
   it("keeps keys with no creator in the list", async () => {
     const tenantId = await tenant("partner", 2);
 
-    // Every key that predates `created_by_member_id`, and every operator-minted
-    // one, has a null creator. An inner join would drop exactly those — a list
-    // that silently omits the oldest keys, which are the ones an audit is most
-    // likely to be looking for.
     const keys = await listApiKeysForTenant(db, tenantId);
 
     expect(keys).toHaveLength(2);
@@ -118,9 +102,6 @@ describe("attribution", () => {
     const keys = await listApiKeysForTenant(db, tenantId);
     const orphaned = keys.find((key) => key.name === "theirs");
 
-    // `set null`, not `cascade`. A live integration is authenticating with that
-    // key, and deleting it would take production down as a side effect of tidying
-    // up a departure. The attribution is lost; the credential is not.
     expect(orphaned).toBeDefined();
     expect(orphaned?.createdByMemberId).toBeNull();
     expect(orphaned?.createdByEmail).toBeNull();
@@ -135,9 +116,6 @@ describe("attribution", () => {
       tenantId,
     });
 
-    // `RETURNING` cannot see a joined table, so the update returns only the field
-    // it changed and it is merged into the joined row. If that merge is dropped,
-    // this goes back to reporting the null the database no longer holds.
     expect(outcome.kind === "revoked" && outcome.key.revokedAt).toBeInstanceOf(
       Date
     );
@@ -150,8 +128,6 @@ describe("apiKeyForTenant", () => {
     const theirs = await tenant("theirs");
     const [theirKey] = await listApiKeysForTenant(db, theirs);
 
-    // Filtering on the id and checking the tenant afterwards is the same bug
-    // written later, and it is the one that reads as harmless in review.
     expect(
       await apiKeyForTenant(db, {
         apiKeyId: String(theirKey?.id),
@@ -185,8 +161,6 @@ describe("revokeApiKeyForTenant", () => {
       tenantId,
     });
 
-    // There is no un-revoke, and the API that would mint a replacement is the one
-    // this key opens.
     expect(outcome.kind).toBe("last-active");
     expect(await activeApiKeyCount(db, tenantId)).toBe(1);
   });
@@ -211,16 +185,6 @@ describe("revokeApiKeyForTenant", () => {
     const tenantId = await tenant("partner", 2);
     const keys = await listApiKeysForTenant(db, tenantId);
 
-    /**
-     * Both keys, at once.
-     *
-     * This is the whole reason `revokeApiKeyForTenant` takes `FOR UPDATE` on the
-     * tenant's active rows before counting them. Without the lock each call reads
-     * two active keys under its own snapshot, each updates a *different* row so no
-     * row lock ever conflicts, and the tenant ends with zero keys and no way back
-     * — the exact outcome the last-active guard exists to prevent, arrived at by
-     * two calls that each individually respected it.
-     */
     const outcomes = await Promise.all(
       keys.map((key) =>
         revokeApiKeyForTenant(db, { apiKeyId: key.id, tenantId })
@@ -228,7 +192,6 @@ describe("revokeApiKeyForTenant", () => {
     );
 
     expect(await activeApiKeyCount(db, tenantId)).toBe(1);
-    // One went through, one was refused for being the last.
     expect(
       outcomes.filter((outcome) => outcome.kind === "revoked")
     ).toHaveLength(1);

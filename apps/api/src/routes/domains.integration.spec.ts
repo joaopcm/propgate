@@ -4,16 +4,6 @@ import { fixtureTarget } from "@propgate/dns-fixtures";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app";
 
-/**
- * `POST /v1/domains/:id/checks` against the real DNS tier and a real database.
- *
- * The only specs in the repo that need both, which is why they have a project
- * of their own. What a check does to a domain — its state, its stored result,
- * its timeline — is the half of this milestone that cannot be asserted without
- * DNS, and the half where getting it wrong is a webhook to somebody's customer
- * in milestone 2.
- */
-
 const db: Database = createDb(process.env.DATABASE_URL ?? "", {
   maxConnections: 4,
 });
@@ -24,7 +14,6 @@ const app = createApp({
   resolver: { address: fixture.address, port: fixture.port },
 });
 
-/** A resolver with nothing behind it, for the indeterminate path. */
 const deadApp = createApp({ db, resolver: { address: "127.0.0.1", port: 1 } });
 
 const ADDRESS_AND_PORT = /^\d+\.\d+\.\d+\.\d+:\d+$/;
@@ -116,8 +105,6 @@ describe("verifying a correctly configured domain", () => {
   });
 
   it("names the requirement that is unmet, and only that one", async () => {
-    // The product's promise: "3 of 4 requirements met", with the missing one
-    // identified and no instructions rendered.
     const { domainId, key } = await partner("partner", {
       key: "sending",
       requirements: [
@@ -132,18 +119,6 @@ describe("verifying a correctly configured domain", () => {
       (entry: { satisfied: boolean }) => !entry.satisfied
     );
 
-    /**
-     * Not `failed`. One failing check is one failing check — hysteresis is what
-     * stands between a resolver blip and a webhook that pages a customer's
-     * customer. This asserted `failed` until that landed.
-     *
-     * And not `degraded` either, which it asserted until per-domain expectations
-     * landed. This domain has never been verified, so there is nothing for it to
-     * have regressed from; `degraded` would be a `domain.degraded` webhook saying
-     * "this used to work" about a domain whose customer has not finished adding
-     * their records. It stays `pending` and reaches `failed` on the third failure,
-     * which is the assertion below.
-     */
     expect(body.data.state).toBe("pending");
     expect(body.data.requirementsMet).toBe(2);
     expect(unmet.map((entry: { key: string }) => entry.key)).toEqual([
@@ -153,16 +128,6 @@ describe("verifying a correctly configured domain", () => {
   });
 
   it("reaches failed only after the threshold, through the real route", async () => {
-    /**
-     * The pure function is table-tested in `hysteresis.spec.ts`. This is the
-     * end-to-end version: the counter has to survive a round trip through
-     * Postgres, or the domain would sit where it started forever and nothing would
-     * ever be reported.
-     *
-     * Reaching `failed` on exactly the third check is what proves that. A
-     * never-verified domain skips `degraded` — see the test above — but it does not
-     * skip the threshold.
-     */
     const { domainId, key } = await partner("partner", {
       key: "sending",
       requirements: [{ check: "dkim", key: "rotated", selector: "pg2" }],
@@ -182,9 +147,6 @@ describe("verifying a correctly configured domain", () => {
 
 describe("an indeterminate check", () => {
   it("leaves the state exactly where it was", async () => {
-    // The edge that is not an edge. A verified domain whose check could not
-    // complete stays verified — in milestone 2 the alternative is paging a
-    // partner's customer because our upstream had a bad second.
     const { domainId, key } = await partner("partner");
 
     await check(key, domainId);
@@ -204,8 +166,6 @@ describe("an indeterminate check", () => {
   });
 
   it("appends nothing to the timeline", async () => {
-    // A timeline entry saying a record changed to uncertainty is worse than a
-    // gap: the gap is honest, the entry is a claim nobody observed.
     const { domainId, key } = await partner("partner");
 
     await check(key, domainId, deadApp);
@@ -233,8 +193,6 @@ describe("the timeline", () => {
   });
 
   it("writes nothing when a re-check sees the same thing", async () => {
-    // The assertion the infrastructure bill depends on. A sweep observing the
-    // same values six times a day must write nothing at all.
     const { domainId, key } = await partner("partner");
 
     await check(key, domainId);
@@ -251,9 +209,6 @@ describe("the timeline", () => {
 
 describe("the derivation behind a verdict", () => {
   it("returns every lookup the check made", async () => {
-    // "Why did you say that" is the question a disputed verdict produces. The
-    // free public checker has always answered it; before this the paid path
-    // could not, which is exactly backwards.
     const { domainId, key } = await partner("partner");
 
     const body = await (await check(key, domainId)).json();
@@ -277,7 +232,6 @@ describe("the derivation behind a verdict", () => {
   });
 
   it("names the server that was asked", async () => {
-    // A lame delegation is a fact about one nameserver, not about the zone.
     const { domainId, key } = await partner("partner");
 
     const body = await (await check(key, domainId)).json();

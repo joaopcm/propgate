@@ -1,20 +1,10 @@
-/**
- * DMARC policy record parsing (RFC 7489 §6.3).
- *
- * Pure: takes the TXT value, returns what it means. No DNS, so every case here
- * is a unit test.
- */
-
 export type DmarcPolicy = "none" | "quarantine" | "reject";
 export type DmarcAlignment = "r" | "s";
 
 export interface DmarcReportUri {
-  /** As published, e.g. "mailto:dmarc@example.com!10m". */
   readonly raw: string;
   readonly scheme: string;
-  /** The optional `!size` suffix, e.g. "10m". */
   readonly sizeLimit: string | undefined;
-  /** The address or endpoint, with any size limit stripped. */
   readonly target: string;
 }
 
@@ -22,12 +12,9 @@ export interface DmarcRecord {
   readonly aggregateReportUris: readonly DmarcReportUri[];
   readonly dkimAlignment: DmarcAlignment;
   readonly forensicReportUris: readonly DmarcReportUri[];
-  /** Percentage of messages the policy applies to. Defaults to 100. */
   readonly percent: number;
-  /** Absent is legal at a subdomain record; required at the org domain. */
   readonly policy: DmarcPolicy | undefined;
   readonly spfAlignment: DmarcAlignment;
-  /** Policy for subdomains. Only consulted when the record was found at the org domain. */
   readonly subdomainPolicy: DmarcPolicy | undefined;
   readonly tags: Readonly<Record<string, string | undefined>>;
   readonly version: string;
@@ -56,13 +43,6 @@ const URI_SIZE_LIMIT = /!([0-9]+[kmgt]?)$/i;
 const DIGITS_ONLY = /^[0-9]+$/;
 const DMARC_PREFIX = /^\s*v\s*=\s*DMARC1\s*(;|$)/i;
 
-/**
- * Whether a TXT value is a DMARC record at all.
- *
- * RFC 7489 §6.6.3 discards records that do not begin with `v=DMARC1` before the
- * "is there exactly one record" check. That ordering matters: a domain with one
- * DMARC record and one unrelated TXT has a valid policy, not an ambiguous one.
- */
 export function looksLikeDmarc(value: string): boolean {
   return DMARC_PREFIX.test(value);
 }
@@ -119,7 +99,6 @@ interface TagScan {
   readonly tags: Record<string, string | undefined>;
 }
 
-/** Scan the tag-value list. Split out so parseDmarcRecord stays readable. */
 function scanTags(value: string): TagScan | { readonly duplicate: string } {
   const tags: Record<string, string | undefined> = {};
   const order: string[] = [];
@@ -170,7 +149,6 @@ export function parseDmarcRecord(value: string): DmarcParseResult {
 
   const { tags, order } = scanned;
 
-  // RFC 7489 §6.3: "the "v" tag MUST be the first tag in the list".
   if (order[0] !== "v") {
     return {
       detail: `v= appears after ${order[0]}=`,
@@ -236,7 +214,6 @@ export function parseDmarcRecord(value: string): DmarcParseResult {
     ok: true,
     record: {
       aggregateReportUris: parseUriList(tags.rua),
-      // RFC 7489 §6.3: both alignment modes default to relaxed.
       dkimAlignment: dkimAlignment ?? "r",
       forensicReportUris: parseUriList(tags.ruf),
       percent,
@@ -249,14 +226,6 @@ export function parseDmarcRecord(value: string): DmarcParseResult {
   };
 }
 
-/**
- * The policy that actually applies to `domain`.
- *
- * `sp=` governs subdomains only when the record was discovered at the
- * organizational domain. A subdomain publishing its own record is authoritative
- * for itself, and its `p=` wins — which is the discovery rule stated from the
- * other direction.
- */
 export function effectivePolicy(
   record: DmarcRecord,
   discoveredAt: "exact" | "organizational"

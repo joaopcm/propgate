@@ -6,21 +6,6 @@ import { cn } from "@/lib/cn";
 import { CURRICULUM } from "@/lib/curriculum";
 import { examUnlocked, statusFor, type UnitStatus } from "@/lib/progress";
 
-/**
- * Where the reader is, and nothing else.
- *
- * No percentage, no count, no bar. A course is not a task list, and a number
- * saying "44% complete" invites somebody to optimise it — which for a course
- * means skipping. What the rail reports is position and reachability, which
- * are the two things a reader actually needs from it.
- *
- * Four node states, and `skipped` is visually distinct from `passed`
- * permanently. That is the same discipline `progress.ts` applies to the stored
- * record: a tick claiming something nobody verified is the shape of lie this
- * whole codebase exists to avoid, and it does not become acceptable because
- * the subject is a quiz rather than a domain.
- */
-
 const NODE_STYLE: Record<UnitStatus, string> = {
   locked: "border-border",
   open: "border-muted-foreground",
@@ -42,9 +27,6 @@ function Node({ active, status }: { active: boolean; status: UnitStatus }) {
       className={cn(
         "mt-[0.45rem] size-2 shrink-0 rounded-full border transition-colors",
         NODE_STYLE[status],
-        // The current unit reads as filled regardless of outcome: "you are
-        // here" has to win over "you have not passed this yet", or the reader
-        // cannot find their own position in the rail.
         active && "border-mark bg-mark"
       )}
     />

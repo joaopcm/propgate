@@ -7,14 +7,6 @@ import type { SpfCheck } from "./spf";
 import { evaluateSpf } from "./spf";
 import type { EvaluationResult, Evidence } from "./types";
 
-/**
- * Does one specific host pass this record?
- *
- * A different question from whether the record is sound, which
- * `spf.fixture.spec.ts` covers. Both run over the same zone, because both are
- * true of the same record at the same time.
- */
-
 const TIMEOUT_MS = 2000;
 
 function target(role: Parameters<typeof fixtureTarget>[0]): ServerAddress {
@@ -42,7 +34,6 @@ function evidenceFor(result: EvaluationResult, code: DiagnosisCode): Evidence {
   );
 }
 
-/** The one SPF_IP_* code a result carries, which is always exactly one. */
 function ipOutcome(result: EvaluationResult): string | undefined {
   return codes(result).find((code) => code.startsWith("SPF_IP_"));
 }
@@ -80,8 +71,6 @@ describe("ip4 and ip6 mechanisms", () => {
   });
 
   it("never matches across families", async () => {
-    // §5.6. An ip6 mechanism cannot authorise an IPv4 client, so this falls
-    // through to -all.
     const result = await evaluate({
       domain: "ip6only.spf.test",
       ip: "198.51.100.7",
@@ -91,16 +80,12 @@ describe("ip4 and ip6 mechanisms", () => {
   });
 
   it("treats an IPv4-mapped address as IPv4", async () => {
-    // A dual-stack MTA routinely reports an IPv4 client this way. Reading it as
-    // IPv6 would mean no ip4 mechanism could match, and the domain would be told
-    // its record does not authorise a host that it plainly does.
     const result = await evaluate({
       domain: "one.spf.test",
       ip: "::ffff:198.51.100.7",
     });
 
     expect(ipOutcome(result)).toBe(DiagnosisCode.SPF_IP_AUTHORIZED);
-    // Evidence keeps what the sender presented, not what we normalised it to.
     expect(evidenceFor(result, DiagnosisCode.SPF_IP_AUTHORIZED).observed).toBe(
       "::ffff:198.51.100.7"
     );
@@ -137,8 +122,6 @@ describe("qualifiers decide the outcome, not the record's all", () => {
   });
 
   it("stops at the first match, not the best one", async () => {
-    // ~ip4:198.51.100.10 comes first. A matcher that kept looking would report
-    // the -all instead, which is a different answer for the same message.
     const result = await evaluate({
       domain: "qualifiers.spf.test",
       ip: "198.51.100.10",
@@ -152,9 +135,6 @@ describe("qualifiers decide the outcome, not the record's all", () => {
 
 describe("a record that matches nothing", () => {
   it("is neutral by default when there is no all", async () => {
-    // §4.7. Not a pass and not a fail: the record simply says nothing about
-    // this host. Defaulting either way would invent an opinion the domain
-    // owner did not express.
     const result = await evaluate({
       domain: "noall.spf.test",
       ip: "203.0.113.9",
@@ -193,8 +173,6 @@ describe("the a mechanism", () => {
   });
 
   it("asks for AAAA when the client is IPv6", async () => {
-    // `a` means "an address record". Always querying A would report an
-    // authorised IPv6 sender as unauthorised, and count a void that is not one.
     const result = await evaluate({
       domain: "amech.spf.test",
       ip: "2001:db8:cafe::1",
@@ -219,17 +197,12 @@ describe("the mx mechanism", () => {
   });
 
   it("spends only one of the ten on the whole mechanism", async () => {
-    // §4.6.4 bounds the per-name address lookups separately, by capping the
-    // mechanism at ten names. Charging them to the ten would fail records that
-    // receivers accept.
     const result = await evaluate({
       domain: "mxmatch.spf.test",
       ip: "198.51.100.40",
     });
 
     expect(codes(result)).not.toContain(DiagnosisCode.SPF_LOOKUP_LIMIT_NEAR);
-    // The MX query and the address query behind it are both recorded, so the
-    // derivation still shows the work.
     expect(result.lookups.map((lookup) => lookup.name)).toEqual([
       "mxmatch.spf.test",
       "mail.spf.test",
@@ -260,9 +233,6 @@ describe("include borrows a pass and nothing else", () => {
   });
 
   it("does not let a nested -all reject the message", async () => {
-    // §5.2: an include matches only on pass. one.spf.test ends in -all, and
-    // that -all is not the sender's answer — the outer record's is. Treating a
-    // nested fail as a fail is the classic way to reject mail a record allows.
     const result = await evaluate({ domain: "spf.test", ip: "192.0.2.1" });
 
     const { detail } = evidenceFor(result, DiagnosisCode.SPF_IP_NOT_AUTHORIZED);
@@ -280,8 +250,6 @@ describe("include borrows a pass and nothing else", () => {
 
 describe("redirect", () => {
   it("takes the target's result, qualifier and all", async () => {
-    // Unlike an include, which only borrows a pass, a redirect's answer *is*
-    // the answer — including its rejection.
     const authorised = await evaluate({
       domain: "redirected.spf.test",
       ip: "198.51.100.7",
@@ -301,8 +269,6 @@ describe("redirect", () => {
 
 describe("what cannot be decided from DNS", () => {
   it("does not guess at a ptr mechanism", async () => {
-    // Deciding it needs a reverse lookup of the connecting address. Reporting
-    // "not authorised" would be a guess dressed as a result.
     const result = await evaluate({
       domain: "ptrmech.spf.test",
       ip: "198.51.100.7",
@@ -313,8 +279,6 @@ describe("what cannot be decided from DNS", () => {
   });
 
   it("does not attempt %{p}, which needs a reverse lookup", async () => {
-    // RFC 7208 §7.3 says not to publish it. Where someone has, the answer for a
-    // sender is that we cannot tell — not that they are unauthorised.
     const result = await evaluate({
       domain: "macroptr.spf.test",
       ip: "198.51.100.7",
@@ -324,8 +288,6 @@ describe("what cannot be decided from DNS", () => {
   });
 
   it("does not guess at a macro whose input was not given", async () => {
-    // macrosender.spf.test needs the envelope sender for %{l}, and this check
-    // was not told one.
     const result = await evaluate({
       domain: "macrosender.spf.test",
       ip: "198.51.100.7",
@@ -350,9 +312,6 @@ describe("what cannot be decided from DNS", () => {
 
 describe("the record audit still runs alongside", () => {
   it("reports the lookup limit even when the sender passes early", async () => {
-    // near.spf.test warns at eight lookups. A receiver evaluating an authorised
-    // host might stop long before that, but the record is still one sending
-    // service away from breaking, and that is the fact worth reporting.
     const result = await evaluate({
       domain: "near.spf.test",
       ip: "198.51.100.7",
@@ -369,8 +328,6 @@ describe("the record audit still runs alongside", () => {
 
     expect(ipOutcome(result)).toBe(DiagnosisCode.SPF_IP_AUTHORIZED);
     expect(codes(result)).toContain(DiagnosisCode.SPF_ALL_PASS);
-    // +all authorising this host is exactly the problem, so the verdict follows
-    // the record rather than the sender.
     expect(result.verdict).toBe("fail");
   });
 

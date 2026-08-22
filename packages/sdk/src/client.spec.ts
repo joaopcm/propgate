@@ -3,16 +3,10 @@ import { Propgate } from "./client";
 import { PropgateError } from "./error";
 import { callAt, envelope, json, refusal, stub } from "./test/stub";
 
-/**
- * Constructing a client, and the two calls that need no key.
- */
-
 const BASE = "https://api.example.test";
 const ORIGINAL_KEY = process.env.PROPGATE_API_KEY;
 
 afterEach(() => {
-  // Deleted rather than blanked: assigning `undefined` stores the string
-  // "undefined", and every later request goes out as `Bearer undefined`.
   if (ORIGINAL_KEY === undefined) {
     delete process.env.PROPGATE_API_KEY;
   } else {
@@ -62,8 +56,6 @@ describe("where the key comes from", () => {
 
     expect(error).toBeInstanceOf(PropgateError);
     expect(error?.code).toBe("missing_api_key");
-    // The message has to name the two ways to fix it: an agent reading
-    // "unauthorized" has nothing to act on.
     expect(error?.message).toContain("PROPGATE_API_KEY");
     expect(transport.calls).toHaveLength(0);
   });
@@ -110,9 +102,6 @@ describe("meta", () => {
       fetch: transport.fetch,
     }).domains.create({ name: "acme.test", profile: "sending" });
 
-    // `created: false` is how a partner's retry is told apart from a second
-    // customer — and the signal that expectations in the request were not
-    // applied, because that is `update`'s job.
     expect(data?.id).toBe("dom_1");
     expect(meta).toEqual({ created: false });
   });
@@ -169,8 +158,6 @@ describe("health", () => {
 
 describe("errors", () => {
   it("are thrown by the caller if that is what the caller prefers", () => {
-    // An `Error` subclass, so `throw result.error` keeps a stack and
-    // `instanceof` works across the boundary.
     const error = new PropgateError({
       code: "conflict",
       message: "acme.test is already registered as dom_1",

@@ -6,16 +6,6 @@ import { decodeMessage } from "../wire/message";
 import { Writer } from "../wire/writer";
 import { query } from "./query";
 
-/**
- * Transport behaviour that a well-behaved server cannot demonstrate.
- *
- * These use real sockets speaking real DNS — deliberately badly. That is not
- * mocking DNS: nothing here stubs our own resolver, and every byte crosses a
- * loopback socket. It is the same sanctioned category as the `dns-hostile`
- * server described in TESTING.md, and it needs no fixture tier, so it runs
- * everywhere.
- */
-
 const cleanup: (() => void)[] = [];
 
 afterEach(() => {
@@ -68,7 +58,6 @@ async function tcpServer(
   return address.port;
 }
 
-/** Minimal response echoing the request id, with an optional TC bit. */
 function reply(
   request: Buffer,
   options: { tc?: boolean; id?: number; answer?: Buffer } = {}
@@ -101,13 +90,6 @@ function aRecord(name: string, address: number[]): Buffer {
     .toBuffer();
 }
 
-/**
- * Bind a UDP socket and a TCP listener on the same port.
- *
- * The TC-retry path only means anything if both live at one address, since that
- * is what a real server does. UDP and TCP are separate protocol spaces, so this
- * is legal; the ephemeral port is claimed by TCP first and then reused for UDP.
- */
 async function dualServer(handlers: {
   udp: (request: Buffer, respond: (response: Buffer) => void) => void;
   tcp: (request: Buffer, connection: import("node:net").Socket) => void;
@@ -149,7 +131,6 @@ async function dualServer(handlers: {
   return address.port;
 }
 
-/** Frame a response with the 2-byte length prefix TCP requires. */
 function frame(response: Buffer): Buffer {
   const framed = Buffer.allocUnsafe(2 + response.length);
   framed.writeUInt16BE(response.length, 0);
@@ -159,7 +140,6 @@ function frame(response: Buffer): Buffer {
 
 describe("query — unreachable", () => {
   it("reports ECONNREFUSED rather than waiting out the timeout", async () => {
-    // Port 1 on loopback has nothing listening; the kernel answers immediately.
     const outcome = await query({
       name: "example.test",
       target: { address: "127.0.0.1", port: 1 },
@@ -170,7 +150,6 @@ describe("query — unreachable", () => {
     expect(outcome.status).toBe("unreachable");
     if (outcome.status === "unreachable") {
       expect(outcome.code).toBe("ECONNREFUSED");
-      // The point of connecting the socket: this must not be a timeout.
       expect(outcome.elapsedMs).toBeLessThan(1000);
     }
   });
@@ -179,7 +158,7 @@ describe("query — unreachable", () => {
 describe("query — timeout", () => {
   it("reports a timeout with the deadline it used", async () => {
     const port = await udpServer(() => {
-      // A real server that receives the query and deliberately never answers.
+      // never answers
     });
 
     const outcome = await query({
@@ -248,7 +227,6 @@ describe("query — truncation and TCP retry", () => {
           )
         );
       },
-      // The realistic 4096-bit-DKIM shape: UDP truncates, TCP has the answer.
       udp: (request, send) => send(reply(request, { tc: true })),
     });
 
@@ -313,8 +291,6 @@ describe("query — truncation and TCP retry", () => {
       type: RecordType.A,
     });
 
-    // Distinct from "answered": a caller cannot mistake a truncated answer for
-    // a complete one, which is how a missing DKIM key gets misreported.
     expect(outcome.status).toBe("truncated");
     if (outcome.status === "truncated") {
       expect(outcome.message.flags.tc).toBe(true);
@@ -330,8 +306,6 @@ describe("query — TCP framing", () => {
       });
       const framed = frame(response);
 
-      // Split mid-message, including splitting the length prefix itself, which
-      // is the case a naive reader gets wrong.
       socket.write(framed.subarray(0, 1));
       setTimeout(() => socket.write(framed.subarray(1, 5)), 5);
       setTimeout(() => socket.write(framed.subarray(5)), 10);
@@ -355,7 +329,6 @@ describe("query — TCP framing", () => {
 
   it("reports a connection closed mid-response rather than a timeout", async () => {
     const port = await tcpServer((_request, socket) => {
-      // Claim 100 bytes and send 4, then hang up.
       const framed = Buffer.allocUnsafe(6);
       framed.writeUInt16BE(100, 0);
       framed.writeUInt32BE(0, 2);

@@ -2,21 +2,6 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-/**
- * Every design token this stylesheet claims to own actually resolves.
- *
- * Tailwind 4's `@theme inline` block maps `--color-x: var(--x)`; the raw
- * value lives separately in `:root, .dark`. A token only works when both
- * halves exist. This repo has shipped four bugs of exactly this shape
- * (`bg-muted`, `--color-warning`, `--color-destructive`, `--color-success`):
- * the mapping pointed at an undeclared variable, or was never mapped at all,
- * and the class compiled clean, built clean, and rendered nothing. `tsc`,
- * Biome and `next build` cannot see this — the property is syntactically
- * valid CSS, just inert. Asserting the four known names by name guards
- * nothing; the next one is a new name, so this reads the stylesheet and the
- * source tree fresh on every run.
- */
-
 const SRC_DIR = join(process.cwd(), "src");
 const GLOBALS_CSS_PATH = join(SRC_DIR, "app/globals.css");
 const THIS_FILE_PATH = join(SRC_DIR, "app/globals.spec.ts");
@@ -27,50 +12,11 @@ const ROOT_BLOCK_PATTERN = /:root,[\s\S]*?\.dark\s*\{([^}]*)\}/;
 const CUSTOM_PROPERTY_PATTERN = /--([a-z][a-z0-9-]*):\s*([^;]+);/g;
 const THEME_COLOR_VAR_PATTERN = /^var\(--([a-z][a-z0-9-]*)\)$/;
 const VAR_COLOR_REFERENCE_PATTERN = /var\(--color-([a-z][a-z0-9-]*)\)/g;
-/**
- * Matches a `bg-`/`text-`/`border-` utility as a whole class-list token,
- * variant prefix included. The prefix is part of the class name, so it is part
- * of the selector to look for: `hover:bg-muted` compiles to
- * `.hover\:bg-muted:hover` and `last:border-0` to `.last\:border-0:last-child`
- * — wrapped in a pseudo-class or an `@media` block, but the escaped class name
- * still appears verbatim, which is all `findRuleBodies` needs.
- *
- * Two narrower readings were tried and are both wrong. Dropping variant
- * usages from the scan entirely reopens this file's reason to exist for one
- * class of usage: a token used *only* behind a variant (`dark:bg-newtoken`
- * with no bare twin anywhere) is then never checked at all. Stripping the
- * prefix and validating the bare suffix instead makes the answer depend on
- * whether a bare companion rule happens to be in the bundle — a fact about
- * what else the build emitted, not about the class under test. Keeping the
- * prefix asks Tailwind about the exact class the source wrote, so it needs no
- * companion rule to exist.
- *
- * The lookbehind anchors each match to the start of a whitespace- or
- * quote-delimited token, which is what a class name in a `className` string or
- * a `cn()` argument always is. That is deliberately stricter than a word
- * boundary: it stops `bg-foo` inside a URL path and `bg-muted</code>` inside
- * JSX text from being read as class names and then failing as classes Tailwind
- * never generated.
- *
- * Known gap: a bracket-leading arbitrary variant (`[&>svg]:text-x`) is matched
- * and reconstructed as `.\[\&\>svg\]\:text-x`, but whether `escapeForSelector`
- * reproduces Tailwind's escaping of `&` and `>` is unverified — this tree has
- * no such usage to check it against. If one is added and this test cries wolf,
- * compare the reconstruction against the real selector in the built CSS before
- * assuming the class is broken.
- */
 const UTILITY_CLASS_PATTERN =
   /(?<=^|[\s"'`])(?:[^\s:"'`]*:)*(?:bg|text|border)-[^\s"'`]+/g;
 const DECLARED_CSS_VAR_PATTERN = /--([a-z][a-z0-9-]*)\s*:/g;
 const VAR_REFERENCE_IN_RULE_PATTERN = /var\(--([a-z][a-z0-9-]*)\)/g;
 const NON_CLASS_NAME_CHAR_PATTERN = /[^a-zA-Z0-9_-]/g;
-/**
- * Characters that can continue a class name inside an emitted selector,
- * `_` and Tailwind's escaping backslash included. Without those two, searching
- * for `.text-foreground` also matches the `.text-foreground\/80` rule beside
- * it and would accept that rule's declarations as proof the bare class
- * resolves.
- */
 const CLASS_NAME_CONTINUATION_PATTERN = /[\\_a-zA-Z0-9-]/;
 const SOURCE_FILE_PATTERN = /\.(?:ts|tsx|mdx)$/;
 
@@ -120,11 +66,6 @@ function parseCustomProperties(block: string): Map<string, string> {
   return properties;
 }
 
-/**
- * Maps each `--color-x` suffix declared in `@theme inline` to whether its
- * `var(--y)` target is actually declared in `:root, .dark` — the chain the
- * four historical bugs each broke on one side of.
- */
 function buildTokenChains(css: string): Map<string, TokenChain> {
   const themeProperties = parseCustomProperties(
     parseBlock(css, THEME_BLOCK_PATTERN)
@@ -231,15 +172,6 @@ describe("design tokens", () => {
   });
 });
 
-/**
- * Reads every CSS chunk `next build` emitted, or `undefined` if there is
- * none.
- *
- * `pnpm test` does not depend on `pnpm build` — a clean checkout has no
- * `out/` at all. Reporting the utility-class half as passing anyway would be
- * the exact lie this file exists to remove, so it is skipped, not green,
- * when there is nothing built to check.
- */
 function readBuiltCss(): string | undefined {
   if (!existsSync(BUILT_CSS_CHUNKS_DIR)) {
     return;
@@ -333,23 +265,6 @@ function findDanglingVarName(
   }
 }
 
-/**
- * Tailwind's own generated output is the oracle for whether a class it was
- * shown resolves to something real. This deliberately keeps no second copy
- * of Tailwind's keyword list (`text-center`, `border-collapse`, the bare
- * palette names, …) to check candidates against — that copy is wrong the
- * moment Tailwind's vocabulary changes, and wrong in the meantime for every
- * ordinary utility this codebase doesn't happen to use yet. Asking the
- * compiled CSS instead needs no such list: a class either got a rule or it
- * didn't, and a rule either resolves or it references a custom property
- * declared nowhere in the same stylesheet.
- *
- * A selector can appear more than once (Tailwind emits a plain fallback
- * alongside a `@supports (color: color-mix(...))`-gated enhancement for any
- * opacity-modified color utility), so this only fails a class if *every*
- * occurrence is dangling — one clean occurrence is enough for the class to
- * work in every browser that reaches it.
- */
 function resolveUtility(
   css: string,
   className: string,

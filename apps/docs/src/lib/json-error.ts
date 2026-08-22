@@ -1,11 +1,3 @@
-/**
- * Structured JSON errors for the docs machine-readable surface.
- *
- * Same envelope the product API puts on the wire: `{ data, error, meta }`
- * with `code`, `message`, and `hint`. This is what docs.propgate.dev
- * answers when a catalog path is missing or a method is wrong.
- */
-
 export type DocsErrorCode =
   | "method_not_allowed"
   | "not_found"

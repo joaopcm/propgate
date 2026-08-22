@@ -2,19 +2,6 @@ import type { ApiKeySummary } from "@propgate/db";
 import { createDb, listApiKeys, revokeApiKeyByReference } from "@propgate/db";
 import { requireDatabaseUrl } from "./utils/database-url";
 
-/**
- * Looking at keys, and taking one away.
- *
- *   node dist/keys.js list
- *   node dist/keys.js revoke pg_live_Ab3x [--force]
- *
- * A bundled entry point rather than an API route. A key that can revoke keys is
- * a privilege-escalation question, and the control plane is deliberately out of
- * scope — but handing an operator raw UPDATE statements against the auth table
- * is how someone eventually forgets a WHERE clause under pressure. This is the
- * middle: the operation, with its two footguns designed out.
- */
-
 const USAGE = `usage:
   node dist/keys.js list
   node dist/keys.js revoke <prefix|id> [--force]
@@ -67,7 +54,6 @@ if (command === "list") {
     );
     process.exit(1);
   } else if (outcome.kind === "ambiguous") {
-    // Name the candidates and their ids, so the next command is obvious.
     process.stderr.write(
       `"${reference}" matches ${outcome.matches.length} keys. Revoke by id instead:\n${outcome.matches
         .map((key) => `  ${key.id}  ${key.tenantName}  ${key.name}`)

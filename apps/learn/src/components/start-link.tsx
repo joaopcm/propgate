@@ -5,15 +5,6 @@ import { useProgressContext } from "@/components/progress-provider";
 import { CURRICULUM, unitBySlug } from "@/lib/curriculum";
 import { resumeSlug, settledCount } from "@/lib/progress";
 
-/**
- * Start, or carry on from wherever the reader stopped.
- *
- * Renders the start state until the browser has been asked, which is the one
- * place the prerendered HTML being wrong is harmless: somebody returning to
- * unit 5 sees "Start with unit 00" for a frame and then sees their own place.
- * The reverse — a first-time reader briefly told to resume something — would be
- * confusing rather than merely stale.
- */
 export function StartLink() {
   const { progress } = useProgressContext();
   const slug = progress === null ? "" : resumeSlug(progress);

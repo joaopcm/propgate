@@ -3,13 +3,6 @@ import type { Database } from "../client";
 import type { DeliveryStatus } from "../schema/webhooks";
 import { webhookDeliveries, webhookEndpoints } from "../schema/webhooks";
 
-/**
- * Endpoints and the delivery ledger.
- *
- * A delivery row exists before a job does. Everything here is written so that the
- * question "what do we still owe" is answerable from Postgres alone.
- */
-
 export interface EndpointRow {
   readonly createdAt: Date;
   readonly disabledAt: Date | null;
@@ -30,14 +23,6 @@ const ENDPOINT_COLUMNS = {
   url: webhookEndpoints.url,
 };
 
-/**
- * Create, or hand back the one that is already there.
- *
- * Idempotent on `(tenant_id, url)` for the same reason `registerDomain` is: a
- * partner's retry must not produce a second endpoint that delivers everything
- * twice. The secret is *not* rotated on an existing row — a retry is not a
- * request to invalidate whatever the customer already stored.
- */
 export async function createEndpoint(
   db: Database,
   input: {
@@ -102,15 +87,6 @@ export async function endpointById(
   return row;
 }
 
-/**
- * Change what an endpoint wants, or turn it off.
- *
- * `disabled` is a tri-state on the way in: absent leaves it alone, which is what
- * lets a PATCH change only the subscription list without accidentally re-enabling
- * something somebody switched off. The url is deliberately not updatable — it is
- * the identity this table is unique on, and a "moved" endpoint is a new one whose
- * delivery history should not be inherited.
- */
 export async function updateEndpoint(
   db: Database,
   input: {
@@ -160,15 +136,6 @@ export async function listEndpoints(
     .orderBy(webhookEndpoints.id);
 }
 
-/**
- * Every secret an endpoint should currently sign with, newest first.
- *
- * One normally, two during a rotation window. The expiry is compared here rather
- * than by a cleanup job, so a lapsed secret stops being signed with the moment it
- * lapses even if nothing has swept the table — a rotation window that quietly
- * outlives its expiry because a cron did not run is the kind of thing nobody
- * notices until an audit.
- */
 export async function activeSecrets(
   db: Database,
   input: { readonly endpointId: string; readonly tenantId: string },
@@ -203,14 +170,6 @@ export async function activeSecrets(
     : [row.secret];
 }
 
-/**
- * Move the current secret aside and install a new one.
- *
- * The old secret keeps working until `expiresAt`, which is the whole point. A
- * second rotation inside a window overwrites the *older* of the two rather than
- * chaining a third: two is the documented contract, and silently keeping three
- * would mean a secret a customer believes is dead is still being accepted.
- */
 export async function rotateSecret(
   db: Database,
   input: {
@@ -255,14 +214,6 @@ export async function deleteEndpoint(
   return deleted.length > 0;
 }
 
-/**
- * Which endpoints want an event.
- *
- * An empty `events` array means "all of them", which is the useful default for a
- * partner who just wants everything. Disabled endpoints are excluded here rather
- * than filtered later, so a disabled endpoint accrues no delivery rows at all —
- * turning one off should stop the obligation, not queue it up.
- */
 export async function endpointsForEvent(
   db: Database,
   input: { readonly event: string; readonly tenantId: string }
@@ -308,13 +259,6 @@ const DELIVERY_COLUMNS = {
   status: webhookDeliveries.status,
 };
 
-/**
- * Record what is owed. Called before anything is enqueued.
- *
- * The payload is frozen here rather than rebuilt at delivery time: a retry
- * minutes later must describe the state that fired the event, not the state the
- * domain has drifted to since, and the signature covers these exact bytes.
- */
 export async function recordDelivery(
   db: Database,
   input: {
@@ -361,14 +305,6 @@ export async function markDelivered(
     .where(eq(webhookDeliveries.id, deliveryId));
 }
 
-/**
- * Record a failed attempt.
- *
- * `exhausted` distinguishes "will be retried" from "dead-lettered", and it is the
- * caller's decision because the retry budget belongs to the queue. A row left
- * `pending` is one the reconciler may pick up; `failed` is final and is what the
- * API surfaces when a customer asks why a webhook never arrived.
- */
 export async function markAttemptFailed(
   db: Database,
   input: {
@@ -392,19 +328,11 @@ export interface DeliveryPage {
   readonly nextCursor: string | null;
 }
 
-/**
- * A tenant's deliveries, newest first, by keyset.
- *
- * Newest first because nobody reconciles this list — they read it to find out why
- * something did not arrive, and that is almost always recent. Descending on a
- * uuidv7 means `id < cursor` is still an index seek, so depth costs nothing.
- */
 export async function listDeliveries(
   db: Database,
   tenantId: string,
   options: {
     readonly cursor?: string;
-    /** Scope to one endpoint. Deliveries are a sub-resource of the endpoint. */
     readonly endpointId?: string;
     readonly limit: number;
     readonly status?: DeliveryStatus;
@@ -440,14 +368,6 @@ export async function listDeliveries(
   };
 }
 
-/**
- * Deliveries still owed, oldest first.
- *
- * The reconciler's input, and the counterpart to `dueCount` for the sweeper: if
- * Redis lost the jobs, these rows are how the work is re-derived. Oldest first so
- * a backlog drains in the order it accrued rather than starving the earliest
- * events.
- */
 export async function pendingDeliveries(
   db: Database,
   options: { readonly limit: number; readonly olderThan?: Date }
@@ -481,15 +401,6 @@ export interface DeliveryAttemptContext {
   readonly url: string;
 }
 
-/**
- * Everything one attempt needs, in one round trip.
- *
- * Joined rather than two queries because the worker runs this per attempt and the
- * endpoint's URL and secrets are useless without the payload. Reading the secret
- * at attempt time rather than freezing it with the delivery is deliberate: a
- * rotation must apply to a retry, or an endpoint whose secret leaked would keep
- * receiving requests signed with the leaked one.
- */
 export async function deliveryForAttempt(
   db: Database,
   input: { readonly deliveryId: string; readonly tenantId: string }
@@ -522,7 +433,6 @@ export async function deliveryForAttempt(
   return row;
 }
 
-/** The live secrets for a row already fetched by `deliveryForAttempt`. */
 export function secretsFrom(
   row: Pick<
     DeliveryAttemptContext,

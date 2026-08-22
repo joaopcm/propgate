@@ -8,19 +8,6 @@ import {
   TIMESTAMP_TOLERANCE_SECONDS,
 } from "@/lib/webhooks";
 
-/**
- * How to receive and verify a webhook.
- *
- * The event table and the tolerance come from `lib/webhooks.ts`, which is keyed
- * by `WebhookEvent` from `@propgate/webhooks` — so an event added to the product
- * without documentation is a `tsc` error, and this page cannot claim a different
- * timestamp tolerance than the signer enforces.
- *
- * The verification snippet below is the same `verifyPayload` shipped in
- * `@propgate/webhooks` and covered by its specs, so the code on this page is
- * tested rather than merely written.
- */
-
 export const metadata: Metadata = {
   description:
     "Receive domain state changes over signed HTTP. Svix-compatible signatures, four events, at-least-once delivery with exponential backoff.",
@@ -52,13 +39,10 @@ export function verify(rawBody, headers, secret) {
   const id = headers["webhook-id"];
   const timestamp = Number(headers["webhook-timestamp"]);
 
-  // Reject anything too old to be a live delivery. Without this the signature
-  // stays valid forever and a captured request can be replayed.
   if (Math.abs(Date.now() / 1000 - timestamp) > TOLERANCE_SECONDS) {
     return false;
   }
 
-  // The whsec_ prefix is a label, not key material. Strip it, then base64-decode.
   const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
   const expected =
     "v1," +
@@ -66,8 +50,6 @@ export function verify(rawBody, headers, secret) {
       .update(\`\${id}.\${timestamp}.\${rawBody}\`)
       .digest("base64");
 
-  // The header may carry more than one signature during a secret rotation.
-  // Any match is a pass.
   return headers["webhook-signature"]
     .split(" ")
     .some((candidate) => {

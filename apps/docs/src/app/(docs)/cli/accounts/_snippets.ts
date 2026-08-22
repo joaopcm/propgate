@@ -1,10 +1,3 @@
-/**
- * The confirm exchange ends in a mailbox, not a terminal, so nothing past
- * `signup` can be a captured run. `SIGNUP_*` through `REVOKE_*` are shapes
- * read off `packages/cli/src/account.ts` — the request bodies, the routes,
- * and the exact strings each command prints — rather than a captured run.
- */
-
 export const SIGNUP_CURL = `curl -X POST https://api.propgate.dev/v1/signup \\
   -H "content-type: application/json" \\
   -d '{"email":"you@example.com"}'`;
@@ -48,15 +41,8 @@ export const KEYS_CREATE_OUTPUT = `pg_live_Ab3x...
 
 Shown once. This does not replace your stored key.`;
 
-/**
- * There is no endpoint that revokes by prefix — the API takes an id, because
- * a four-character prefix carries no unique index. The CLI's `revoke pg_live_Ab3x`
- * does exactly this list-then-delete underneath, which is why the cURL
- * equivalent is two calls rather than one.
- */
 export const REVOKE_CURL = `curl https://api.propgate.dev/v1/api-keys \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-# find the id whose "prefix" is pg_live_Ab3x, then:
 curl -X DELETE https://api.propgate.dev/v1/api-keys/019fcf4f-3e6a-71aa-9120-99d104f062ac \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 

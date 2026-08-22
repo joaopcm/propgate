@@ -6,17 +6,6 @@ import {
   verifyPayload,
 } from "./sign";
 
-/**
- * The public contract, pinned.
- *
- * A refactor that changes what gets signed breaks every customer at once and does
- * so invisibly — our side keeps signing happily and only their verification
- * fails. So the first assertion here is a fixed vector: a known secret, id,
- * timestamp and body against a signature computed by hand. If that value ever
- * changes, it is a breaking change and this spec is the thing that says so.
- */
-
-// A real `whsec_` secret, published here on purpose: it signs nothing.
 const SECRET = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw";
 const ID = "msg_2XvKQ9r8GKYqrTwjUPD8ILPZ";
 const TIMESTAMP = 1_785_782_400;
@@ -33,22 +22,12 @@ describe("signPayload", () => {
       timestamp: TIMESTAMP,
     });
 
-    // Confirmed with openssl rather than by copying what this code returned,
-    // which would make the assertion circular and worthless:
-    //
-    //   KEYHEX=$(printf %s "${SECRET#whsec_}" | base64 -d | xxd -p -c 256)
-    //   printf '%s' "$ID.$TIMESTAMP.$BODY" |
-    //     openssl dgst -sha256 -mac HMAC -macopt "hexkey:$KEYHEX" -binary | base64
-    //
-    // -> EmeNAlVmUMg2BkeheENUNNlyuGqraSQNPs4PG+lsgFY=
     expect(headers["webhook-signature"]).toBe(
       "v1,EmeNAlVmUMg2BkeheENUNNlyuGqraSQNPs4PG+lsgFY="
     );
   });
 
   it("signs the id and the timestamp, not just the body", () => {
-    // Without the timestamp a captured request replays forever; without the id a
-    // body signed for one delivery replays as another.
     const base = { body: BODY, secrets: [SECRET] };
     const signed = signPayload({ ...base, id: ID, timestamp: TIMESTAMP });
     const laterTime = signPayload({
@@ -69,9 +48,6 @@ describe("signPayload", () => {
   });
 
   it("strips the whsec_ prefix before keying the HMAC", () => {
-    // The prefix is a label for humans. Treating it as key material is the most
-    // common way an integration produces signatures that never match while
-    // looking correct on both sides.
     const withPrefix = signPayload({
       body: BODY,
       id: ID,
@@ -99,8 +75,6 @@ describe("signPayload", () => {
     const signatures = headers["webhook-signature"].split(" ");
 
     expect(signatures).toHaveLength(2);
-    // Both independently valid, which is what lets a customer who has rotated and
-    // one who has not both keep working.
     expect(
       verifyPayload({
         body: BODY,
@@ -122,8 +96,6 @@ describe("signPayload", () => {
   });
 
   it("refuses to sign with no secret at all", () => {
-    // An unsigned webhook is worse than none: a receiver cannot tell it from a
-    // forgery, and the safe default would be to reject it — silently, forever.
     expect(() =>
       signPayload({ body: BODY, id: ID, secrets: [], timestamp: TIMESTAMP })
     ).toThrow(NEEDS_A_SECRET);
@@ -189,9 +161,6 @@ describe("verifyPayload", () => {
   });
 
   it("returns false rather than throwing on a malformed header", () => {
-    // timingSafeEqual throws on a length mismatch. Unguarded, a junk header would
-    // be a 500 instead of a rejection — which is a denial of service with extra
-    // steps.
     for (const header of ["", "v1,", "garbage", "v1,!!!not-base64!!!"]) {
       expect(
         verifyPayload({

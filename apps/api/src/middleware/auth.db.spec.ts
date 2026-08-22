@@ -12,11 +12,6 @@ import { bearerAuth } from "./auth";
 
 const db = createDb(process.env.DATABASE_URL ?? "", { maxConnections: 2 });
 
-/**
- * A throwaway app rather than the real one, because there are no authenticated
- * routes yet — the middleware lands before the routes that need it, which is
- * the point of doing it in its own PR.
- */
 function appWithAuth() {
   const app = new Hono<{ Variables: AuthVariables }>();
 
@@ -65,9 +60,6 @@ describe("bearerAuth", () => {
   });
 
   it("never lets one tenant's key resolve to another tenant", async () => {
-    // The property every route-level tenancy check is built on. If the tenant
-    // on the context is wrong, scoping a query by it scopes it to the wrong
-    // customer's data.
     const first = await keyFor("first");
     const second = await keyFor("second");
 
@@ -84,7 +76,6 @@ describe("bearerAuth", () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    // An agent can fix this. "Unauthorized" alone it cannot.
     expect(body.error.message).toContain("Bearer pg_live_");
   });
 

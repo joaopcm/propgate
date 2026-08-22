@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { slugify } from "./slug";
 
-/**
- * Cases taken from headings that actually exist in this corpus.
- *
- * A slugifier is trivial until it meets a heading with a backticked identifier
- * or a package name in it, and both are ordinary here.
- */
-
 describe("slugify", () => {
   it("lowercases and hyphenates ordinary prose", () => {
     expect(slugify("The sweeper")).toBe("the-sweeper");

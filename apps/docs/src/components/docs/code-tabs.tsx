@@ -10,12 +10,6 @@ export interface CodeTabsItem {
   readonly lang: string;
 }
 
-/**
- * Highlighted on the server, switched on the client.
- *
- * Shiki loads grammars and a theme — hundreds of kilobytes — so it must never
- * reach the browser. Everything below the highlight is a `useState`.
- */
 export async function CodeTabs({ items }: { items: readonly CodeTabsItem[] }) {
   const rendered: RenderedTab[] = await Promise.all(
     items.map(async (item) => {

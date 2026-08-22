@@ -1,17 +1,5 @@
 import type { FetchLike } from "../http";
 
-/**
- * A `fetch` that answers from a script and records what it was asked.
- *
- * Every spec in this package is about one of two things: what this client puts
- * on the wire, and what it does with what comes back. Both are answerable
- * without a server, and the seam a stub cannot cover — the API answering in a
- * shape this package reads differently than the server writes it — is covered by
- * `apps/api/src/e2e/sdk.e2e.spec.ts` against a real `createApp()`.
- *
- * This is not the mocking invariant 1 bans. Nothing here resolves a name.
- */
-
 export interface Recorded {
   readonly body: unknown;
   readonly headers: Readonly<Record<string, string>>;
@@ -37,7 +25,6 @@ export function json(
   });
 }
 
-/** The success envelope, the way `apps/api/src/utils/response.ts` writes it. */
 export function envelope(
   data: unknown,
   meta: Record<string, unknown> | null = null,
@@ -46,7 +33,6 @@ export function envelope(
   return json({ data, error: null, meta }, { status });
 }
 
-/** The failure envelope, with the status the route would have used. */
 export function refusal(
   message: string,
   status: number,
@@ -58,13 +44,6 @@ export function refusal(
   );
 }
 
-/**
- * Replies in order; the last one repeats.
- *
- * Repeating rather than running out, so a spec that asserts "this was not
- * retried" fails on the call count rather than on an exhausted script — the
- * former names what went wrong.
- */
 export function stub(replies: readonly Reply[]): Stub {
   const calls: Recorded[] = [];
 
@@ -88,14 +67,6 @@ export function stub(replies: readonly Reply[]): Stub {
         throw new Error("stub fetch was called with no replies scripted");
       }
 
-      /**
-       * Cloned, never handed out directly.
-       *
-       * A `Response` body can be read once, and the last reply is deliberately
-       * reused across retries — returning the original would make the second
-       * attempt fail with "Body is unusable", which reads like a bug in the
-       * retry loop rather than in the harness.
-       */
       return Promise.resolve(
         typeof reply === "function" ? reply() : reply.clone()
       );
@@ -103,13 +74,6 @@ export function stub(replies: readonly Reply[]): Stub {
   };
 }
 
-/**
- * One recorded call, or a failure naming which one was missing.
- *
- * Indexing straight into `calls` gives `undefined` and then an assertion about
- * a property of nothing, which reads as "expected undefined to be X" — true, and
- * useless. This says the request was never made.
- */
 export function callAt(stubbed: Stub, index: number): Recorded {
   const call = stubbed.calls[index];
 
@@ -124,7 +88,6 @@ function failMissing(index: number, made: number): never {
   throw new Error(`no request at index ${index}; ${made} were made`);
 }
 
-/** A `fetch` that never answers, for timeout specs. */
 export function silent(): Stub {
   const calls: Recorded[] = [];
 

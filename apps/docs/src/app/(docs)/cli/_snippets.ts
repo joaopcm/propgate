@@ -1,9 +1,3 @@
-/**
- * `CONFIG_PATH` and `PRECEDENCE` are read off `packages/cli/src/config.ts`
- * (`configDir`, `configPath`, `credentials`) rather than a captured run —
- * there is no terminal output for "where a file lives".
- */
-
 export const INSTALL_NPX = "npx @propgate/cli check example.com";
 
 export const INSTALL_GLOBAL = `npm install -g @propgate/cli

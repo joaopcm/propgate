@@ -17,46 +17,14 @@ import type { RateLimiter } from "../utils/rate-limit";
 import { error, success } from "../utils/response";
 import { firstIssue } from "../utils/validation";
 
-/**
- * `POST /v1/checks` — everything propgate knows about one domain.
- *
- * The interactive surface. It is deliberately request-driven and stateless:
- * nothing is stored, nothing is scheduled, and the sweeper that will run these
- * continuously in Phase 2 shares the evaluators rather than this route.
- */
-
-/**
- * Receipts for the numbers below, measured against the fixture tier:
- *
- *  - A healthy sending-only domain costs **10 lookups** and returns in **23 ms**.
- *  - A domain sitting near SPF's ten-lookup limit costs **19** and returns in
- *    **25 ms**.
- *
- * So 20 checks a minute from one client is at most ~400 upstream queries a
- * minute — generous for a human, who does perhaps one every ten seconds, and
- * an obstacle only to a script. A good widget never touches it. If a real
- * caller does, the number is wrong and should be re-measured rather than
- * worked around.
- */
 export const CHECKS_PER_MINUTE = 20;
 export const RATE_LIMIT_WINDOW_MS = 60_000;
 
-/** Past what any real check needs. Checks run concurrently, not in series. */
 const CHECK_BUDGET_MS = 10_000;
 const PER_QUERY_TIMEOUT_MS = 3000;
-/** A backstop against a pathological zone, not a limit any evaluator enforces. */
 const MAX_LOOKUPS = 100;
 
-/**
- * Aliases and tokens per request.
- *
- * The same shape of tripwire as `dkimSelectors`' ten: past what any real record
- * set carries, so only a loop touches it. Lower than ten because a platform
- * issues one token and one or two aliases, where it may well rotate through
- * several selectors.
- */
 const MAX_RECORDS = 5;
-/** One TXT character-string, RFC 1035 §3.3.14. See the same note in `profiles.ts`. */
 const MAX_TOKEN_LENGTH = 255;
 
 const requestSchema = z.object({
@@ -89,12 +57,8 @@ const requestSchema = z.object({
 
 function profileFrom(input: z.infer<typeof requestSchema>): DomainProfile {
   return {
-    // Everything the caller gave an expectation for, and delegation always.
     checks: (input.checks ?? [...CHECK_KINDS]) as readonly CheckKind[],
     id: "request",
-    // Deliberately not defaulted. A caller who did not say has not asserted
-    // that the domain receives mail, and inventing the assertion here would
-    // report every sending-only domain as broken.
     ...(input.expectsMail === undefined
       ? {}
       : { mx: [{ expectsMail: input.expectsMail }] }),
@@ -104,15 +68,6 @@ function profileFrom(input: z.infer<typeof requestSchema>): DomainProfile {
       ? {}
       : { dkimSelectors: input.dkimSelectors }),
     ...(input.ownership === undefined ? {} : { ownership: input.ownership }),
-    /**
-     * The wire keeps `spfInclude` and `spfIp` as flat fields, unlabelled.
-     *
-     * This endpoint answers "diagnose this one name", which is what a public
-     * checker asks — nobody pastes a domain into it wanting a report about a
-     * bounce host they have not mentioned. Labels belong to a stored profile,
-     * where the platform already knows the shape it issues. Keeping the request
-     * body flat also means this is not a breaking change for anyone calling it.
-     */
     ...(input.spfInclude === undefined && input.spfIp === undefined
       ? {}
       : {
@@ -128,14 +83,6 @@ function profileFrom(input: z.infer<typeof requestSchema>): DomainProfile {
   };
 }
 
-/**
- * Findings, with the taxonomy folded in.
- *
- * A code alone makes the consumer ship a copy of the registry and keep it in
- * step with ours. The summary and the slug travel with the finding so a
- * dashboard can render something a human reads, and link to the docs page for
- * it, without knowing anything about propgate's taxonomy.
- */
 function describe(finding: Finding) {
   const definition = DIAGNOSIS_REGISTRY[finding.code];
 
@@ -153,8 +100,6 @@ function serialise(result: CheckResult, elapsedMs: number) {
     checks: result.checks.map((check) => ({
       findings: check.findings.map(describe),
       kind: check.kind,
-      // The lookups are the derivation. Kept per check rather than flattened,
-      // because "why did you say that" is asked about one check at a time.
       lookups: check.lookups.map((lookup) => ({
         name: lookup.name,
         purpose: lookup.purpose,
@@ -172,7 +117,6 @@ function serialise(result: CheckResult, elapsedMs: number) {
   };
 }
 
-/** The client address, for rate limiting only. */
 function clientKey(forwarded: string | undefined): string {
   return forwarded?.split(",")[0]?.trim() || "unknown";
 }

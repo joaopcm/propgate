@@ -4,18 +4,10 @@ import { recordChanges } from "../schema/record-changes";
 
 export interface Observation {
   readonly domainId: string;
-  /** Null when the record is absent, which is itself a change worth recording. */
   readonly observed: string | null;
   readonly requirementKey: string;
 }
 
-/**
- * Append an observation, but only if it differs from the last one.
- *
- * Reads the most recent row for the requirement and compares before writing.
- * The read costs an indexed lookup; the alternative costs a row per
- * requirement per sweep, forever.
- */
 export async function recordObservation(
   db: Database,
   input: Observation

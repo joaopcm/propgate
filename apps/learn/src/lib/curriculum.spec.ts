@@ -3,16 +3,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CURRICULUM, contentDirFor, unitBySlug, unitIndex } from "./curriculum";
 
-/**
- * The table joined to the filesystem, enforced by the test suite.
- *
- * Same shape as `apps/docs/src/lib/navigation.spec.ts`, and for the same
- * reason: a unit listed in `CURRICULUM` with no content on disk would render a
- * blank page, and a content directory nobody listed would be invisible. Both
- * are failures a reader finds before the author does, unless something here
- * finds them first.
- */
-
 const CONTENT_DIR = join(process.cwd(), "src/content");
 
 function unitPath(index: number): string {
@@ -93,13 +83,6 @@ describe("the curriculum against the filesystem", () => {
     }
   });
 
-  /**
-   * The reason `sections` is allowed to duplicate the prose.
-   *
-   * Without this, renaming a heading in MDX leaves the spine showing a section
-   * that no longer exists and an anchor that resolves to the top of the page.
-   * With it, the rename is a failing test naming both strings.
-   */
   it("declares only sections that exist as headings in the prose", () => {
     for (const [index, unit] of CURRICULUM.entries()) {
       const mdx = readFileSync(join(unitPath(index), "unit.mdx"), "utf8");
@@ -110,15 +93,6 @@ describe("the curriculum against the filesystem", () => {
     }
   });
 
-  /**
-   * `src/content/units.ts` maps a slug to its MDX component with nine static
-   * imports, and the specs cannot import it — that needs the MDX loader, which
-   * only exists in the Next build. So it is read as text.
-   *
-   * Crude, and it catches the failure that matters: a unit added to the
-   * curriculum without a line in that map renders nothing at all, and would
-   * otherwise reach a reader as a blank page.
-   */
   it("is mentioned in full by the MDX content map", () => {
     const map = readFileSync(join(CONTENT_DIR, "units.ts"), "utf8");
 

@@ -1,14 +1,3 @@
-/**
- * Readiness and staleness checks, run from globalSetup.
- *
- * Note the deliberate exception to the repo's own rule: this file uses Node's
- * `dns.Resolver` (c-ares). That is fine *here* because these are liveness probes,
- * not product behaviour. c-ares cannot expose the TC bit, set DO, read the
- * authority-section SOA of an NXDOMAIN, control the EDNS buffer size, or return
- * RRSIGs — which is exactly why @propgate/dns needs its own wire codec. Do not
- * reach for node:dns anywhere in the resolver or the evaluators.
- */
-
 import { Resolver } from "node:dns/promises";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -23,11 +12,6 @@ import {
 const READINESS_TIMEOUT_MS = 5000;
 const PACKAGE_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
-/**
- * What to ask each server. Chosen so a pass means the server is doing its actual
- * job, not merely holding a socket open — the resolver probe asserts the whole
- * chain of trust, and the permissive probe asserts the bogus zone still resolves.
- */
 const PROBES: Readonly<
   Record<FixtureRole, { name: string; type: "SOA" | "TXT" }>
 > = {
@@ -65,11 +49,6 @@ async function probe(
   return [soa.hostmaster];
 }
 
-/**
- * Throws with an actionable message if any fixture server is unreachable or not
- * answering correctly. Runs all six concurrently — a serial walk would take six
- * timeouts to report a fully-down tier.
- */
 export async function assertFixturesReady(
   timeoutMs = READINESS_TIMEOUT_MS
 ): Promise<void> {
@@ -104,12 +83,6 @@ export async function assertFixturesReady(
   );
 }
 
-/**
- * Throws if the running containers are serving a different zones/ revision than
- * the working tree. This is the single highest-value guard in the harness:
- * without it, editing a zone file and forgetting to reload produces a test
- * failure that looks like a code bug and costs an afternoon.
- */
 export async function assertFixturesFresh(
   timeoutMs = READINESS_TIMEOUT_MS
 ): Promise<void> {

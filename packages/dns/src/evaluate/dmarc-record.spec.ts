@@ -5,8 +5,6 @@ import {
   parseDmarcRecord,
 } from "./dmarc-record";
 
-/** Parsing is pure, so these are unit tests. Discovery is in the fixture spec. */
-
 function record(value: string) {
   const parsed = parseDmarcRecord(value);
 
@@ -25,8 +23,6 @@ describe("looksLikeDmarc", () => {
   });
 
   it("rejects anything else, so unrelated TXT records are discarded first", () => {
-    // RFC 7489 §6.6.3 filters before counting. Without that, a domain with a
-    // policy and a verification token would read as ambiguous.
     expect(looksLikeDmarc("google-site-verification=abc")).toBe(false);
     expect(looksLikeDmarc("v=spf1 -all")).toBe(false);
     expect(looksLikeDmarc("p=reject; v=DMARC1")).toBe(false);
@@ -69,7 +65,6 @@ describe("parseDmarcRecord", () => {
   });
 
   it("keeps a URI with no scheme rather than discarding it", () => {
-    // The evaluator reports it; throwing it away here would hide the mistake.
     const parsed = record("v=DMARC1; p=none; rua=dmarc@example.com");
 
     expect(parsed.aggregateReportUris[0]?.scheme).toBe("");
@@ -90,8 +85,6 @@ describe("parseDmarcRecord", () => {
 
     expect(parsed.ok).toBe(false);
     if (!parsed.ok) {
-      // Caught by the not-dmarc filter first, which is the same outcome a
-      // receiver reaches: the record is not recognised as DMARC at all.
       expect(parsed.issue).toBe("not-dmarc");
     }
   });
@@ -143,8 +136,6 @@ describe("parseDmarcRecord", () => {
   });
 
   it("allows a record with no p=, which the evaluator reports", () => {
-    // Legal to parse, useless as a policy. Splitting those two judgements keeps
-    // the parser about syntax and the evaluator about meaning.
     expect(record("v=DMARC1; rua=mailto:a@example.com").policy).toBeUndefined();
   });
 });
@@ -153,9 +144,6 @@ describe("effectivePolicy", () => {
   it("uses p= when the record was found at the exact name", () => {
     const parsed = record("v=DMARC1; p=none; sp=reject");
 
-    // sp= is irrelevant here: the subdomain published its own record, so its
-    // p= governs. Applying sp= would enforce a policy the owner did not set
-    // for this name.
     expect(effectivePolicy(parsed, "exact")).toBe("none");
   });
 

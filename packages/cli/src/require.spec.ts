@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseRequirement, parseRequirements } from "./require";
 
-/** The `--require` micro-syntax, every form and every malformed one. */
-
 describe("parseRequirement", () => {
   it("reads a check with no fields", () => {
     expect(parseRequirement("root:delegation")).toEqual({
@@ -31,8 +29,6 @@ describe("parseRequirement", () => {
   });
 
   it("keeps a value that contains an equals sign", () => {
-    // Base64 ends in padding, and a key that quietly lost its `==` is a key that
-    // never matches for a reason nobody can see.
     const parsed = parseRequirement(
       "k1:dkim:selector=r,expectedPublicKey=AB=="
     );
@@ -51,7 +47,6 @@ describe("parseRequirement", () => {
     expect(parseRequirement("inbox:mx:expectsMail=false")).toMatchObject({
       expectsMail: false,
     });
-    // Absent stays absent, which is the third state.
     expect(parseRequirement("inbox:mx")).toEqual({ check: "mx", key: "inbox" });
   });
 
@@ -76,13 +71,6 @@ describe("parseRequirement", () => {
     expect(parseRequirement("mail")).toContain("needs a check");
   });
 
-  /**
-   * The two rules enforced here, and only these two.
-   *
-   * They are the same two that decide which question the guided flow asks next,
-   * so knowing them on this side is not a second implementation of the server's
-   * rules — it is a fact this code needs anyway.
-   */
   it("insists dkim names a selector", () => {
     expect(parseRequirement("k1:dkim")).toContain("dkim needs a selector");
   });
@@ -92,8 +80,6 @@ describe("parseRequirement", () => {
   });
 
   it("leaves the rest to the API", () => {
-    // Duplicate keys, more than twenty, two of a non-repeatable kind: all valid
-    // to parse and all refused by the server, whose message is the better one.
     const parsed = parseRequirements(["a:spf", "a:spf"]);
 
     expect(Array.isArray(parsed)).toBe(true);
@@ -101,17 +87,6 @@ describe("parseRequirement", () => {
 });
 
 describe("every field the parser accepts reaches the requirement", () => {
-  /**
-   * The regression this exists for.
-   *
-   * `parseRequirement` built its result from a hand-written list that never
-   * learned about `label`, `target` or `token`: they parsed, they validated as
-   * known field names, and then they were dropped on the floor. The header of
-   * `require.ts` documented the syntax the whole time. Only the server's 422
-   * made it visible, and only for the kinds that cannot run without them —
-   * a labelled `spf` would have been silently checked at the apex instead,
-   * passing a domain nobody looked at the right name for.
-   */
   it("carries a label through, which is what puts a check on a bounce host", () => {
     expect(
       parseRequirement("bounce:spf:include=amazonses.com,label=send")

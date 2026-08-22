@@ -4,8 +4,6 @@ import { EXIT_PROBLEM } from "../exit";
 import { type Context, fail, json, out, reportApiError } from "../output";
 import { table, when } from "../table";
 
-/** `GET/POST /v1/api-keys` and `DELETE /v1/api-keys/:id`. */
-
 interface KeyRow {
   readonly createdAt: string;
   readonly id: string;
@@ -77,9 +75,6 @@ async function create(input: Input, context: Context): Promise<number> {
 
   out(result.body.data.key);
   out("");
-  // Not stored: the key in the config is the one this command authenticated
-  // with, and silently replacing it would revoke the caller's own footing on
-  // their next command in a way they did not ask for.
   out("Shown once. This does not replace your stored key.");
 
   return 0;
@@ -88,15 +83,6 @@ async function create(input: Input, context: Context): Promise<number> {
 async function revoke(input: Input, context: Context): Promise<number> {
   const reference = input.needPositional();
 
-  /**
-   * Resolve a prefix to an id here rather than in the API.
-   *
-   * The route takes an id, deliberately: a four-character prefix carries no unique
-   * index, and an endpoint that accepted one would sometimes revoke a key the
-   * caller did not name. But an id is not what a person has in front of them —
-   * the prefix is the part still readable after issue — so the translation belongs
-   * on this side, where the ambiguity can be reported instead of guessed.
-   */
   const listed = await apiRequest<KeyRow[]>({
     apiKey: context.apiKey,
     apiUrl: context.apiUrl,

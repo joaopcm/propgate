@@ -18,28 +18,12 @@ import { type Context, out, reportApiError } from "../output";
 import { exitCodeFor, type Renderable, render, type Style } from "../report";
 import { looksLikeId } from "./shared";
 
-/**
- * `propgate check <domain>`
- *
- * The same engine as the public checker and the API. Three surfaces, one
- * implementation — and the local run is the one to reach for when a customer
- * reports something odd, because it runs against whichever resolver *they* are
- * using rather than against ours.
- *
- * `--remote` asks our API the same question instead, which is the right call
- * when what you want to know is what propgate sees. Neither writes anything:
- * this command never touches a registered domain. That is `domains check`, and
- * the difference is deliberate — see the redirect below.
- */
-
-/** Generous enough that a slow authority is not mistaken for a dead one. */
 const BUDGET_MS = 15_000;
 const TIMEOUT_MS = 4000;
 const MAX_LOOKUPS = 100;
 
 const TRAILING_DOT = /\.$/;
 
-/** Normalisation lives here so the local and remote paths send the same string. */
 function normaliseDomain(value: string): string {
   return value.trim().replace(TRAILING_DOT, "").toLowerCase();
 }
@@ -50,14 +34,6 @@ function usage(message: string): number {
   return EXIT_USAGE;
 }
 
-/**
- * The resolver to query when none was given.
- *
- * `node:dns` is read here for its *configuration* — `getServers` returns what
- * the machine is set up with and makes no query. The package's rule is that
- * nothing resolves through c-ares, and nothing does: every packet is still
- * built and parsed by `@propgate/dns`.
- */
 function systemResolver(): ServerAddress | string {
   const [first] = getServers();
 
@@ -68,13 +44,6 @@ function systemResolver(): ServerAddress | string {
   return parseResolver(first);
 }
 
-/**
- * `--cname track=track.example.net` into the pair it names.
- *
- * Split on the first `=`. Unambiguous because the right-hand side is a hostname
- * and a hostname cannot contain one — unlike `--token`, whose value routinely
- * does, which is why the label there is a flag of its own rather than a prefix.
- */
 function parseCname(value: string): { label: string; target: string } | string {
   const at = value.indexOf("=");
 
@@ -85,7 +54,6 @@ function parseCname(value: string): { label: string; target: string } | string {
   return { label: value.slice(0, at), target: value.slice(at + 1) };
 }
 
-/** Tokens and aliases, or the first one that could not be read. */
 function recordsFor(input: Input):
   | {
       readonly cnames: readonly { label: string; target: string }[];
@@ -125,18 +93,6 @@ function recordsFor(input: Input):
   };
 }
 
-/**
- * A check named explicitly with nothing to check it against.
- *
- * Only fires for `--only`, and only for the two kinds that cannot run without a
- * value. Asking for everything is a different statement — the default runs each
- * check that has something to work with and stays quiet about the rest, which is
- * what makes `propgate check example.com` useful with no flags at all.
- *
- * DKIM and CAA have the same hole and are deliberately left alone here: changing
- * what `--only dkim` does today is a decision of its own, not a consequence of
- * adding two evaluators.
- */
 function unfeedable(
   input: Input,
   records: { cnames: readonly unknown[]; ownership: readonly unknown[] }
@@ -165,25 +121,18 @@ function profileFor(
   const spfInclude = input.text("spf-include");
 
   return {
-    // `only` came through a `multiselect` whose choices are `CHECK_KINDS`, so
-    // `resolve` has already refused anything that is not one.
     checks:
       only.length === 0 ? [...CHECK_KINDS] : (only as readonly CheckKind[]),
     id: "cli",
-    // Tri-state on purpose: absent makes no claim, and `false` would assert that
-    // the domain receives no mail, which is a different statement entirely.
     ...(input.bool("receives-mail") ? { mx: [{ expectsMail: true }] } : {}),
     ...(caaIssuer === undefined ? {} : { caaIssuer }),
     ...(records.cnames.length === 0 ? {} : { cnames: records.cnames }),
     ...(selectors.length === 0 ? {} : { dkimSelectors: selectors }),
     ...(records.ownership.length === 0 ? {} : { ownership: records.ownership }),
-    // Unlabelled, like the API's public checker: `propgate check` diagnoses the
-    // name it was given. A bounce host is a name of its own — check it directly.
     ...(spfInclude === undefined ? {} : { spf: [{ include: spfInclude }] }),
   };
 }
 
-/** The machine-readable form, carrying the taxonomy exactly as the API does. */
 function toJson(result: Renderable) {
   return {
     checks: result.checks.map((outcome) => ({
@@ -213,7 +162,6 @@ function present(result: Renderable, input: Input, json: boolean): number {
   if (json) {
     out(JSON.stringify(toJson(result), null, 2));
   } else {
-    // Colour off when stdout is not a terminal, so a pipe stays clean.
     const style: Style = { colour: process.stdout.isTTY === true };
 
     out(render(result, { style, trace: input.bool("trace") }).join("\n"));
@@ -247,14 +195,6 @@ interface RemoteResult {
   readonly verdict: Verdict;
 }
 
-/**
- * The wire shape into the one the renderer takes.
- *
- * `code` is the only cast, and it is the honest kind: the wire carries a string
- * and the type is a union of the codes this build knows. An API newer than the
- * CLI can name one that is not in the union, which is exactly why `summaryOf`
- * falls back to printing the code rather than indexing into nothing.
- */
 function rehydrate(payload: RemoteResult): Renderable {
   const finding = (entry: RemoteFinding): Finding =>
     ({
@@ -359,13 +299,6 @@ async function local(
 async function run(input: Input, context: Context): Promise<number> {
   const domain = normaliseDomain(input.needPositional());
 
-  /**
-   * A uuid is a registered domain's id, and re-checking one is a different
-   * operation: it writes state, spends the per-tenant check budget, and can fire
-   * a `domain.failed` webhook — which for our customers means paging theirs. So
-   * this points at the command that does it rather than doing it, and nothing
-   * goes over the wire either way.
-   */
   if (looksLikeId(domain)) {
     process.stderr.write(
       `propgate: that looks like a domain id, not a domain name.\nDid you mean \`propgate domains check ${domain}\`?\n`
@@ -395,8 +328,6 @@ async function run(input: Input, context: Context): Promise<number> {
   }
 
   if (!wantsRemote && context.apiUrlGiven) {
-    // Silently ignoring it would let someone believe they had pointed this at a
-    // local stack when they had run a local resolution the whole time.
     return usage("--api-url only applies with --remote");
   }
 

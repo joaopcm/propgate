@@ -2,22 +2,10 @@ import { DIAGNOSIS_REGISTRY } from "@propgate/dns";
 import { describe, expect, it } from "vitest";
 import { allEntries, entryBySlug, families, unfiled } from "./taxonomy";
 
-/** Lowercase words joined by single hyphens, and nothing else. */
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-/**
- * Guards on the published taxonomy.
- *
- * The coverage guard in `@propgate/dns` already proves every code has a fixture
- * or a written reason. What it cannot see is whether this site can actually
- * render them — which is the half a customer meets.
- */
 
 describe("slugs", () => {
   it("are unique", () => {
-    // A duplicate would collide as a route and silently hide one of the two
-    // codes behind it, while both keep appearing in API responses that link
-    // here. Nothing else in the build would notice.
     const slugs = Object.values(DIAGNOSIS_REGISTRY).map(
       (definition) => definition.slug
     );
@@ -51,9 +39,6 @@ describe("slugs", () => {
 
 describe("the index", () => {
   it("files every code under a family", () => {
-    // A code with an unrecognised prefix would vanish from the index while
-    // staying reachable at its own URL — reachable only by someone who already
-    // knew the slug, which defeats the page.
     expect(unfiled()).toEqual([]);
   });
 
@@ -69,9 +54,6 @@ describe("the index", () => {
 
 describe("every code can say how we know", () => {
   it("has either a fixture or a written reason it cannot have one", () => {
-    // The same contract the coverage guard enforces, asserted from the
-    // rendering side: a page with an empty "How we know" section is a page that
-    // asks the reader to take our word for it.
     for (const entry of allEntries()) {
       const documented =
         entry.fixtures.length > 0 || entry.unreproducible !== undefined;

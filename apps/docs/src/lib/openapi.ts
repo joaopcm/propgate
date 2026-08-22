@@ -1,15 +1,6 @@
 import { documentedOperations, openApiDocument } from "@propgate/api-openapi";
 import { API_URL, PRODUCT_NAME, PRODUCT_URL, SITE_URL } from "./site";
 
-/**
- * OpenAPI 3.1 for this host: the product document plus the docs catalog.
- *
- * Product operations come from `apps/api/src/openapi.ts`. That file is the
- * source of truth (also published at api.propgate.dev/openapi.json and
- * propgate.dev/openapi.json). Re-embedding it here means a new API route
- * cannot ship on docs without shipping in the API spec.
- */
-
 type JsonSchema = Record<string, unknown>;
 
 interface OpenApiDoc {

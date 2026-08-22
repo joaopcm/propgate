@@ -4,14 +4,12 @@ import { RateLimiter } from "../utils/rate-limit";
 import type { AuthVariables } from "./auth";
 import { tenantRateLimit } from "./tenant-rate-limit";
 
-/** Two requests per window, so the limit is reachable without a loop. */
 function appLimitedTo(limit: number, override: number | null = null) {
   const app = new Hono<{ Variables: AuthVariables }>();
   const limiter = new RateLimiter({ limit, windowMs: 60_000 });
 
   app.use("/protected/:tenant", async (c, next) => {
     c.set("tenantId", c.req.param("tenant"));
-    // What `bearerAuth` sets from the tenant row. Null is the common case.
     c.set("requestQuotaPerSecond", override);
     await next();
   });
@@ -38,17 +36,12 @@ describe("tenantRateLimit", () => {
 
     expect(response.status).toBe(429);
     expect(response.headers.get("Retry-After")).toBe("60");
-    // The numbers come from the limiter that enforced them, not from the
-    // production constant — otherwise the message is a confident lie.
     expect((await response.json()).error.message).toBe(
       "rate limit of 2 requests per 60s exceeded; try again in 60s"
     );
   });
 
   it("lets a raised quota through past the default", async () => {
-    // `tenants.request_quota_per_second` for a partner we have vetted. Without
-    // this the column is decoration, and the symptom is a partner hitting a limit
-    // they were told they did not have.
     const app = appLimitedTo(2, 4);
 
     await app.request("/protected/a");
@@ -74,8 +67,6 @@ describe("tenantRateLimit", () => {
   });
 
   it("counts each tenant separately", async () => {
-    // Keyed on the authenticated tenant, so one partner's import cannot spend
-    // another partner's budget.
     const app = appLimitedTo(2);
 
     await app.request("/protected/a");

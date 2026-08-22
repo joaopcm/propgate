@@ -1,15 +1,6 @@
 import { coverageByRfc, percentage, summary } from "@propgate/dns";
 import type { Metadata } from "next";
 
-/**
- * The conformance ledger, published.
- *
- * Rendered from the same table the test suite enforces, so the figure here is
- * the figure the build proved. The gap list is deliberately as prominent as the
- * percentage: a consumer deciding whether to trust this library needs the list
- * of what it does not do far more than a number.
- */
-
 export const metadata: Metadata = {
   description:
     "Which normative RFC requirements propgate implements, which it does not, and why.",

@@ -1,27 +1,4 @@
 #!/usr/bin/env node
-/**
- * Vendor the Public Suffix List as generated TypeScript.
- *
- *   node scripts/generate-psl.mjs          # regenerate src/psl/data.ts
- *   node scripts/generate-psl.mjs --check  # fail if the output would change
- *
- * Why vendor rather than depend on `psl` or `tldts`: @propgate/dns promises zero
- * runtime dependencies, and the PSL is needed for DMARC (only valid at the
- * organizational domain, PSL+1), for CAA tree climbing, and for any "is this the
- * apex" decision.
- *
- * Two things this does at generation time so the runtime stays trivial:
- *
- *  - **Punycode conversion.** 517 of the rules are unicode. `domainToASCII` from
- *    node:url (a built-in) converts them here, so lookups compare ASCII to ASCII
- *    and the runtime needs no IDN logic beyond converting its own input.
- *  - **Splitting by rule kind.** Exceptions, wildcards, and literals go into
- *    separate sets, because the matching algorithm treats them differently and
- *    doing that classification per query would be wasted work.
- *
- * The upstream commit SHA is recorded in the output. That is the receipt: any
- * version of this file can be regenerated exactly.
- */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -60,7 +37,6 @@ function fetchList() {
   };
 }
 
-/** Rules between two section markers, comments and blanks dropped. */
 function section(lines, begin, end) {
   const from = lines.indexOf(begin);
   const to = lines.indexOf(end);
@@ -75,13 +51,6 @@ function section(lines, begin, end) {
     .filter((line) => line.length > 0 && !line.startsWith("//"));
 }
 
-/**
- * Normalise a rule to ASCII.
- *
- * `domainToASCII` rejects a bare "*" and refuses labels it considers invalid, so
- * each label is converted individually and the wildcard/exception markers are
- * handled separately.
- */
 function toAscii(rule) {
   const bang = rule.startsWith("!");
   const body = bang ? rule.slice(1) : rule;
@@ -91,8 +60,6 @@ function toAscii(rule) {
       return label;
     }
 
-    // Already ASCII: leave it alone rather than round-tripping, so a rule that
-    // domainToASCII would normalise differently cannot drift.
     if (ASCII_LABEL.test(label)) {
       return label.toLowerCase();
     }
@@ -136,11 +103,6 @@ function classify(rules) {
 function serialise(name, values) {
   const sorted = [...values].sort();
 
-  // Emit exactly what the formatter would, so `psl:check` compares content and
-  // not whitespace. PRIVATE_EXCEPTIONS is empty today — the private section has
-  // no exception rules — and a naive template would produce `[\n\n]`, which
-  // Biome then collapses to `[]`, leaving the generator and the formatter
-  // permanently disagreeing.
   if (sorted.length === 0) {
     return `export const ${name}: readonly string[] = [];\n`;
   }
@@ -195,8 +157,6 @@ const generated = build(fetchList());
 if (process.argv.includes("--check")) {
   const existing = readFileSync(OUTPUT, "utf8");
 
-  // Compare everything except the recorded commit, so a no-op upstream commit
-  // does not read as a content change.
   const strip = (text) =>
     text.replace(UPSTREAM_COMMENT, "").replace(UPSTREAM_CONST, "");
 

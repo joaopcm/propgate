@@ -1,17 +1,3 @@
-/**
- * The public OpenAPI document for api.propgate.dev.
- *
- * Hand-written against the routes in `app.ts` rather than generated from them:
- * a generator would emit paths and miss the descriptions, which are the part
- * an agent actually uses. `openapi.spec.ts` walks this document against the
- * live router, so a route that ships without an operationId fails a test
- * rather than going unpublished.
- *
- * Served at `GET /openapi.json`. A copy is published at
- * https://propgate.dev/openapi.json so crawlers that only look at the marketing
- * origin still find it — `openapi.spec.ts` asserts the two cannot drift.
- */
-
 const API = "https://api.propgate.dev";
 const DOCS = "https://docs.propgate.dev";
 
@@ -1104,12 +1090,6 @@ export const openApiDocument = {
   ],
 } as const;
 
-/**
- * Every operation in the document, as method + path.
- *
- * Hono registers `/v1/api-keys/:id`; OpenAPI writes `/v1/api-keys/{id}`. The
- * spec that compares the two translates.
- */
 type HttpMethod = "delete" | "get" | "patch" | "post" | "put";
 
 interface OpenApiOperation {

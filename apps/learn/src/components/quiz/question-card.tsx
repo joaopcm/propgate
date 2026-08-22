@@ -4,14 +4,6 @@ import { useCallback } from "react";
 import { cn } from "@/lib/cn";
 import type { Mastery } from "@/lib/use-mastery";
 
-/**
- * One question, its options, and the explanation once an option is picked.
- *
- * Presentational. Every decision about what happens next lives in
- * `useMastery`, so a unit quiz and the exam cannot disagree about the rules by
- * disagreeing about their rendering.
- */
-
 type OptionState = "chosen" | "correct" | "idle" | "wrong";
 
 function shellFor(state: OptionState): string {
@@ -27,11 +19,6 @@ function shellFor(state: OptionState): string {
   }
 }
 
-/**
- * Its own component so the click handler can be a stable callback closing over
- * `position`, rather than an arrow rebuilt for every option on every render.
- * Same shape as `CodeTabsClient`'s tab in `apps/docs`.
- */
 function Option({
   disabled,
   label,

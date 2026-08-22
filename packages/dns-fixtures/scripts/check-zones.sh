@@ -1,13 +1,4 @@
 #!/usr/bin/env bash
-# named-checkzone every fixture zone.
-#
-# Catches the silent-corruption failures that a zone file makes easy:
-#   - an unquoted ";" in a CAA record, which starts a comment and leaves empty rdata
-#   - a TXT string over 255 bytes
-#   - a missing trailing dot turning an absolute name into a relative one
-#
-# NSD would refuse to load a broken zone and then SERVFAIL everything under it,
-# which is a confusing way to find out. This turns that into a filename.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,9 +42,6 @@ done
 [ -e "$ZONES/signed/root/root.zone.signed" ] \
   && check . "$ZONES/signed/root/root.zone.signed"
 
-# The DNSSEC differential the whole validating tier rests on. Asserting both
-# directions matters: if the bogus zone ever starts verifying, every DNSSEC
-# diagnosis code is silently untested and the suite would still be green.
 if command -v dnssec-verify >/dev/null 2>&1; then
   if dnssec-verify -o secure.test "$ZONES/signed/auth/secure.test.zone.signed" \
     >/dev/null 2>&1; then

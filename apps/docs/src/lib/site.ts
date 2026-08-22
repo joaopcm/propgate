@@ -1,11 +1,3 @@
-/**
- * Canonical URLs and names this site publishes to agents.
- *
- * One module rather than string literals in each route: a typo in the brand
- * name or the API host would pass every page-level test and fail the audit
- * that looks for "propgate" by name.
- */
-
 export const PRODUCT_NAME = "propgate";
 export const SITE_NAME = "propgate docs";
 export const SITE_URL = "https://docs.propgate.dev";

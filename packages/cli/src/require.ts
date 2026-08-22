@@ -1,24 +1,5 @@
 import { CHECK_KINDS, type CheckKind } from "@propgate/dns";
 
-/**
- * `--require '<key>:<check>[:field=value,field=value]'`
- *
- * A profile is an array of up to twenty objects with nine possible fields each,
- * which no flag shape expresses well. This one at least expresses it *honestly*:
- * the field names are the API's own body field names, verbatim and unaliased, so
- * a 422 from the server names the same word the caller typed. Renaming `include`
- * to `--spf-include` here would mean the error and the input never quite match.
- *
- *   root:delegation
- *   mail:spf:include=_spf.resend.com
- *   k1:dkim:selector=resend
- *   ca:caa:caaIssuer=letsencrypt.org
- *   inbox:mx:expectsMail=true
- *   bounce:spf:include=amazonses.com,label=send
- *   own:ownership:label=_pg-challenge,requiredPerDomain=token
- *   track:cname:label=track,target=track.propgate.com
- */
-
 export interface Requirement {
   readonly caaIssuer?: string;
   readonly check: CheckKind;
@@ -26,18 +7,6 @@ export interface Requirement {
   readonly expectsMail?: boolean;
   readonly include?: string;
   readonly key: string;
-  /**
-   * Fields each domain supplies instead of this profile, sent with `--expect`.
-   *
-   * Repeat the assignment to name more than one:
-   * `k1:dkim:requiredPerDomain=selector,requiredPerDomain=expectedPublicKey`.
-   * A comma-separated value would collide with the field separator, and a second
-   * separator to learn is worse than repeating the word.
-   *
-   * Which names are legal is the server's to say — the list lives in
-   * `@propgate/db`, and this package deliberately depends on nothing but
-   * `@propgate/dns`.
-   */
   readonly label?: string;
   readonly requiredPerDomain?: readonly string[];
   readonly selector?: string;
@@ -45,7 +14,6 @@ export interface Requirement {
   readonly token?: string;
 }
 
-/** Exactly the optional fields of `requirementSchema` in the API. */
 const STRING_FIELDS = [
   "caaIssuer",
   "expectedPublicKey",
@@ -58,7 +26,6 @@ const STRING_FIELDS = [
 
 const BOOLEAN_FIELDS = ["expectsMail"] as const;
 
-/** Fields that accumulate across repeated assignments rather than overwriting. */
 const LIST_FIELDS = ["requiredPerDomain"] as const;
 
 type StringField = (typeof STRING_FIELDS)[number];
@@ -81,12 +48,6 @@ const KNOWN_FIELDS = [...STRING_FIELDS, ...BOOLEAN_FIELDS, ...LIST_FIELDS]
   .sort()
   .join(", ");
 
-/**
- * Split into at most three parts on `:`.
- *
- * The third part keeps any colons it contains: a DKIM public key or an SPF token
- * is a value, not more structure, and `split(":")` with no limit would shred one.
- */
 function head(value: string): [string, string, string | undefined] {
   const first = value.indexOf(":");
 
@@ -107,7 +68,6 @@ function head(value: string): [string, string, string | undefined] {
   ];
 }
 
-/** Partial: every field is optional, which is what makes the checks below real. */
 interface Assignments {
   readonly lists: Partial<Record<ListField, string[]>>;
   readonly scalars: Partial<Record<BooleanField | StringField, string>>;
@@ -124,8 +84,6 @@ function assignments(rest: string): Assignments | string {
       continue;
     }
 
-    // First `=` only. Base64 DKIM keys end in padding, and a key that lost its
-    // `==` is a key that silently fails to match.
     const split = trimmed.indexOf("=");
 
     if (split === -1) {
@@ -161,12 +119,6 @@ function assignments(rest: string): Assignments | string {
   return { lists, scalars };
 }
 
-/**
- * Parse one `--require`, or say why not.
- *
- * `Requirement | string` rather than a throw, which is how `parseResolver` in
- * `args.ts` reports the same class of problem.
- */
 export function parseRequirement(value: string): Requirement | string {
   const [key, check, rest] = head(value.trim());
   const trimmedKey = key.trim();
@@ -194,17 +146,6 @@ export function parseRequirement(value: string): Requirement | string {
 
   const { lists, scalars } = parsed;
 
-  /**
-   * Copied from `STRING_FIELDS` rather than field by field.
-   *
-   * The hand-written version dropped every field added after it: `label`,
-   * `target` and `token` were accepted by the parser above, validated as known
-   * names, and then never reached the requirement — so `--require
-   * 'track:cname:label=track,target=…'` sent a cname with neither. The server's
-   * 422 made it loud rather than silent, which is the only reason it was not
-   * worse. Built from the list means a field cannot be known here and missing
-   * here at the same time.
-   */
   const strings: Partial<Record<StringField, string>> = {};
 
   for (const field of STRING_FIELDS) {
@@ -230,25 +171,10 @@ export function parseRequirement(value: string): Requirement | string {
   return checkShape(requirement);
 }
 
-/** Whether the domain, rather than this profile, supplies `field`. */
 function defers(requirement: Requirement, field: string): boolean {
   return requirement.requiredPerDomain?.includes(field) ?? false;
 }
 
-/**
- * The two rules we enforce here, and the many we deliberately do not.
- *
- * These two decide which question the guided flow asks next, so knowing them on
- * this side is not duplication — it is the same fact, needed here anyway. Every
- * other rule in `rejectDefinition` (unique keys, at most twenty, only DKIM may
- * repeat a kind, which names `requiredPerDomain` may hold) stays on the server,
- * because a second implementation of a rule is a second thing that can disagree,
- * and the API's 422 already says it better.
- *
- * Both rules are satisfied by deferring the field instead of setting it. The
- * requirement is still answerable — registration refuses a domain that supplies
- * no value for it — so refusing it here would reject a profile the server accepts.
- */
 function checkShape(requirement: Requirement): Requirement | string {
   if (
     requirement.check === "dkim" &&
@@ -269,7 +195,6 @@ function checkShape(requirement: Requirement): Requirement | string {
   return requirement;
 }
 
-/** Every `--require`, or the first complaint. */
 export function parseRequirements(
   values: readonly string[]
 ): readonly Requirement[] | string {

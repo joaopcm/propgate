@@ -7,13 +7,6 @@ import { fullMail, sendingOnly, webOnly } from "./profile";
 import type { CheckResult } from "./run";
 import { outcomeFor, runChecks } from "./run";
 
-/**
- * Six evaluators, one answer.
- *
- * Through the recursive tier throughout, because the delegation check cannot
- * work any other way and a real deployment would use one resolver for all six.
- */
-
 const TIMEOUT_MS = 2000;
 
 function resolver(): { target: ServerAddress; recursionDesired: boolean } {
@@ -47,13 +40,6 @@ function codes(result: CheckResult): string[] {
 
 describe("a correctly onboarded customer", () => {
   it("passes with nothing to act on", async () => {
-    // The reason this fixture exists: a checker that finds something to fix on
-    // every domain is a checker nobody reads, so "clean" has to be reachable
-    // and tested.
-    //
-    // Clean does not mean silent. MX_NULL is reported because the domain does
-    // state that it accepts no mail, and a dashboard should say so — it is an
-    // observation at info severity, not something to fix.
     const result = await run("customer.test", sendingOnly(PLATFORM));
 
     expect(codes(result)).toEqual([DiagnosisCode.MX_NULL]);
@@ -78,8 +64,6 @@ describe("a correctly onboarded customer", () => {
   it("carries the derivation for the whole run", async () => {
     const result = await run("customer.test", sendingOnly(PLATFORM));
 
-    // Every lookup from every check, so a customer can be shown why rather than
-    // just what.
     expect(result.lookups.length).toBeGreaterThan(5);
     expect(result.lookups.every((lookup) => lookup.purpose.length > 0)).toBe(
       true
@@ -102,7 +86,6 @@ describe("the profile decides what is a fault", () => {
   });
 
   it("fails the same domain when it is supposed to receive mail", async () => {
-    // Identical records, identical queries. Only the stated intent differs.
     const result = await run("customer.test", fullMail(PLATFORM));
 
     expect(outcomeFor(result, "mx")?.verdict).toBe("fail");
@@ -111,8 +94,6 @@ describe("the profile decides what is a fault", () => {
   });
 
   it("still passes every other check", async () => {
-    // One failing check must not contaminate the others: the customer needs to
-    // know SPF and DKIM are fine and mail delivery is not.
     const result = await run("customer.test", fullMail(PLATFORM));
 
     expect(outcomeFor(result, "spf")?.verdict).toBe("pass");
@@ -123,8 +104,6 @@ describe("the profile decides what is a fault", () => {
 
 describe("a skipped check is not a passing check", () => {
   it("produces no outcome for a check the profile did not ask about", async () => {
-    // A dashboard showing six ticks for a domain that was asked about one is
-    // lying, so an unasked check is absent rather than green.
     const result = await run("customer.test", webOnly({}));
 
     expect(result.checks.map((check) => check.kind)).toEqual(["delegation"]);
@@ -188,9 +167,6 @@ describe("the verdict is the worst of the parts", () => {
   });
 
   it("prefers a failure it observed over uncertainty about the rest", async () => {
-    // fullMail on customer.test fails MX for certain. Nothing here is
-    // uncertain, so the point is the ordering rather than the fixture: a
-    // definite failure is more actionable than a check that did not run.
     const result = await run("customer.test", fullMail(PLATFORM));
 
     expect(result.verdict).toBe("fail");
@@ -199,9 +175,6 @@ describe("the verdict is the worst of the parts", () => {
 
 describe("DKIM outcomes, per selector", () => {
   it("keeps each selector's answer alongside the merged one", async () => {
-    // Both questions are real. "Is DKIM set up" is what a human is shown; a
-    // platform that issued two keys tracks two requirements and cannot recover
-    // which one is missing from a merged verdict.
     const result = await run("dkim.test", {
       checks: ["dkim"],
       dkimSelectors: ["valid", "revoked"],
@@ -215,7 +188,6 @@ describe("DKIM outcomes, per selector", () => {
     ]);
     expect(dkim?.selectors?.[0]?.verdict).toBe("pass");
     expect(dkim?.selectors?.[1]?.verdict).not.toBe("pass");
-    // The merged verdict is still the worst of the parts.
     expect(dkim?.verdict).toBe(dkim?.selectors?.[1]?.verdict);
   });
 
@@ -234,9 +206,6 @@ describe("DKIM outcomes, per selector", () => {
   });
 
   it("carries the expected key through, so the wrong key is caught", async () => {
-    // A selector given as a bare string asks "is a valid key published". Given
-    // with the key we issued it asks "is *our* key published", which is what
-    // catches a domain that pasted a competitor's record.
     const result = await run("dkim.test", {
       checks: ["dkim"],
       dkimSelectors: [
@@ -265,9 +234,6 @@ describe("DKIM outcomes, per selector", () => {
 
 describe("a zone that answers every name", () => {
   it("says a selector's presence is not evidence it was added", async () => {
-    // The failure mode worse than having no product. wildcard.test answers
-    // every name, so a naive existence check marks a customer who configured
-    // nothing as verified — and the partner acts on that.
     const result = await run("wildcard.test", {
       checks: ["dkim"],
       dkimSelectors: ["never-published"],
@@ -292,8 +258,6 @@ describe("a zone that answers every name", () => {
   });
 
   it("costs one lookup for the whole run, not one per selector", async () => {
-    // The reason the probe sits above the evaluators. Three selectors would
-    // otherwise ask the same question about the zone three times.
     const one = await run("wildcard.test", {
       checks: ["dkim"],
       dkimSelectors: ["a"],
@@ -313,8 +277,6 @@ describe("a zone that answers every name", () => {
   });
 
   it("does not probe when nothing would trust the answer", async () => {
-    // A wildcard cannot synthesise the apex, so SPF is unaffected and the
-    // lookup would be pure cost.
     const result = await run("customer.test", { checks: ["spf"], id: "spf" });
 
     expect(
@@ -325,9 +287,6 @@ describe("a zone that answers every name", () => {
 
 describe("checks that answer per record rather than per domain", () => {
   it("keys each alias by the label the profile named", async () => {
-    // The merged verdict is the customer's answer; the per-record array is the
-    // platform's. A platform issuing two aliases tracks two requirements and
-    // cannot recover which one is missing from a merged fail.
     const result = await run("cname.test", {
       checks: ["cname"],
       cnames: [
@@ -349,8 +308,6 @@ describe("checks that answer per record rather than per domain", () => {
   });
 
   it("reports an apex token under the empty label", async () => {
-    // The spelling `ownershipLabel` produces and `attributeResults` matches on.
-    // If these two ever disagree, an apex token is filed against nothing.
     const result = await run("ownership.test", {
       checks: ["ownership"],
       id: "apex",
@@ -359,15 +316,10 @@ describe("checks that answer per record rather than per domain", () => {
       ],
     });
 
-    // No label, so this asks about ownership.test itself, which publishes no
-    // token — the point being the key, not the verdict.
     expect(outcomeFor(result, "ownership")?.records?.[0]?.label).toBe("");
   });
 
   it("skips a kind the profile asked for but gave nothing to check", async () => {
-    // Same rule as DKIM with no selectors: no outcome at all, rather than a
-    // green one. A dashboard showing a tick for a question nobody asked is
-    // lying.
     const result = await run("customer.test", {
       checks: ["ownership", "cname"],
       id: "empty",

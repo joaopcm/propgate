@@ -7,14 +7,6 @@ import type { DkimCheck } from "./dkim";
 import { evaluateDkim } from "./dkim";
 import type { EvaluationResult } from "./types";
 
-/**
- * DKIM against real servers.
- *
- * The parser has unit tests; this asserts the behaviour that only shows up when
- * DNS is involved — the appended-name probe, the SERVFAIL-is-not-a-failure rule,
- * and that the derivation records what was queried and why.
- */
-
 const TIMEOUT_MS = 2000;
 
 function target(role: Parameters<typeof fixtureTarget>[0]): ServerAddress {
@@ -57,7 +49,6 @@ describe("a healthy selector", () => {
     });
     expect(discovered.verdict).toBe("pass");
 
-    // Re-run with the key we just observed as the expectation.
     const observed = await evaluate({ domain: "dkim.test", selector: "valid" });
     expect(observed.verdict).toBe("pass");
   });
@@ -74,7 +65,6 @@ describe("the appended zone name", () => {
     expect(codes(result)).toContain(DiagnosisCode.PROVIDER_APPENDED_ZONE_NAME);
 
     const [finding] = result.findings;
-    // Evidence, not just a code: both names, so the UI can show the diff.
     expect(finding?.evidence.expected).toBe(
       "selector1._domainkey.appended.test"
     );
@@ -82,7 +72,6 @@ describe("the appended zone name", () => {
       "selector1._domainkey.appended.test.appended.test"
     );
 
-    // Two lookups, and the second one explains itself.
     expect(result.lookups).toHaveLength(2);
     expect(result.lookups[1]?.purpose).toContain("appended the zone name");
   });
@@ -93,7 +82,6 @@ describe("the appended zone name", () => {
       selector: "selector1",
     });
 
-    // "Missing" would send the customer to add a record they already added.
     expect(codes(result)).not.toContain(DiagnosisCode.DKIM_RECORD_MISSING);
   });
 });
@@ -123,7 +111,6 @@ describe("key problems", () => {
   it("warns about a 512-bit key but does not call the domain broken", async () => {
     const result = await evaluate({ domain: "dkim.test", selector: "short" });
 
-    // The key works today; it will stop working. That is a warning, not a fail.
     expect(result.verdict).toBe("warn");
     expect(codes(result)).toContain(DiagnosisCode.DKIM_KEY_TOO_SHORT);
     expect(result.findings[0]?.evidence.detail).toContain("512-bit");
@@ -179,7 +166,6 @@ describe("the wrong key", () => {
 
     expect(result.verdict).toBe("fail");
     expect(codes(result)).toContain(DiagnosisCode.DKIM_KEY_MISMATCH);
-    // Both values present, so a UI can show what is there versus what should be.
     expect(result.findings[0]?.evidence.observed).toBeDefined();
     expect(result.findings[0]?.evidence.expected).toBeDefined();
   });
@@ -187,9 +173,6 @@ describe("the wrong key", () => {
 
 describe("a mangled split", () => {
   it("accepts a key split with whitespace at the chunk boundary", async () => {
-    // RFC 6376 §2.10 permits folding whitespace at arbitrary places inside a
-    // base64 value, and every 2048-bit key is split by necessity. Rejecting
-    // this told a customer their working key was broken.
     const result = await evaluate({
       domain: "txt-split.test",
       selector: "s2",
@@ -201,9 +184,6 @@ describe("a mangled split", () => {
   });
 
   it("finds a selector published in mixed case", async () => {
-    // RFC 4343: DNS name comparison is case-insensitive, so a provider that
-    // stored the selector as S6._DomainKey must still be found by the
-    // lowercase name every generator emits.
     const result = await evaluate({
       domain: "txt-split.test",
       selector: "s6",
@@ -213,11 +193,6 @@ describe("a mangled split", () => {
   });
 
   it("does not treat a key differing only in case as the same key", async () => {
-    // The other half of the rule, and the reason it is worth a test: names fold
-    // case and base64 payloads do not. Comparing them case-insensitively would
-    // pass a domain that published somebody else's key.
-    // s5 publishes the lowercase of this. If the comparison folded case, the
-    // two would match.
     const result = await evaluate({
       domain: "txt-split.test",
       expectedPublicKey: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AFIXTUREAAA",
@@ -228,9 +203,6 @@ describe("a mangled split", () => {
   });
 
   it("reports a rejoin that repeated the tag prefix on every chunk", async () => {
-    // s3 is the mangle that is actually a mangle: the provider stored each
-    // character-string as a whole record. "duplicate tag k=" would send someone
-    // to look at their key when the fault is in how it was stored.
     const result = await evaluate({
       domain: "txt-split.test",
       selector: "s3",
@@ -251,8 +223,6 @@ describe("a mangled split", () => {
   });
 
   it("ignores a non-DKIM TXT sharing the selector name", async () => {
-    // shared._domainkey has a Google verification token alongside the DKIM
-    // record. Counting records blindly would call that a duplicate.
     const result = await evaluate({ domain: "dkim.test", selector: "shared" });
 
     expect(codes(result)).not.toContain(DiagnosisCode.MULTIPLE_DKIM_RECORDS);
@@ -261,9 +231,6 @@ describe("a mangled split", () => {
 
 describe("uncertainty is not failure", () => {
   it("returns indeterminate for a zone the resolver cannot validate", async () => {
-    // bogus-zone.test SERVFAILs through the validating tier. The domain's DKIM
-    // may be perfect; we cannot see it. Calling that a failure is exactly the
-    // false alarm the product exists to avoid.
     const result = await evaluate(
       { domain: "bogus-zone.test", selector: "sel" },
       "resolver"
@@ -274,8 +241,6 @@ describe("uncertainty is not failure", () => {
   });
 
   it("resolves the same selector through the non-validating tier", async () => {
-    // Proving the zone really does answer, so the indeterminate above is about
-    // validation rather than about the record being absent.
     const result = await evaluate(
       { domain: "bogus-zone.test", selector: "sel" },
       "permissive"
@@ -313,7 +278,6 @@ describe("the derivation", () => {
       expect(lookup.outcome.status).toBeTruthy();
     }
 
-    // The first lookup found nothing; the second is what explains the finding.
     expect(result.lookups[0]?.outcome.status).toBe("answered");
     expect(result.lookups[1]?.outcome.status).toBe("answered");
   });

@@ -7,11 +7,6 @@ const LABEL_TOO_LONG = /label-too-long/;
 const NAME_TOO_LONG = /name-too-long/;
 const TRUNCATED = /truncated-buffer/;
 
-/**
- * Name decoding is where a DNS parser gets attacked, so most of these cases are
- * malformed input rather than happy paths.
- */
-
 function bytes(...values: number[]): Buffer {
   return Buffer.from(values);
 }
@@ -48,7 +43,6 @@ describe("Reader integers", () => {
     const reader = new Reader(bytes(0x01));
 
     expect(() => reader.uint32()).toThrowError(WireFormatError);
-    // The offset is what makes the message worth reading.
     try {
       new Reader(bytes(0x01)).uint32();
     } catch (error) {
@@ -78,18 +72,15 @@ describe("Reader.name", () => {
   });
 
   it("follows a backward compression pointer", () => {
-    // "example.test" at offset 0, then a pointer to it at offset 14.
     const base = labelled("example.test");
     const message = Buffer.concat([base, bytes(0xc0, 0x00)]);
     const reader = new Reader(message, base.length);
 
     expect(reader.name()).toBe("example.test.");
-    // The cursor advances past the 2-byte pointer, not to the pointed-at data.
     expect(reader.offset).toBe(message.length);
   });
 
   it("follows a pointer that continues into a suffix", () => {
-    // "_dmarc" + pointer to "example.test"
     const base = labelled("example.test");
     const message = Buffer.concat([
       base,
@@ -108,18 +99,12 @@ describe("Reader.name", () => {
   });
 
   it("terminates on a chain of backward pointers", () => {
-    // The reason there is no visited-offset guard: backward-only pointers make
-    // a cycle unreachable, because each jump strictly decreases the offset.
-    // This pins that a multi-hop chain resolves rather than spinning.
-    //
-    // byte 0: root. bytes 1-2: pointer -> 0. bytes 3-4: pointer -> 1.
     const message = bytes(0x00, 0xc0, 0x00, 0xc0, 0x01);
 
     expect(new Reader(message, 3).name()).toBe(".");
   });
 
   it("rejects a pointer to itself", () => {
-    // target >= cursor covers the self-referential case as well as forward ones.
     const message = bytes(0xc0, 0x00);
 
     expect(() => new Reader(message).name()).toThrowError(FORWARD_POINTER);
@@ -136,7 +121,6 @@ describe("Reader.name", () => {
   });
 
   it("rejects a name that assembles to more than 255 bytes", () => {
-    // Five 63-byte labels is 320 bytes of name.
     const label = Buffer.concat([bytes(63), Buffer.alloc(63, 0x61)]);
     const message = Buffer.concat([
       label,
@@ -157,8 +141,6 @@ describe("Reader.name", () => {
   });
 
   it("escapes dots inside a label so the name structure survives", () => {
-    // A single label containing a literal dot — which is exactly what the
-    // appended-zone-name pathology can produce.
     const message = Buffer.concat([
       bytes(3),
       Buffer.from("a.b", "ascii"),

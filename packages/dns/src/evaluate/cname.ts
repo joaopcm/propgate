@@ -6,48 +6,11 @@ import { reportAnswerShape, reportTcpBlocked, reportTransport } from "./answer";
 import type { EvaluationContext } from "./context";
 import type { EvaluationResult } from "./types";
 
-/**
- * An alias pointing at a target the platform issued.
- *
- * The record behind every custom subdomain: click tracking, a bounce host, a
- * customer-branded app domain. The customer publishes one CNAME at a name they
- * own and everything under it becomes ours to serve.
- *
- * Checking it is not "is there a CNAME here". Two providers make that question
- * return the wrong answer:
- *
- *  - **Flattening.** Cloudflare and a handful of others resolve the alias at
- *    edit time and serve address records in its place. The customer did exactly
- *    what they were told, `dig CNAME` returns nothing, and a checker that stops
- *    there reports a correctly configured domain as broken. So an absent CNAME
- *    sends us to the addresses, and we compare them against the addresses of the
- *    target we issued — which is the only way to tell a flattened alias from an
- *    A record pointed somewhere else entirely.
- *  - **Zone-name appending.** The same fault DKIM has, for the same reason: a
- *    provider that treats an absolute name as relative writes
- *    `track.example.com.example.com`. Probed for only when the alias found there
- *    points at *our* target, so a wildcard cannot trigger it.
- *
- * There is no weaker mode. Unlike SPF or DMARC, an alias with no expected target
- * is not a question worth asking — a CNAME is correct exactly when it points
- * where the platform said, and nothing about the record itself can be evaluated
- * without knowing that.
- */
-
 const TRAILING_DOT = /\.$/;
 
 export interface CnameCheck {
-  /** The domain the customer is configuring, e.g. example.com. */
   readonly domain: string;
-  /**
-   * The label the alias goes at, e.g. `track`.
-   *
-   * Required, and not defaultable to the apex: RFC 1034 §3.6.2 forbids a CNAME
-   * coexisting with the SOA and NS records every zone apex has, so an apex alias
-   * is a record no customer can publish.
-   */
   readonly label: string;
-  /** The target we issued, e.g. `acme.track.propgate.com`. */
   readonly target: string;
 }
 
@@ -59,7 +22,6 @@ function appendedRecordName(check: CnameCheck): string {
   return `${cnameRecordName(check)}.${check.domain}`;
 }
 
-/** DNS names fold case and may or may not be written absolute. */
 function normalise(name: string): string {
   return name.trim().replace(TRAILING_DOT, "").toLowerCase();
 }
@@ -73,7 +35,6 @@ function isIndeterminate(outcome: QueryOutcome): boolean {
   );
 }
 
-/** The alias published at `name`, if one is. */
 function aliasIn(outcome: QueryOutcome, name: string): string | undefined {
   if (outcome.status !== "answered") {
     return;
@@ -87,32 +48,10 @@ function aliasIn(outcome: QueryOutcome, name: string): string | undefined {
 }
 
 interface Addresses {
-  /**
-   * Whether **both** families answered.
-   *
-   * Distinct from an empty list. A name with no addresses is a fact about the
-   * zone; a name we could not finish asking about is a fact about the network,
-   * and only the first is evidence of anything. Anything less than both families
-   * is a partial view, and a partial view is exactly what lets a stranger hide.
-   */
   readonly complete: boolean;
   readonly found: readonly string[];
 }
 
-/**
- * Every address at a name, across both families.
- *
- * Both are always asked for, and the reason is the subset test above. Stopping
- * at A because A answered would compare a partial view against a partial view:
- * a name flattened to our A record and carrying a stale AAAA from a previous
- * provider would show nothing but our own address, pass, and route every IPv6
- * client to somebody else. The families cannot be treated as alternatives when
- * the question is "is there anything here that is not ours".
- *
- * Concurrently, so the extra query costs a query and not a round trip. The cost
- * lands only on names with no CNAME — a correctly published alias is still one
- * lookup and never reaches here.
- */
 async function addressesOf(
   context: EvaluationContext,
   name: string,
@@ -146,14 +85,6 @@ async function addressesOf(
   };
 }
 
-/**
- * Whether the token turns up at the doubled name a provider would have written.
- *
- * Guarded on the alias pointing at our target, for the same reason the ownership
- * probe is guarded on the token: a wildcard answers the doubled name too, and an
- * appended-zone-name finding raised by a wildcard sends someone to fix a record
- * they wrote correctly.
- */
 async function probeAppended(
   context: EvaluationContext,
   check: CnameCheck
@@ -169,24 +100,6 @@ async function probeAppended(
   return aliasIn(outcome, doubled) === normalise(check.target);
 }
 
-/**
- * The flattening question: are the addresses here the target's addresses?
- *
- * Reached only when no CNAME is published and something else is. The test is
- * **subset**, not overlap, and the difference is a false pass:
- *
- *  - *Subset* is what a flattening provider produces. A target behind several
- *    addresses may legitimately have been flattened to any subset of them, and
- *    one that resolved the alias once and cached the answer will have exactly
- *    one. Nothing there is wrong.
- *  - *Overlap with something left over* is a different domain entirely. It is
- *    what a customer produces by **adding** our record next to the one their
- *    previous vendor left behind. Resolvers hand out the whole set and clients
- *    pick from it, so some requests reach us and some reach a host we have never
- *    heard of — which the customer experiences as "it works sometimes" and
- *    nobody is lying. Reporting that as configured is worse than reporting
- *    nothing, because it is acted on.
- */
 async function judgeAddresses(
   context: EvaluationContext,
   check: CnameCheck,
@@ -200,11 +113,6 @@ async function judgeAddresses(
     `the addresses of ${target}, to tell a flattened alias from a wrong one`
   );
 
-  // Our own target not resolving is our fault, not the customer's, and it is the
-  // one state where we genuinely cannot judge what is published here. A partial
-  // view of it is just as disqualifying in the other direction: the family we
-  // could not read would turn its own addresses into strangers and fail a domain
-  // that is fine.
   if (!expected.complete || expected.found.length === 0) {
     return "indeterminate";
   }
@@ -215,14 +123,6 @@ async function judgeAddresses(
     (address) => !expected.found.includes(address)
   );
 
-  /**
-   * Everything we saw is ours, and we did not see everything.
-   *
-   * The one case where the honest answer is neither. A stranger in the family
-   * that did not answer would change this to a failure, so passing would be a
-   * guess in the direction that hurts — the whole point of the subset test is
-   * that an unseen address is not an absent one.
-   */
   if (strangers.length === 0 && !published.complete) {
     return "indeterminate";
   }
@@ -294,16 +194,6 @@ export async function evaluateCname(
       return finish("pass");
     }
 
-    /**
-     * The appended-zone-name bug applied to the *target* rather than the owner.
-     *
-     * The same provider that treats an absolute owner name as relative does it
-     * to the value too, and the two spellings it produces — our target with its
-     * own zone appended, and our target with the customer's zone appended — both
-     * read as "the target with something after it". Worth separating from an
-     * ordinary mismatch because the remedy is not "point it somewhere else": the
-     * customer pasted the right value and the provider changed it.
-     */
     if (alias.startsWith(`${target}.`)) {
       context.report(DiagnosisCode.PROVIDER_APPENDED_ZONE_NAME, {
         detail:
@@ -337,9 +227,6 @@ export async function evaluateCname(
     return finish(await judgeAddresses(context, check, name, observed));
   }
 
-  // Nothing found, and we did not finish looking. "Missing" would be a claim
-  // about a family we never read, and the appended-name probe below would be
-  // guessing from the same gap.
   if (!observed.complete) {
     return finish("indeterminate");
   }

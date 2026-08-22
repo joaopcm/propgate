@@ -95,13 +95,6 @@ describe("handleDocsRequest", () => {
   });
 });
 
-/**
- * The stylesheet failure, from both ends.
- *
- * `accept.spec.ts` covers the wildcard rule that caused it. These cover the
- * structural half: an asset is handed straight to the assets binding, so it
- * cannot be negotiated even by a client that asks for markdown by name.
- */
 describe("isAssetPath", () => {
   it("recognises build artefacts", () => {
     expect(isAssetPath("/_next/static/chunks/0a-6hmdrq391z.css")).toBe(true);
@@ -126,11 +119,6 @@ describe("isAssetPath", () => {
     expect(isAssetPath("/taxonomy/spf-void-lookup")).toBe(false);
   });
 
-  /**
-   * The markdown twins are the exception. They have an extension and they are
-   * exactly what negotiation resolves to, so treating them as assets would be
-   * harmless here and confusing to read — a `.md` path is a document.
-   */
   it("does not treat a markdown twin as an asset", () => {
     expect(isAssetPath("/quickstart.md")).toBe(false);
     expect(isAssetPath("/index.md")).toBe(false);
@@ -195,10 +183,6 @@ describe("a browser page request", () => {
     expect(response.headers.get("content-type")).toBe("text/html");
   });
 
-  /**
-   * curl with no `-H`, which is how anybody first checks whether a deploy
-   * worked. It sends a bare wildcard and used to get markdown.
-   */
   it("gets HTML for a bare wildcard", async () => {
     const response = await handleDocsRequest(
       request("/", "*/*"),

@@ -31,7 +31,6 @@ describe("createApiKey", () => {
 
     expect(stored?.hashedKey).toBe(created.hashedKey);
     expect(stored?.prefix).toBe(created.prefix);
-    // Losing the database must not lose the keys.
     expect(JSON.stringify(stored)).not.toContain(created.key);
   });
 });
@@ -64,18 +63,12 @@ describe("authenticateApiKey", () => {
     const created = await createApiKey(db, { name: "prod", tenantId });
     const outcome = await authenticateApiKey(db, created.key);
 
-    // Raising a partner's ceiling is a row update and nothing else. If this
-    // stops being carried out of authentication, the column silently becomes
-    // decoration and the only symptom is a partner hitting a limit they were
-    // told they did not have.
     expect(outcome.ok && outcome.authenticated.requestQuotaPerSecond).toBe(
       2000
     );
   });
 
   it("keeps two tenants' keys apart", async () => {
-    // The isolation property everything above this depends on. If it fails
-    // here, every route-level tenancy check is checking the wrong tenant.
     const first = await tenant("first");
     const second = await tenant("second");
     const firstKey = await createApiKey(db, {
@@ -127,8 +120,6 @@ describe("authenticateApiKey", () => {
   });
 
   it("does not rewrite last_used_at on every request", async () => {
-    // A write per request for a column nobody reads at second resolution. At a
-    // partner's import rate that is thousands of row versions a minute.
     const tenantId = await tenant("t");
     const created = await createApiKey(db, { name: "prod", tenantId });
     const first = new Date("2026-08-01T12:00:00.000Z");

@@ -13,16 +13,6 @@ import {
 import { cn } from "@/lib/utils";
 import { Rail, SeverityDot, verdictTone, verdictWord } from "./verdict";
 
-/**
- * One check, and the evidence behind it.
- *
- * Every other DNS checker shows a verdict. The thing worth building here is the
- * layer underneath: what was observed, what was expected, and which queries
- * produced that. So evidence is always visible and only the query trail folds
- * away — the reasoning is the product, and hiding it behind a disclosure would
- * be hiding the part nobody else has.
- */
-
 function EvidenceRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid grid-cols-[5rem_1fr] gap-3">

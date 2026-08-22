@@ -18,51 +18,10 @@ import { countsAsLookup, looksLikeSpf, parseSpfRecord } from "./spf-record";
 import type { EvaluationResult, Verdict } from "./types";
 import { verdictFromFindings, worstVerdict } from "./types";
 
-/**
- * SPF evaluation (RFC 7208).
- *
- * The value of this check is almost entirely in the accounting, and the
- * accounting is what a regex over a TXT record cannot do at all.
- *
- *  1. **Ten lookups per evaluation, across the whole `include:` tree** (§4.6.4).
- *     A domain that adds one more sending service and silently crosses the line
- *     gets no warning from anywhere: the record still looks fine, and mail
- *     starts failing SPF at every receiver that enforces the limit.
- *  2. **Two void lookups.** A term whose target does not exist is nearly free
- *     to publish and permanently fatal to publish three of.
- *  3. **`temperror` is not `permerror`.** An `include:` into a zone that
- *     SERVFAILs is temporary — receivers defer rather than reject, and the
- *     record may be entirely correct. Reporting it as a configuration error
- *     sends the owner to edit something that needs no editing.
- *
- * Expansion is deliberately sequential. The limit is exact, so which term is
- * the eleventh depends on the order terms are evaluated in; issuing them
- * concurrently would both mis-attribute the overflow and perform lookups a
- * conforming implementation would never reach.
- *
- * **Accounting audits the worst case; matching answers about one sender.** A
- * receiver stops at the first mechanism that matches, so a message from an
- * authorised host may never reach the term that breaks the limit. This walks
- * every term regardless, because the record is still one unauthorised sender
- * away from permerror and that is the fact worth reporting. Both answers are
- * returned: the limits describe the record, `SPF_IP_*` describes the sender.
- */
-
-/** RFC 7208 §4.6.4. */
 const SPF_MAX_LOOKUPS = 10;
 const SPF_MAX_VOID_LOOKUPS = 2;
-/** §4.6.4 also caps the names one `mx` mechanism may expand to. */
 const SPF_MAX_MX_NAMES = 10;
 
-/**
- * How little headroom is worth warning about.
- *
- * Receipt: adding one mainstream sending service costs between one and three
- * lookups — the `include:` term itself, plus whatever its record spends. The
- * two-level chain in the `spf.test` fixture costs two. So a domain with fewer
- * than three spare lookups is one integration away from breaking, and that is
- * the moment to say so rather than after the mail stops.
- */
 const SPF_LOOKUP_HEADROOM = 3;
 
 const RCODE_NXDOMAIN = 3;
@@ -70,30 +29,9 @@ const TRAILING_DOT = /\.$/;
 
 export interface SpfCheck {
   readonly domain: string;
-  /**
-   * The HELO/EHLO name the client gave, for `%{h}` and as the fallback sender
-   * domain on a bounce.
-   */
   readonly helo?: string;
-  /**
-   * A sending source that must be authorised, given as the `include:` token the
-   * platform publishes — `_spf.example-esp.com`. Matched anywhere in the
-   * expanded tree, since an ESP reached through a customer's own aggregator is
-   * authorised just the same.
-   */
   readonly include?: string;
-  /**
-   * A sending address to evaluate the record against, IPv4 or IPv6.
-   *
-   * Answers "would a message from this host pass", which is a different
-   * question from whether the record is sound, and both are reported.
-   */
   readonly ip?: string;
-  /**
-   * The envelope sender, `local@domain`, for the `%{s}`, `%{l}` and `%{o}`
-   * macros. Without it a record that uses them stays undecidable rather than
-   * being answered from a guess.
-   */
   readonly sender?: string;
 }
 
@@ -101,14 +39,6 @@ type SpfFailure =
   | { readonly kind: "temperror"; readonly at: string; readonly detail: string }
   | { readonly kind: "permerror"; readonly code: DiagnosisCode };
 
-/**
- * What the record says about the sending address.
- *
- * `undetermined` is its own outcome rather than a flavour of "no match": a
- * `ptr` mechanism or an unexpanded macro means the answer depends on something
- * the records alone do not contain, and reporting that as "not authorised"
- * would be a guess dressed as a result.
- */
 type MatchResult =
   | {
       readonly kind: "match";
@@ -122,13 +52,10 @@ type MatchResult =
 const NO_MATCH: MatchResult = { kind: "none" };
 
 interface ExpansionState {
-  /** The address being evaluated, absent when only the record is audited. */
   readonly client: IpAddress | undefined;
   failure: SpfFailure | undefined;
   readonly helo: string | undefined;
-  /** SPF's own counter, distinct from the context's backstop budget. */
   lookups: number;
-  /** Every `include:` / `redirect=` target reached, normalised for comparison. */
   readonly reached: Set<string>;
   readonly sender: string | undefined;
   voids: number;
@@ -136,8 +63,6 @@ interface ExpansionState {
 
 type RecordRead =
   | { readonly kind: "one"; readonly raw: string }
-  // The outcome travels with the absence: what *kind* of nothing came back is
-  // as actionable as the nothing itself. See `reportAnswerShape`.
   | { readonly kind: "none"; readonly outcome: QueryOutcome }
   | { readonly kind: "multiple"; readonly count: number }
   | { readonly kind: "indeterminate"; readonly detail: string };
@@ -173,8 +98,6 @@ async function readSpfAt(
     return { detail: `the lookup ${outcome.status}`, kind: "indeterminate" };
   }
 
-  // NXDOMAIN is an answer: the name does not exist. Any other non-zero rcode is
-  // the server declining to tell us, which for SPF is a temperror.
   if (outcome.message.rcode !== 0 && outcome.message.rcode !== RCODE_NXDOMAIN) {
     return {
       detail: `the server answered rcode ${outcome.message.rcode}`,
@@ -182,8 +105,6 @@ async function readSpfAt(
     };
   }
 
-  // §4.5 discards non-SPF records before counting, so a domain with one SPF
-  // record and one verification token has one record rather than an ambiguity.
   const candidates = recordsOfType(outcome.message.answers, "TXT")
     .map((record) => record.rdata.value)
     .filter(looksLikeSpf);
@@ -216,7 +137,6 @@ function spendVoid(context: EvaluationContext, state: ExpansionState): void {
   }
 }
 
-/** Whether a query found nothing, which is what §4.6.4 counts as a void. */
 function isVoid(
   outcome: Awaited<ReturnType<EvaluationContext["lookup"]>>,
   type: "A" | "AAAA" | "MX"
@@ -231,7 +151,6 @@ function isVoid(
   );
 }
 
-/** Whether the client falls inside any of these addresses, at this prefix. */
 function anyAddressMatches(
   client: IpAddress,
   addresses: readonly string[],
@@ -269,15 +188,6 @@ function addressesIn(
   ];
 }
 
-/**
- * Whether any host behind an `mx` mechanism is the client.
- *
- * These address lookups are outside the ten: §4.6.4 bounds them separately, by
- * capping the mechanism at ten names, so they are made against the context's
- * backstop budget and not charged to SPF's counter. Being outside that counter
- * is also why they can run concurrently — nothing about the answer depends on
- * which of them finishes first, unlike the include tree.
- */
 async function mxAddresses(
   context: EvaluationContext,
   names: readonly string[],
@@ -299,15 +209,6 @@ async function mxAddresses(
   );
 }
 
-/**
- * Expand a term's domain-spec against the connection.
- *
- * Three outcomes, and keeping them apart is the point. A macro that does not
- * parse is the domain owner's mistake and a permanent error. A macro we cannot
- * expand — `%{p}`, or `%{s}` with no sender given — is our gap, not theirs, and
- * has to stay `undetermined` rather than becoming "not authorised". Everything
- * else is a name to query.
- */
 function resolveTarget(
   context: EvaluationContext,
   state: ExpansionState,
@@ -356,13 +257,6 @@ function macroContext(state: ExpansionState, domain: string): MacroContext {
   };
 }
 
-/**
- * Resolve an `a`, `mx` or `exists` term, and say whether the client matches.
- *
- * The query happens whether or not there is a client to match: whether it comes
- * back empty is what the void-lookup limit counts, and a term resolving to
- * nothing is worth reporting on its own.
- */
 async function resolveTerm(
   context: EvaluationContext,
   state: ExpansionState,
@@ -383,9 +277,6 @@ async function resolveTerm(
 
   const target = resolved.name;
 
-  // `a` means "an address record", which for an IPv6 client is AAAA. Querying A
-  // for an IPv6 sender would count a void that is not one, and report an
-  // authorised host as unauthorised.
   const type = answerTypeFor(mechanism, state.client);
   const outcome = await context.lookup({
     name: target,
@@ -417,7 +308,6 @@ async function resolveTerm(
     return await matchMx(context, state, mechanism, outcome, target);
   }
 
-  // `exists` matches on the name resolving at all, whatever it resolves to.
   if (mechanism.name === "exists") {
     return matched(mechanism, domain);
   }
@@ -439,8 +329,6 @@ function answerTypeFor(
     return "MX";
   }
 
-  // `exists` is defined as an A query whatever the client is, so only `a`
-  // follows the client's family.
   return mechanism.name === "a" && client?.family === "ipv6" ? "AAAA" : "A";
 }
 
@@ -455,9 +343,6 @@ async function matchMx(
     return NO_MATCH;
   }
 
-  // The wire form carries a trailing dot; the derivation reads better when
-  // every name in it looks the same, and this resolver has no search list for
-  // the distinction to matter to.
   const names = recordsOfType(outcome.message.answers, "MX").map((record) =>
     normalise(record.rdata.exchange)
   );
@@ -484,12 +369,6 @@ async function matchMx(
     : NO_MATCH;
 }
 
-/**
- * Charge one of the ten lookups.
- *
- * Returns whether the budget survived. The eleventh term is the failure — the
- * tenth is still legal, which is why the comparison is strict.
- */
 function spendLookup(
   context: EvaluationContext,
   state: ExpansionState
@@ -514,13 +393,6 @@ function spendLookup(
   return false;
 }
 
-/**
- * Whether this term costs a lookup in this record's context.
- *
- * `redirect=` is the exception: §6.1 says it is ignored entirely when the record
- * has an `all`, because `all` always matches and evaluation never reaches the
- * modifier. Charging for it anyway would blame a term that never runs.
- */
 function chargeable(term: SpfTerm, record: SpfRecord): boolean {
   if (!countsAsLookup(term)) {
     return false;
@@ -529,13 +401,6 @@ function chargeable(term: SpfTerm, record: SpfRecord): boolean {
   return !(term.kind === "modifier" && record.all !== undefined);
 }
 
-/**
- * An `include:` matches only when the included evaluation is a *pass*.
- *
- * §5.2. A `-all` inside an include does not reject the message; it just means
- * the include did not match and evaluation carries on. Treating a nested fail
- * as a fail is the classic way to reject mail a record authorises.
- */
 function includeMatches(
   inner: MatchResult,
   mechanism: SpfMechanism,
@@ -592,12 +457,6 @@ async function expandInclude(
   return includeMatches(inner, mechanism, domain);
 }
 
-/**
- * Keep the first match, and only the first.
- *
- * A receiver stops there. Later terms are still walked for the accounting, but
- * they cannot change what happens to this sender.
- */
 function firstOf(current: MatchResult, next: MatchResult): MatchResult {
   if (current.kind !== "none") {
     return current;
@@ -606,12 +465,6 @@ function firstOf(current: MatchResult, next: MatchResult): MatchResult {
   return next;
 }
 
-/**
- * Mechanisms that need no DNS: `ip4` and `ip6`.
- *
- * Returns undefined for anything else, which is how the loop tells "decided
- * here" from "needs a lookup".
- */
 function matchWithoutDns(
   state: ExpansionState,
   term: SpfTerm,
@@ -628,14 +481,6 @@ function matchWithoutDns(
   return matchNetwork(state, term, domain);
 }
 
-/**
- * A `ptr` mechanism, which is decided by the connection rather than the records.
- *
- * Deciding it needs a reverse lookup of the connecting address and a forward
- * confirmation of every name that comes back. RFC 7208 §5.5 says not to publish
- * one at all; where someone has, the honest answer for a specific sender is
- * that we cannot tell — not that they are unauthorised.
- */
 function matchPtr(state: ExpansionState, term: SpfMechanism): MatchResult {
   return state.client === undefined
     ? NO_MATCH
@@ -675,10 +520,6 @@ async function expandTerms(
     }
 
     if (term.kind === "mechanism" && term.name === "all") {
-      // `all` always matches, so a receiver stops here and never spends a
-      // lookup on anything written after it. Expanding past this point would
-      // charge the record for terms it does not cost, and could raise a
-      // temperror from a lookup no receiver ever makes.
       return firstOf(result, matched(term, domain));
     }
 
@@ -697,16 +538,10 @@ async function expandTerms(
       return result;
     }
 
-    // redirect= is charged here but followed after the mechanisms, since it
-    // only applies once every one of them has failed to match.
     if (term.kind === "modifier") {
       continue;
     }
 
-    // Sequential on purpose, and this is the one place in the codebase where it
-    // is load-bearing: the ten-lookup limit is exact, so which term is the
-    // eleventh depends on evaluation order. Expanding concurrently would blame
-    // the wrong term and perform lookups a receiver never reaches.
     // biome-ignore lint/performance/noAwaitInLoops: the lookup limit is order-dependent
     const outcome = await resolveOrInclude(context, state, term, domain, chain);
 
@@ -767,18 +602,9 @@ async function followRedirect(
     `redirect=${record.redirect}`
   );
 
-  // §6.1: the redirect's result *is* the result, qualifier and all — unlike an
-  // include, which only borrows a pass.
   return soFar.kind === "none" ? inner : soFar;
 }
 
-/**
- * Walk one included record and everything below it.
- *
- * `chain` is the include path taken to get here — used to detect a loop and to
- * name the path in findings. The lookup that produced this record was already
- * charged by the term that referenced it, so nothing is charged on entry.
- */
 async function walk(
   context: EvaluationContext,
   state: ExpansionState,
@@ -803,8 +629,6 @@ async function walk(
   }
 
   if (read.kind === "none") {
-    // §5.2: an include: whose target publishes no SPF record is a permanent
-    // error, not an empty result that the evaluation carries on past.
     context.report(DiagnosisCode.SPF_INCLUDE_UNRESOLVABLE, {
       detail:
         "the target publishes no SPF record, which makes the whole evaluation a permanent error rather than simply matching nothing",
@@ -870,15 +694,6 @@ function reportMalformed(
   });
 }
 
-/**
- * Findings that apply to any record in the tree.
- *
- * `+all` inside an `include:` is every bit as dangerous as at the top, because
- * the include matches whenever the included record would pass. The findings
- * about a domain's own posture — no `all`, `?all`, an ignored `redirect` — are
- * not reported here: on an included record those are normal and reporting them
- * would put a warning on almost every ESP a customer uses.
- */
 function reportIncludedRecord(
   context: EvaluationContext,
   record: SpfRecord,
@@ -918,7 +733,6 @@ function reportUnreachableTerms(
     return;
   }
 
-  // Modifiers are position-independent, so only mechanisms after `all` are dead.
   const unreachable = record.terms
     .slice(allIndex + 1)
     .filter((term) => term.kind === "mechanism");
@@ -935,7 +749,6 @@ function reportUnreachableTerms(
   });
 }
 
-/** Findings about the checked domain's own posture. */
 function reportPosture(
   context: EvaluationContext,
   record: SpfRecord,
@@ -1024,7 +837,6 @@ const QUALIFIER_DETAIL: Readonly<Record<SpfQualifier, string>> = {
   "~": "the record marks this host as probably unauthorised; receivers usually accept and flag rather than reject",
 };
 
-/** What the record says about the sending address, once the walk is done. */
 function reportIpResult(
   context: EvaluationContext,
   result: MatchResult,
@@ -1040,7 +852,6 @@ function reportIpResult(
     return;
   }
 
-  // §4.7: a record that matches nothing and has no all is neutral by default.
   if (result.kind === "none") {
     context.report(DiagnosisCode.SPF_IP_NEUTRAL, {
       detail:
@@ -1058,15 +869,6 @@ function reportIpResult(
   });
 }
 
-/**
- * A temperror is deliberately `indeterminate` rather than `fail`.
- *
- * Receivers defer on temperror instead of rejecting, and the record may be
- * perfectly correct — a resolver blipped, or a zone below it is momentarily
- * broken. Calling it a misconfiguration sends someone to edit a record that
- * needs no editing. Turning a persistent one into news is what Phase 2's
- * consecutive-failure thresholds are for.
- */
 function reportTemperror(
   context: EvaluationContext,
   failure: Extract<SpfFailure, { kind: "temperror" }>
@@ -1079,14 +881,6 @@ function reportTemperror(
   return "indeterminate";
 }
 
-/**
- * Fold everything reported so far into one verdict.
- *
- * Severity lives in the registry, so nothing here decides how bad a finding is
- * a second time. `extra` is for the one thing findings cannot express:
- * `indeterminate`, which says what the evaluator could see rather than what it
- * found.
- */
 function finalVerdict(
   context: EvaluationContext,
   extra: readonly Verdict[] = []
@@ -1162,8 +956,6 @@ export async function evaluateSpf(
         "with no SPF record, receivers have nothing to check a sending host against",
       name: check.domain,
     });
-    // What kind of nothing: a name that does not exist, or one that exists with
-    // other records on it and how long the absence will be remembered.
     reportAnswerShape(context, initial.outcome, check.domain);
 
     return finish(finalVerdict(context));

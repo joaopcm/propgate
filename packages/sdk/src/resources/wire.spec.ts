@@ -2,19 +2,6 @@ import { describe, expect, it } from "vitest";
 import { Propgate } from "../client";
 import { callAt, envelope, stub } from "../test/stub";
 
-/**
- * Every method, against the request it is supposed to make.
- *
- * One table rather than a `describe` per resource, because the thing worth
- * protecting is uniform: a method that reaches the wrong route, or forgets to
- * send its body, is the same bug wherever it lives. The table is also the
- * cheapest place to see the whole surface at once.
- *
- * What this cannot see is whether the route on the other end exists or answers
- * this shape. `apps/api/src/sdk-coverage.spec.ts` compares this list against the
- * API's own router, and `sdk.e2e.spec.ts` drives the real thing.
- */
-
 const KEY = "pg_test_key";
 const BASE = "https://api.example.test";
 
@@ -198,11 +185,6 @@ describe("every method's request", () => {
   }
 
   it("has a `listAll` beside each of the two paginated lists", async () => {
-    /**
-     * Named separately rather than folded into the table because they make more
-     * than one request by design, which is the whole point of them. The walk
-     * itself is `pagination.spec.ts`.
-     */
     const transport = stub([envelope([], { nextCursor: null })]);
     const client = new Propgate(KEY, { baseUrl: BASE, fetch: transport.fetch });
 

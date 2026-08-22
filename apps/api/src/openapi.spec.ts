@@ -10,19 +10,6 @@ import {
   openApiPathToHono,
 } from "./openapi";
 
-/**
- * The published spec against the live router.
- *
- * A path that exists only in one of them is the failure this file exists to
- * catch: either an endpoint an agent cannot discover, or a documented call that
- * 404s. Descriptions and operationIds are the function-calling surface — an
- * operation without either is a stub, not a spec.
- */
-
-/**
- * Never queried. Same trick as `sdk-coverage.spec.ts`: the app is constructed
- * only to be read.
- */
 const UNUSED_DB = {} as Database;
 
 const app = createApp({
@@ -109,9 +96,6 @@ describe("OpenAPI document", () => {
   });
 
   it("matches the copy published at propgate.dev/openapi.json", () => {
-    // Agents that only look at the marketing origin still need a spec. The
-    // file in apps/web/public is that copy; this is what stops it rotting
-    // after a route ships.
     expect(existsSync(WEB_OPENAPI), WEB_OPENAPI).toBe(true);
 
     const published = JSON.parse(readFileSync(WEB_OPENAPI, "utf8")) as unknown;

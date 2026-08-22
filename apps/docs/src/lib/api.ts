@@ -1,46 +1,12 @@
 import type { CheckKind, Verdict } from "@propgate/dns";
 
-/**
- * The API reference, as data.
- *
- * Two of these tables are keyed by a type from `@propgate/dns` rather than by
- * a string: `Record<CheckKind, …>` and `Record<Verdict, …>`. Adding a seventh
- * check kind or a fifth verdict therefore fails `tsc --noEmit`, which CI
- * already runs, rather than quietly shipping a reference that is missing one.
- *
- * That is the same rule the taxonomy pages follow — the published docs and the
- * code cannot disagree, because one is derived from the other.
- */
-
-/**
- * One evaluator's entry on `/dns/evaluators`.
- *
- * Declared here rather than inline on the page so the table there can be typed
- * `Record<CheckKind, EvaluatorEntry>`, which is the whole point of it existing.
- * Two check kinds shipped while that table was a bare object literal; the page
- * still compiled, still type-checked, and died at prerender reading `nonObvious`
- * of `undefined` — a failure only `next build` could see. `REQUIREMENT_TYPES`
- * below was keyed by `CheckKind` and failed `tsc` immediately, which is the
- * behaviour worth copying.
- */
 export interface EvaluatorEntry {
-  /** A runnable sample, from the page's own `_snippets`. */
   readonly code: string;
-  /** The thing a reader would get wrong having read only the summary. */
   readonly nonObvious: string;
 }
 
 export interface RequirementType {
-  /** What the tenant states, beyond the check name. */
   readonly fields: readonly { readonly name: string; readonly note: string }[];
-  /**
-   * Fields this check kind can take from the domain rather than from the profile.
-   *
-   * Named in a requirement's `requiredPerDomain`, supplied in a domain's
-   * `expectations`. Plain data here rather than imported, so the docs build does
-   * not pull a database driver in for a table — `api.spec.ts` asserts it against
-   * `PER_DOMAIN_FIELDS_BY_CHECK`, which is the source of truth.
-   */
   readonly perDomain: readonly string[];
   readonly repeatable: boolean;
   readonly summary: string;
@@ -116,8 +82,6 @@ export const REQUIREMENT_TYPES: Record<CheckKind, RequirementType> = {
         note: "Optional. The name to ask about, relative to the domain — omit it for the apex. A sending-only domain asserts expectsMail: false at its apex and true at its bounce host, which is why this requirement may appear more than once.",
       },
     ],
-    // `expectsMail` is deliberately absent: it asserts what the name is *for*,
-    // which is what a profile is, and not a value a platform issues per domain.
     perDomain: ["label"],
     repeatable: true,
     summary:
@@ -190,7 +154,6 @@ export const VERDICTS: Record<Verdict, VerdictMeaning> = {
 };
 
 export interface Endpoint {
-  /** The CLI command that reaches it. Every endpoint has one. */
   readonly cli: string;
   readonly method: "DELETE" | "GET" | "PATCH" | "POST";
   readonly path: string;

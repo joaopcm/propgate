@@ -2,14 +2,6 @@
 
 import { useCallback, useState } from "react";
 
-/**
- * Copy one string. The only client JavaScript a `Lookup` needs.
- *
- * The reveal below it is a `<details>` element rather than state, so an
- * exercise still works with scripting off — which matters more here than on
- * most pages, because the exercise is a command the reader takes to a terminal
- * and the page is only where they read it.
- */
 const RESET_MS = 1200;
 
 export function CopyButton({ value }: { value: string }) {

@@ -1,13 +1,3 @@
-/**
- * `CHECK_USAGE` is `propgate check --help`, run against `packages/cli/dist/index.js`
- * while writing this page — it matches `USAGE` in `packages/cli/src/args.ts`
- * verbatim, which is the point: this is what a reader's terminal will print.
- *
- * `SPF_*`, `ASSERT_*` and `JSON_*` are the captures in `packages/cli/README.md`,
- * marked there as real runs against the live GitHub and example.com records —
- * not fabricated.
- */
-
 export const CHECK_USAGE = `propgate check <domain> [options]
 
 Diagnose a domain's DNS. Resolves locally by default and needs no account.

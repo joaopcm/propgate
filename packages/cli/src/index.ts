@@ -11,23 +11,6 @@ import { cancelled } from "./prompt";
 import { isInteractive, resolve, surroundings } from "./resolve";
 import { version } from "./version";
 
-/**
- * Dispatch.
- *
- * Every command is a `Command` literal in `commands/registry.ts`, and this file
- * does the same four things for each of them: find it, parse its own flags,
- * fill in what is missing, run it. Adding an endpoint touches the registry and
- * nothing here.
- */
-
-/**
- * Positionals before we know which option table applies.
- *
- * `strict: false` because the command has not been identified yet, so no table
- * can be the right one — `propgate webhooks rotate --window-hours 0` would fail
- * on an unknown flag if this pass judged flags. It does not: it only finds the
- * words, and the real parse immediately after is strict.
- */
 function words(argv: readonly string[]): {
   readonly positionals: readonly string[];
   readonly values: Readonly<Record<string, unknown>>;
@@ -97,7 +80,6 @@ async function dispatch(
   const resolution = await resolve(
     command,
     {
-      // The words that named the command are not arguments to it.
       positionals: read.positionals.slice(command.path.length),
       values: read.values,
     },
@@ -130,15 +112,6 @@ async function dispatch(
 export async function main(argv: readonly string[]): Promise<number> {
   const { positionals, values } = words(argv);
 
-  /**
-   * Before the help branch, and that order is the whole point.
-   *
-   * `--version` arrives with no positionals, so the "no arguments means help"
-   * check below swallowed it: `propgate --version` printed usage in every release
-   * that has ever shipped. Nothing caught it because the version path had no spec
-   * and the constant it printed was stale anyway, so neither half of the feature
-   * worked and each hid the other.
-   */
   if (positionals.length === 0) {
     if (wants(values, "version") || wants(values, "v")) {
       process.stdout.write(`${version()}\n`);
@@ -162,7 +135,6 @@ export async function main(argv: readonly string[]): Promise<number> {
   }
 
   if (match.kind === "family") {
-    // A family named alone is someone asking what is under it, not a mistake.
     const [, subcommand] = positionals;
 
     process.stderr.write(
@@ -183,22 +155,6 @@ export async function main(argv: readonly string[]): Promise<number> {
   return await dispatch(match.command, argv);
 }
 
-/**
- * Whether this file was run as a program, rather than imported by a spec.
- *
- * **The previous version of this guard made every published release a silent
- * no-op.** It asked whether `process.argv[1]` ended in `index.js`, and npm links
- * a package's bin as a symlink — `.bin/propgate` → `dist/index.js`. Node reports
- * `argv[1]` as the path it was *invoked* by, not the file that path resolves to,
- * so under `npx @propgate/cli` the check saw `.../.bin/propgate`, decided this
- * was an import, and exited 0 having printed nothing. Every documented
- * invocation went through that symlink.
- *
- * Comparing realpaths is what makes it true in every case that matters: the
- * POSIX symlink, `node dist/index.js` with a relative path, and the Windows
- * `.cmd` shim that passes the script path directly. A spec importing this module
- * still sees the test runner in `argv[1]` and correctly declines to run.
- */
 function runAsProgram(): boolean {
   const [, entry] = process.argv;
 
@@ -209,12 +165,10 @@ function runAsProgram(): boolean {
   try {
     return realpathSync(entry) === fileURLToPath(import.meta.url);
   } catch {
-    // `argv[1]` naming something unreadable means we were not started from it.
     return false;
   }
 }
 
-// tsup adds the shebang; this guard keeps the module importable from tests.
 if (runAsProgram()) {
   process.exitCode = await main(process.argv.slice(2));
 }

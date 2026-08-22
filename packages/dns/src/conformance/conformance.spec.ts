@@ -5,15 +5,6 @@ import { describe, expect, it } from "vitest";
 import { REQUIREMENTS, RFC_TITLES } from "./requirements";
 import { coverageByRfc, percentage, summary } from "./summary";
 
-/**
- * The ledger is only worth publishing if it cannot be inflated by typing.
- *
- * Marking a requirement `implemented` requires naming a test that exists and
- * runs. These assertions are what stop the published figure from being an
- * opinion — the same shape as `diagnosis/coverage.spec.ts`, which stops a
- * diagnosis code from existing without a fixture.
- */
-
 const PACKAGE_ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const MINIMUM_NOTE_LENGTH = 40;
 const SECTION = /^\d+(\.\d+)*$/;
@@ -45,9 +36,6 @@ describe("every implemented requirement names a test that exists", () => {
   });
 
   it("names tests that are really in them", () => {
-    // The assertion that carries the whole claim. Without it, "implemented" is
-    // a word someone typed; with it, the ledger cannot outrun the test suite —
-    // renaming a test breaks the build until the ledger is updated to match.
     const dangling: string[] = [];
 
     for (const entry of implemented) {
@@ -70,8 +58,6 @@ describe("every implemented requirement names a test that exists", () => {
 
 describe("every gap is explained", () => {
   it("gives a reason for anything not implemented or not applicable", () => {
-    // A gap with no reason is indistinguishable from an oversight, and the gap
-    // list is the part of this table a consumer cannot get anywhere else.
     const unexplained = REQUIREMENTS.filter(
       (entry) =>
         entry.status !== "implemented" &&
@@ -82,8 +68,6 @@ describe("every gap is explained", () => {
   });
 
   it("does not let an implemented requirement carry an excuse", () => {
-    // A note on something we do is a sign the status is wrong, or that the
-    // requirement is really two requirements.
     const explained = REQUIREMENTS.filter(
       (entry) => entry.status === "implemented" && entry.note !== undefined
     ).map((entry) => `RFC ${entry.rfc} §${entry.section}`);
@@ -120,9 +104,6 @@ describe("the ledger itself", () => {
 
 describe("the published number", () => {
   it("counts implemented over applicable, excluding what does not apply", () => {
-    // Counting not-applicable entries in the denominator would let the figure
-    // be improved by cataloguing more of what an MTA does. That is precisely
-    // how a coverage metric becomes a lie.
     const totals = summary();
     const notApplicable = REQUIREMENTS.filter(
       (entry) => entry.status === "not-applicable"
@@ -134,7 +115,6 @@ describe("the published number", () => {
 
   it("rounds down, so it is never better than the truth", () => {
     expect(percentage(99, 100)).toBe(99);
-    // 2/3 is 66.6%, and printing 67% would claim a requirement we do not meet.
     expect(percentage(2, 3)).toBe(66);
     expect(percentage(0, 0)).toBe(0);
   });

@@ -3,19 +3,10 @@ import { createApiKey, createDb, tenants, truncateAll } from "@propgate/db";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app";
 
-/**
- * The `/v1/webhooks` family.
- *
- * Deliveries are nested under the endpoint they belong to, so every assertion
- * here is also a check that the family reads as one resource rather than three
- * loosely related ones.
- */
-
 const db: Database = createDb(process.env.DATABASE_URL ?? "", {
   maxConnections: 4,
 });
 
-// Nothing here reaches a lookup.
 const app = createApp({ db, resolver: { address: "127.0.0.1", port: 53 } });
 
 const URL = "https://partner.example/hooks";
@@ -81,9 +72,6 @@ describe("POST /v1/webhooks", () => {
     expect(created.data.secret).toMatch(A_SECRET);
     expect(created.meta.created).toBe(true);
 
-    // A retry is idempotent, and deliberately does not hand the secret back: we
-    // keep it to sign with, not to read out. Returning it would turn an idempotent
-    // create into a way to recover a secret somebody else configured.
     const retried = await (
       await request(apiKey, "/v1/webhooks", {
         body: { url: URL },
@@ -97,7 +85,6 @@ describe("POST /v1/webhooks", () => {
   });
 
   it("refuses plain http", async () => {
-    // The signature protects the body, not the connection.
     const apiKey = await key();
     const response = await request(apiKey, "/v1/webhooks", {
       body: { url: "http://partner.example/hooks" },
@@ -109,8 +96,6 @@ describe("POST /v1/webhooks", () => {
   });
 
   it("refuses a private or loopback address", async () => {
-    // Otherwise an endpoint pointing at 169.254.169.254 makes this service a
-    // request forwarder into its own network.
     const apiKey = await key();
 
     const blocked = [
@@ -163,13 +148,10 @@ describe("GET and PATCH /v1/webhooks/:id", () => {
       object: "webhook",
       url: URL,
     });
-    // Never on a read. Only the create and the rotation return it.
     expect(read.data.secret).toBeUndefined();
   });
 
   it("changes the subscription without touching the disabled flag", async () => {
-    // The reason `disabled` is absent-means-leave-alone: a PATCH narrowing the
-    // events must not silently re-enable something somebody switched off.
     const apiKey = await key();
     const endpoint = await makeEndpoint(apiKey);
 
@@ -234,8 +216,6 @@ describe("GET and PATCH /v1/webhooks/:id", () => {
 
 describe("POST /v1/webhooks/:id/secret", () => {
   it("returns a new secret and says when the old one stops working", async () => {
-    // A date rather than a duration, so a customer schedules their redeploy
-    // against something concrete.
     const apiKey = await key();
     const endpoint = await makeEndpoint(apiKey);
 
@@ -282,8 +262,6 @@ describe("POST /v1/webhooks/:id/secret", () => {
 
 describe("GET /v1/webhooks/:id/deliveries", () => {
   it("is empty for a new endpoint and 404s for an unknown one", async () => {
-    // An unknown id must not read as "received nothing" — those are different
-    // answers and only one of them means the customer typed the wrong id.
     const apiKey = await key();
     const endpoint = await makeEndpoint(apiKey);
 
@@ -314,8 +292,6 @@ describe("GET /v1/webhooks/:id/deliveries", () => {
 
 describe("the whole family", () => {
   it("requires authentication everywhere", async () => {
-    // One missing `bearerAuth` on one route is a tenant-scoped table read by
-    // anybody, so this asserts the mount rather than each handler.
     const paths = [
       "/v1/webhooks",
       "/v1/webhooks/some-id",

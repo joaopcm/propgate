@@ -1,50 +1,18 @@
-/**
- * What the RFCs require of a verifier, and whether we do it.
- *
- * **This is a hand-curated ledger, not a measurement of an RFC.** "100% of RFC
- * 7208" is not a number anyone can compute: most of that document instructs
- * senders and receiving MTAs, and a percentage over its whole text would be a
- * number with no receipt. The denominator here is *our* reading of which
- * normative statements apply to something that inspects a domain's records and
- * reports on them. A reader is meant to disagree with that reading — which is
- * why every entry cites a section, and why the gaps are listed rather than
- * quietly excluded.
- *
- * The claim the ledger actually supports is narrow and checkable: **every
- * requirement marked `implemented` names a test that exists and asserts it.**
- * `conformance.spec.ts` fails the build otherwise, so an entry cannot be marked
- * covered by writing the word. That is the same shape as the diagnosis coverage
- * guard: a table joined to the test suite, enforced by the test suite.
- *
- * Adding a requirement is cheap and worth doing even when the answer is "we do
- * not do this". The gap list is the part a consumer cannot get anywhere else.
- */
-
 export type RequirementStatus =
   | "implemented"
   | "not-applicable"
   | "not-implemented";
 
 export interface Proof {
-  /** Path relative to `packages/dns`. */
   readonly spec: string;
-  /** Text of the `it(...)` that asserts this. Matched exactly. */
   readonly test: string;
 }
 
 export interface Requirement {
-  /**
-   * Why, in one sentence.
-   *
-   * Required for everything except `implemented`, where the proof speaks. A
-   * gap without a reason is indistinguishable from an oversight.
-   */
   readonly note?: string;
   readonly proof?: readonly Proof[];
-  /** What the RFC asks of a verifier, in plain terms. */
   readonly requirement: string;
   readonly rfc: number;
-  /** Section number as written in the RFC, e.g. "4.6.4". */
   readonly section: string;
   readonly status: RequirementStatus;
 }
@@ -982,7 +950,6 @@ export const REQUIREMENTS: readonly Requirement[] = [
   ...TRANSPORT_REQUIREMENTS,
 ];
 
-/** What each RFC is, for the published table. */
 export const RFC_TITLES: Readonly<Record<number, string>> = {
   1034: "Domain names — concepts and facilities",
   1035: "Domain names — implementation and specification",

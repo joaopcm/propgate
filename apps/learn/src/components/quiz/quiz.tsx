@@ -9,20 +9,6 @@ import type { Question } from "@/lib/quiz/types";
 import { useMastery } from "@/lib/use-mastery";
 import { QuestionCard } from "./question-card";
 
-/**
- * A unit's questions, and the only thing standing between the reader and the
- * next unit.
- *
- * There is no score, and inventing one would take a decision this course has
- * no evidence for. A passing mark is a number, and a number with no
- * measurement behind it is a landmine — 80% would let somebody through who got
- * the one question the unit was actually about wrong.
- *
- * So every question, correct, with unlimited retries. The consequence worth
- * naming is that this cannot be failed, only abandoned, which is the right
- * shape for a course nobody is grading and the reason the escape hatch on the
- * locked screen exists for a reader who wants out rather than through.
- */
 export function Quiz({
   questions,
   slug,
@@ -41,14 +27,6 @@ export function Quiz({
     setRetaking(true);
   }, [mastery]);
 
-  /**
-   * Recording the pass is an effect rather than something `commit` does.
-   *
-   * `commit` is in `useMastery`, which knows nothing about units or storage,
-   * and the alternative — a callback threaded through it — would put the
-   * decision "what does finishing mean" in two places. Guarded on `done` and
-   * on there being no record yet, so a re-render cannot write twice.
-   */
   useEffect(() => {
     if (progress === null || !mastery.done || questions.length === 0) {
       return;

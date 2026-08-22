@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pageMarkdown } from "./page-markdown";
 
-/**
- * The markdown an agent reads.
- *
- * Imports and the metadata export are machinery. Prose mentioning the word
- * "import" must survive.
- */
-
 const PATH = "src/app/(docs)/quickstart/page.mdx";
 const LEADING_BLANK = /^\s*\n/;
 
