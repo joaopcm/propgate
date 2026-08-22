@@ -5,12 +5,6 @@ import { describe, expect, it } from "vitest";
 import { PSL_UPSTREAM_COMMIT } from "./data";
 import { getPublicSuffix, getRegistrableDomain, isPublicSuffix } from "./index";
 
-/**
- * The PSL project publishes its own test vectors, so this suite runs those rather
- * than a set I invented. Cases I chose would test my understanding of the
- * algorithm; theirs test the algorithm.
- */
-
 const HERE = dirname(fileURLToPath(import.meta.url));
 const VECTOR = /^checkPublicSuffix\((.+)\);$/;
 const QUOTED = /^'(.*)'$/;
@@ -49,8 +43,6 @@ function loadVectors(): Vector[] {
       continue;
     }
 
-    // Arguments are simple enough that splitting on the comma is safe: no
-    // argument in the file contains one.
     const [inputRaw, expectedRaw] = match[1].split(",");
 
     if (inputRaw === undefined || expectedRaw === undefined) {
@@ -74,11 +66,8 @@ describe("publicsuffix.org test vectors", () => {
     expect(vectors.length).toBeGreaterThan(70);
   });
 
-  // `checkPublicSuffix(input, expected)` asserts the *registrable* domain, which
-  // is the PSL+1 value DMARC needs — not the public suffix, despite the name.
   for (const { input, expected, line } of vectors) {
     it(`line ${line}: ${String(input)} -> ${String(expected)}`, () => {
-      // The vectors assume the full list, private section included.
       expect(getRegistrableDomain(input ?? "")).toBe(expected);
     });
   }
@@ -90,13 +79,11 @@ describe("getPublicSuffix", () => {
   });
 
   it("applies a wildcard rule", () => {
-    // *.ck means every label under ck is a suffix.
     expect(getPublicSuffix("foo.ck")).toBe("foo.ck");
     expect(getPublicSuffix("bar.foo.ck")).toBe("foo.ck");
   });
 
   it("applies an exception rule, which beats the wildcard covering it", () => {
-    // !www.ck carves www.ck out of *.ck, so the suffix drops back to ck.
     expect(getPublicSuffix("www.ck")).toBe("ck");
     expect(getPublicSuffix("anything.www.ck")).toBe("ck");
   });
@@ -112,9 +99,6 @@ describe("getPublicSuffix", () => {
   });
 
   it("matches unicode via punycode but answers in the input's form", () => {
-    // Matching happens in ASCII against the punycoded rules; the result is
-    // sliced from the caller's own labels, so they get their domain back rather
-    // than its punycode. The PSL's own vectors require this.
     expect(getPublicSuffix("例え.日本")).toBe("日本");
     expect(getPublicSuffix("xn--r8jz45g.xn--wgv71a")).toBe("xn--wgv71a");
   });
@@ -130,13 +114,10 @@ describe("getRegistrableDomain", () => {
   it("returns null when nothing is registrable under the suffix", () => {
     expect(getRegistrableDomain("com")).toBeNull();
     expect(getRegistrableDomain("co.uk")).toBeNull();
-    // Under *.ck, "foo.ck" is itself a suffix.
     expect(getRegistrableDomain("foo.ck")).toBeNull();
   });
 
   it("is what DMARC needs: the org domain, not the queried name", () => {
-    // A resolver reading _dmarc at the queried name finds nothing here and would
-    // report an unprotected domain that is in fact protected.
     expect(getRegistrableDomain("sub.example.co.uk")).toBe("example.co.uk");
     expect(getRegistrableDomain("deep.sub.example.co.uk")).toBe(
       "example.co.uk"
@@ -152,8 +133,6 @@ describe("the ICANN / PRIVATE section split", () => {
   });
 
   it("collapses github.io to io when private rules are excluded", () => {
-    // Same input, different answer. This is why the flag is documented rather
-    // than merely defaulted: it changes who is considered to control a name.
     expect(
       getRegistrableDomain("user.github.io", { includePrivate: false })
     ).toBe("github.io");
@@ -183,7 +162,6 @@ describe("isPublicSuffix", () => {
 
 describe("vendored data", () => {
   it("records the upstream commit it was generated from", () => {
-    // The receipt: any version of data.ts can be regenerated exactly.
     expect(PSL_UPSTREAM_COMMIT).toMatch(SHA1_HEX);
   });
 });

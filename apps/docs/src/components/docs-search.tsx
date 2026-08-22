@@ -20,30 +20,10 @@ import {
   tokenize,
 } from "@/lib/search";
 
-/**
- * Search over the whole site, in the browser.
- *
- * The index is one static asset built at `next build`, fetched the first time
- * somebody focuses the box and then held for the visit. Nothing is fetched on
- * page load: a reader who never searches never pays for this.
- *
- * `useHotkeys` leaves form tags alone by default, which is the behaviour wanted
- * here without asking for it — `/` from anywhere on the page focuses the box,
- * and `/` once the box has focus types a slash.
- */
-
 const REGEXP_SPECIAL = /[.*+?^${}()|[\]\\]/g;
 
 let indexPromise: Promise<SearchRecord[]> | undefined;
 
-/**
- * Fetch once per visit.
- *
- * The promise is the cache, so two focus events in the same tick share one
- * request. A failure clears it rather than poisoning the module: the next focus
- * is allowed to try again, and until then the menu behaves like a search that
- * found nothing rather than like a page that broke.
- */
 function loadIndex(): Promise<SearchRecord[]> {
   indexPromise ??= fetch("/search-index.json")
     .then((response) => response.json() as Promise<SearchRecord[]>)
@@ -115,14 +95,6 @@ function trail(result: SearchResult): string {
     .join(" › ");
 }
 
-/**
- * A `button` rather than a bare `li[role=option]`.
- *
- * The listbox pattern moves selection with `aria-activedescendant` and never
- * moves focus, so these are taken out of the tab order — but they are still
- * clickable things, and making them buttons is what stops the row needing a
- * hand-rolled keyboard handler to be reachable at all.
- */
 function Option({
   active,
   id,
@@ -184,16 +156,6 @@ export function DocsSearch() {
   const tokens = useMemo(() => tokenize(query), [query]);
   const showMenu = open && query.trim() !== "";
 
-  /**
-   * `useKey: true` is load-bearing, not a preference.
-   *
-   * Without it `react-hotkeys-hook` matches on `event.code`, which for this key
-   * is `Slash` — never equal to the hotkey `"/"`, so the binding silently never
-   * fires. It is also the right semantics: the reader is asking for the
-   * character they typed, and on a German layout `/` is Shift+7 on a physical
-   * key whose `code` is `Digit7`. Matching the character works everywhere;
-   * matching the position works on US layouts and nowhere else.
-   */
   useHotkeys(
     "/",
     () => {
@@ -272,7 +234,6 @@ export function DocsSearch() {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [showMenu]);
 
-  // Keeps the highlighted row visible once the list is longer than the panel.
   useEffect(() => {
     listRef.current?.children[active]?.scrollIntoView({ block: "nearest" });
   }, [active]);

@@ -17,8 +17,6 @@ afterAll(async () => {
 
 describe("tenants and keys", () => {
   it("gives every row a sortable id without being told", async () => {
-    // uuidv7 is time-ordered, so inserting in sequence yields ids that sort in
-    // insertion order. That is the whole reason to prefer it over a random uuid.
     const [first] = await db
       .insert(tenants)
       .values({ name: "one" })
@@ -48,8 +46,6 @@ describe("tenants and keys", () => {
   });
 
   it("takes a tenant's keys with it when the tenant goes", async () => {
-    // Cascade rather than a nullable tenant: a key with no tenant authenticates
-    // as nobody, and every later query would have to decide what that means.
     const [tenant] = await db.insert(tenants).values({ name: "t" }).returning();
     const tenantId = String(tenant?.id);
 

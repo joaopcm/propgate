@@ -10,46 +10,16 @@ import {
 import type { Question } from "./types";
 import { withOptions } from "./types";
 
-/**
- * Questions the repository already knows the answer to.
- *
- * `apps/docs` renders the taxonomy from `DIAGNOSIS_REGISTRY` and
- * `FIXTURE_EXPECTATIONS` rather than from hand-written pages, because
- * documentation written by hand drifts from the code it describes. A quiz is
- * documentation with a right answer, so it drifts the same way and worse: a
- * stale docs page misinforms, a stale quiz marks a correct answer wrong.
- *
- * So anything a registry can settle is generated from the registry, at build
- * time, and `derived.spec.ts` asserts each generated answer still resolves.
- * What is left for a person to write is the part no table holds — why
- * `indeterminate` neither increments nor resets a failure counter, and which
- * of two defensible designs the codebase picked.
- *
- * Each unit's `quiz.ts` calls these by name rather than receiving a bulk dump,
- * so the author decides which fixture is worth asking about in which unit.
- */
-
 const DISTRACTOR_COUNT = 3;
 
 const CODES = Object.keys(DIAGNOSIS_REGISTRY).toSorted();
 
-/** Codes sharing a leading `SPF_`-style segment, which is the family. */
 function familyOf(code: string): string {
   const [head] = code.split("_");
 
   return head ?? code;
 }
 
-/**
- * Distractors from the same family, so the question tests the fault rather
- * than the vocabulary.
- *
- * Asking whether `appended.test` produces `PROVIDER_APPENDED_ZONE_NAME` or
- * `SPF_VOID_LOOKUP` tests nothing: one of them is obviously about SPF. Drawn
- * from the same family the answer is in, the reader has to actually know which
- * fault the fixture carries. Falls back to the whole set when a family is too
- * small to fill the slots.
- */
 function distractorsFor(
   answer: string,
   excluded: readonly string[]
@@ -78,15 +48,6 @@ function fixtureFor(zone: string) {
   return fixture;
 }
 
-/**
- * Which diagnosis code a fixture zone exists to produce.
- *
- * `code` is named explicitly rather than taken as the fixture's first, because
- * several fixtures carry more than one fault and which one a unit is teaching
- * is the unit's business. Throwing on a code the fixture does not list is the
- * whole point: it turns a question about the wrong fixture into a build
- * failure.
- */
 export function fixtureCodeQuestion(zone: string, code: string): Question {
   const fixture = fixtureFor(zone);
 
@@ -108,14 +69,6 @@ export function fixtureCodeQuestion(zone: string, code: string): Question {
   );
 }
 
-/**
- * Whether a code is an error, a warning, or information.
- *
- * The distinction is not cosmetic: `applyHysteresis` treats a warning as a
- * passing check, so a code's severity decides whether it can eventually page
- * somebody. A reader who thinks `SPF_LOOKUP_LIMIT_NEAR` is an error has
- * misunderstood the state machine, not just the label.
- */
 export function severityQuestion(code: string): Question {
   const definition =
     DIAGNOSIS_REGISTRY[code as keyof typeof DIAGNOSIS_REGISTRY];
@@ -138,14 +91,6 @@ export function severityQuestion(code: string): Question {
   );
 }
 
-/**
- * Which requirement of an RFC is a stated gap rather than an implementation.
- *
- * The conformance ledger's most useful property is that it lists what is *not*
- * done, with a reason, and this is the question that makes a reader read that
- * column. Distractors are implemented requirements from the same RFC, so
- * guessing by topic does not work.
- */
 export function requirementGapQuestion(rfc: number): Question {
   const coverage = summary().rfcs.find((entry) => entry.rfc === rfc);
 
@@ -167,15 +112,6 @@ export function requirementGapQuestion(rfc: number): Question {
     .toSorted()
     .slice(0, DISTRACTOR_COUNT);
 
-  /**
-   * Loudly, naming the shortfall.
-   *
-   * RFC 4035 is the case: one requirement in the ledger, and it is the gap, so
-   * there is nothing implemented to distract with. A question with one option is
-   * not a question, and the useful failure is this message rather than a guard
-   * further downstream reporting "expected 1 to be at least 3" about a generated
-   * id nobody can trace back.
-   */
   if (implemented.length < DISTRACTOR_COUNT) {
     throw new Error(
       `RFC ${rfc} has ${implemented.length} implemented requirement(s) to distract with, and a question needs ${DISTRACTOR_COUNT}`
@@ -196,14 +132,6 @@ export function requirementGapQuestion(rfc: number): Question {
   );
 }
 
-/**
- * Which code is exempt from the fixture requirement.
- *
- * The one question that reads the escape hatch rather than the rule. Distractors
- * are codes that *do* have a fixture, so answering it means knowing which fault
- * a zone file cannot express — and the explanation is the exemption's own
- * written reason, which is the thing worth reading.
- */
 export function unreproducibleCodeQuestion(code: string): Question {
   const reason =
     NOT_LOCALLY_REPRODUCIBLE[code as keyof typeof NOT_LOCALLY_REPRODUCIBLE];

@@ -5,19 +5,6 @@ import {
 } from "@propgate/dns-fixtures";
 import { describe, expect, it } from "vitest";
 
-/**
- * Proves the fixture topology end to end. Runs only when PROPGATE_FIXTURES=1.
- *
- * This is the template Phase 1's evaluator specs follow, and it deliberately
- * asserts the harness's single most important property: the same name resolving
- * differently through the validating and non-validating tiers. If these two ever
- * agree, every DNSSEC diagnosis code is silently untested.
- *
- * Note what is *not* asserted here: TC bits, EDNS buffer sizes, RRSIG Labels,
- * authority-section SOA. node:dns cannot see any of them, which is precisely why
- * Phase 1 brings a hand-rolled wire codec.
- */
-
 describe("fixture tier — DNSSEC differential", () => {
   it("SERVFAILs a bogus zone through the validating resolver", async () => {
     const resolver = fixtureResolver("resolver", 2000);
@@ -41,7 +28,6 @@ describe("fixture tier — DNSSEC differential", () => {
       DNSSEC_CONTROL_ZONE
     );
 
-    // node:dns strips the trailing dot from nsname.
     expect(validating.nsname).toBe("ns1.test");
     expect(permissive.nsname).toBe("ns1.test");
   });
@@ -72,7 +58,6 @@ describe("fixture tier — authoritative servers", () => {
   });
 
   it("REFUSES a lame delegation instead of timing out", async () => {
-    // dns-decoy is authoritative for decoy.test and nothing else.
     const decoy = fixtureResolver("decoy");
 
     await expect(decoy.resolve4("lame.test")).rejects.toThrow();

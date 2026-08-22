@@ -13,37 +13,13 @@ import {
 import type { EvaluationResult, Verdict } from "./types";
 import { worstVerdict } from "./types";
 
-/**
- * DMARC policy evaluation.
- *
- * Two things here are routinely implemented backwards, and both are the whole
- * value of the check:
- *
- *  1. **Discovery order.** RFC 7489 §6.6.3 queries the *exact* name first. The
- *     organizational domain is a fallback, used only when the exact name has no
- *     record — and `sp=` governs subdomains only in that fallback case. An
- *     earlier comment in this repo had it the other way round.
- *  2. **External report authorization.** A `rua=` pointing at another
- *     organizational domain requires that domain to publish
- *     `<source>._report._dmarc.<destination>`. Almost nobody implements the
- *     check, so reports are addressed and then silently discarded — the domain
- *     owner sees no reports and no error.
- */
-
 export interface DmarcCheck {
-  /**
-   * Verify that external report destinations have authorised this domain.
-   *
-   * Defaults to true. Costs one lookup per distinct external destination.
-   */
   readonly checkExternalReports?: boolean;
-  /** The domain being checked, which may be a subdomain. */
   readonly domain: string;
 }
 
 export interface DmarcDiscovery {
   readonly foundAt: "exact" | "organizational";
-  /** The DNS name the record was read from. */
   readonly name: string;
   readonly raw: string;
   readonly record: DmarcRecord;
@@ -98,8 +74,6 @@ async function readPolicyAt(
     return { kind: "indeterminate" };
   }
 
-  // RFC 7489 §6.6.3 discards non-DMARC records *before* counting, so a domain
-  // with one policy and one unrelated TXT has a policy rather than an ambiguity.
   const candidates = recordsOfType(outcome.message.answers, "TXT")
     .map((record) => record.rdata.value)
     .filter(looksLikeDmarc);
@@ -160,8 +134,6 @@ async function discover(
     };
   }
 
-  // Nothing at the exact name. Fall back to the organizational domain — and
-  // only to there. Climbing further would read a policy belonging to nobody.
   const organizational = getRegistrableDomain(check.domain);
 
   if (organizational === null || organizational === check.domain) {
@@ -212,7 +184,6 @@ async function discover(
   };
 }
 
-/** `<source>._report._dmarc.<destination>` — RFC 7489 §7.1. */
 function authorizationName(source: string, destination: string): string {
   return `${source}._report._dmarc.${destination}`;
 }
@@ -261,16 +232,11 @@ async function checkExternalReports(
       continue;
     }
 
-    // Same organizational domain needs no authorization.
     if ((getRegistrableDomain(destination) ?? destination) !== source) {
       external.add(destination);
     }
   }
 
-  // Destinations are independent of one another, so query them together rather
-  // than paying a round trip each. The evaluation budget is a tripwire at 50,
-  // not a tight limit, so concurrent reads cannot meaningfully race it — unlike
-  // SPF, whose limit of 10 is exact and will have to sequence its lookups.
   const checks = await Promise.all(
     [...external].map(async (destination) => {
       const name = authorizationName(source, destination);
@@ -289,7 +255,6 @@ async function checkExternalReports(
 
   for (const { destination, name, outcome } of checks) {
     if (outcome.status !== "answered") {
-      // Could not tell. Not evidence of misconfiguration.
       continue;
     }
 
@@ -365,8 +330,6 @@ export async function evaluateDmarc(
     });
   }
 
-  // A record at the org domain must carry p=. At a subdomain it may be omitted,
-  // in which case there is nothing to enforce and the record does no work.
   if (policy === undefined) {
     context.report(DiagnosisCode.DMARC_RECORD_MALFORMED, {
       detail: "no p= tag, so the record states no policy",

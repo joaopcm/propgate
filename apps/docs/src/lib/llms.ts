@@ -2,15 +2,6 @@ import { listMarkdownPages } from "./markdown-pages";
 import { isGroupedSection, navigation } from "./navigation";
 import { API_URL, PRODUCT_NAME, PRODUCT_URL, SITE_URL } from "./site";
 
-/**
- * `/llms.txt`, per https://llmstxt.org.
- *
- * Product-level when-to-use lives on propgate.dev/llms.txt. This file is
- * which docs page to read, plus the docs catalog the marketing site does
- * not have. OpenAPI is the API document; this host adds /v1/status and
- * /v1/pages.
- */
-
 export function buildLlmsTxt(): string {
   const pages = listMarkdownPages();
   const byHref = new Map(pages.map((page) => [page.href, page]));

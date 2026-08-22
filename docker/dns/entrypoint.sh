@@ -1,10 +1,4 @@
 #!/bin/sh
-# Role dispatch for the propgate DNS fixture tier.
-#
-# Env:
-#   ROLE          root | auth | decoy | divergent | resolver | permissive
-#   BIND_ADDRESS  address to listen on (a distinct 127.0.0.x per role)
-#   DNS_PORT      defaults to 53; the macOS override raises it
 set -eu
 
 ROLE="${ROLE:?ROLE is required}"
@@ -13,8 +7,6 @@ DNS_PORT="${DNS_PORT:-53}"
 ZONES=/fixtures/zones
 GENERATED=/tmp/generated
 
-# Zone name for a fixture file. Filenames are the source of truth so adding a
-# fixture never means editing a config: `secure.test.zone.signed` -> `secure.test`.
 zone_name_for() {
   base=$(basename "$1")
   base=${base%.signed}
@@ -27,8 +19,6 @@ zone_name_for() {
 }
 
 emit_zone_blocks() {
-  # Every argument is a directory to scan. Missing directories are skipped so a
-  # role can be added before its fixtures exist.
   for dir in "$@"; do
     [ -d "$dir" ] || continue
     find "$dir" -maxdepth 1 -type f \( -name '*.zone' -o -name '*.zone.signed' \) \
@@ -40,11 +30,6 @@ emit_zone_blocks() {
   done
 }
 
-# The canary zone is generated rather than committed: it publishes the content
-# hash of zones/, so committing it would feed its own hash back into itself.
-# The staleness check in packages/dns compares this TXT against the local
-# REVISION file, which is what turns "I edited a zone and the test still fails"
-# into an actionable error instead of an afternoon.
 write_canary_zone() {
   revision=$(cat /fixtures/REVISION 2>/dev/null || echo unknown)
   mkdir -p "$GENERATED"
@@ -74,7 +59,6 @@ render_unbound_conf() {
 
 case "$ROLE" in
   root)
-    # . and test. are both signed, so both live under signed/root/.
     render_nsd_conf root "$ZONES/signed/root"
     ;;
   auth)
@@ -101,11 +85,7 @@ esac
 
 case "$ROLE" in
   root | auth | decoy | divergent)
-    # Fail loudly on a malformed fixture rather than starting up and serving
-    # SERVFAIL for a zone that silently failed to load.
     nsd-checkconf /etc/nsd/nsd.conf
-    # -d keeps NSD in the foreground. SIGHUP makes it re-read zone files, which
-    # is what `pnpm dns:reload` sends — no nsd-control TLS setup needed.
     exec nsd -c /etc/nsd/nsd.conf -d
     ;;
   resolver | permissive)

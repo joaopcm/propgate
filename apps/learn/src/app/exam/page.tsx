@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function ExamPage() {
   return (
     <CourseFrame currentSlug="exam">
-      {/* Sampled here rather than in the component: see `Exam`. */}
+      {}
       <Exam questions={examQuestions()} />
     </CourseFrame>
   );

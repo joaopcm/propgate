@@ -1,8 +1,3 @@
-/**
- * Shapes from `apps/api/src/routes/webhooks.ts` — its zod schema for the
- * request, its `serialise` function for the response.
- */
-
 export const CREATE_CURL = `curl -s -X POST https://api.propgate.dev/v1/webhooks \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H 'content-type: application/json' \\
@@ -35,17 +30,9 @@ export const CREATE_REJECTED = `{
   "meta": null
 }`;
 
-/**
- * The SDK calls assume a client constructed once, as `/sdk` shows:
- * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
- * name and shape here is checked against `@propgate/sdk` itself by
- * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
- */
-
 export const CREATE_SDK = `const { data, error, meta } = await propgate.webhooks.create({
   url: "https://example.com/hooks/propgate",
   events: ["domain.failed", "domain.recovered"],
 });
 
-// Present only when this call created the endpoint. Store it now.
 data?.secret;`;

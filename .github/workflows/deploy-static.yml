@@ -1,8 +1,5 @@
 name: Deploy static
 
-# The marketing site, the docs and the course, as prerendered assets on
-# Cloudflare Workers. Nothing here runs at request time, so there is no adapter
-# and no cold start.
 on:
   push:
     branches: [main]
@@ -11,20 +8,12 @@ on:
       - "apps/docs/**"
       - "apps/learn/**"
       - "packages/dns/**"
-      # Every app here renders something from a registry rather than from prose,
-      # so a change to one of these changes the published output even when no
-      # app file moved. `apps/docs` reads FIXTURE_EXPECTATIONS for the taxonomy's
-      # "which fixture proves this?" column, and `apps/learn` reads it for its
-      # counts and for half its quiz questions. Without this path, adding a
-      # fixture row silently leaves both sites showing the previous answer.
       - "packages/dns-fixtures/**"
       - "pnpm-lock.yaml"
       - ".github/workflows/deploy-static.yml"
   workflow_dispatch:
 
 concurrency:
-  # One deploy at a time per app. Two pushes in quick succession would otherwise
-  # race, and the loser publishes the older build.
   group: deploy-static
   cancel-in-progress: true
 
@@ -63,8 +52,6 @@ jobs:
 
       - name: Build
         env:
-          # Public values, baked into the bundle at build time. They are visible
-          # in the shipped JavaScript by design — NEXT_PUBLIC_ says so.
           NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || 'https://api.propgate.dev' }}
           NEXT_PUBLIC_DOCS_URL: ${{ vars.NEXT_PUBLIC_DOCS_URL || 'https://docs.propgate.dev' }}
         run: pnpm --filter ${{ matrix.filter }} build

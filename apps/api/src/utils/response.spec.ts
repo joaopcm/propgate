@@ -13,8 +13,6 @@ describe("errorBody", () => {
   });
 
   it("keeps 422 as invalid_request, matching the SDK", () => {
-    // 400 and 422 differ in where the refusal came from, not in what the
-    // caller must do — resending unchanged will be refused again.
     expect(errorBody(422, "domain is required").code).toBe("invalid_request");
     expect(errorBody(400, "domain is required").code).toBe("invalid_request");
   });

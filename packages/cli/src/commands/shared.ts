@@ -1,21 +1,6 @@
 import type { WebhookEvent } from "@propgate/webhooks";
 import type { Choice, Field } from "../command";
 
-/**
- * The enum values, the pieces of a `Field` that repeat, and the small helpers
- * every command family reaches for.
- */
-
-/**
- * Adding a fifth webhook event breaks `tsc --noEmit`.
- *
- * A `Record` keyed by the type rather than a bare array, which is the same trick
- * `REQUIREMENT_TYPES` uses in the docs app: an array would only catch a *removed*
- * event, and the failure mode worth catching is a new one nobody offered here.
- *
- * `@propgate/webhooks` is a **type-only** devDependency. It has no dependencies of
- * its own and the import is erased at build, so the published tarball is unchanged.
- */
 const EVENT_HINTS: Record<WebhookEvent, string> = {
   "domain.degraded": "Some vantage points disagree. Possibly nothing is wrong.",
   "domain.failed": "Consecutive failures across vantage points.",
@@ -31,15 +16,6 @@ export const EVENT_CHOICES: readonly Choice[] = Object.entries(EVENT_HINTS).map(
   ([value, hint]) => ({ hint, value })
 );
 
-/**
- * The five domain states, in the order the API lists them.
- *
- * Written out rather than imported from `@propgate/db`, which is where the enum
- * actually lives. That package pulls in Drizzle and Postgres, and making the
- * published MIT CLI typecheck against the database layer to borrow five strings
- * is a worse trade than restating them next to a pointer at the original:
- * `apps/api/src/routes/domains.ts`, `DOMAIN_STATES`.
- */
 export const DOMAIN_STATES = [
   "pending",
   "verifying",
@@ -91,7 +67,6 @@ export function limitField(max: number): Field {
   };
 }
 
-/** A whole positive number, or a complaint. Rejected here so nobody pages by "abc". */
 export function positiveInteger(value: string): string | undefined {
   const parsed = Number(value);
 
@@ -100,11 +75,6 @@ export function positiveInteger(value: string): string | undefined {
     : `"${value}" is not a whole number above zero`;
 }
 
-/**
- * Domain ids are uuidv7 and domain names need at least two labels, so nothing a
- * caller types can be read as both. That is what lets `check` tell them apart
- * without guessing.
- */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function looksLikeId(value: string): boolean {

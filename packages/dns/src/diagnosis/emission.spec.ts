@@ -4,15 +4,6 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { DIAGNOSIS_REGISTRY, NOT_YET_EMITTED } from "./codes";
 
-/**
- * A code nothing can produce is a promise we do not keep.
- *
- * `coverage.spec.ts` proves every code has a *fixture*. That is a different
- * question from whether any evaluator ever looks for it — and nine codes were
- * published, documented and served by the API while being unreachable, because
- * nothing asked this one.
- */
-
 const SOURCE = dirname(dirname(fileURLToPath(import.meta.url)));
 
 function sourceFiles(directory: string): string[] {
@@ -23,8 +14,6 @@ function sourceFiles(directory: string): string[] {
       return sourceFiles(path);
     }
 
-    // The registry mentions every code by definition, and specs mention the
-    // ones they assert on. Neither is an evaluator looking for a condition.
     const skip =
       !entry.endsWith(".ts") ||
       entry.endsWith(".spec.ts") ||
@@ -50,9 +39,6 @@ describe("every published code is reachable", () => {
   });
 
   it("gives a real reason for each one that is not", () => {
-    // "Not yet" without what it would take is indistinguishable from having
-    // forgotten, and this list is the one a reader uses to decide whether the
-    // taxonomy is aspirational.
     const thin = Object.entries(NOT_YET_EMITTED)
       .filter(([, reason]) => (reason ?? "").length < 60)
       .map(([code]) => code);
@@ -61,7 +47,6 @@ describe("every published code is reachable", () => {
   });
 
   it("does not keep a code on the list once something emits it", () => {
-    // Otherwise the list becomes a graveyard and stops meaning anything.
     const stale = Object.keys(NOT_YET_EMITTED).filter((code) =>
       CORPUS.includes(`DiagnosisCode.${code}`)
     );

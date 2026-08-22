@@ -1,9 +1,3 @@
-# Production image for the always-on resolver service.
-#
-# Deployment is deliberately boring: build, push, then `docker compose pull &&
-# docker compose up -d` over SSH on a single VPS. The process is long-lived by
-# design — the sweeper is a continuous loop, which is the worst possible fit for
-# per-invocation billing.
 FROM node:24-alpine AS builder
 
 RUN corepack enable
@@ -12,11 +6,6 @@ WORKDIR /repo
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY turbo.json tsconfig.json ./
 
-# Every workspace manifest, not just the ones being built. packages/dns has a
-# workspace devDependency on @propgate/dns-fixtures, and pnpm resolves the whole
-# workspace graph even behind --filter, so a missing manifest fails the install.
-# src/dockerfile-manifests.spec.ts keeps this list complete — a new package that
-# is not listed here fails there rather than in the deploy build.
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/docs/package.json apps/docs/
@@ -40,13 +29,6 @@ COPY packages/emails packages/emails
 COPY packages/webhooks packages/webhooks
 RUN pnpm --filter @propgate/api build
 
-# The build bundles every @propgate/* package into its output but leaves real
-# dependencies — hono, zod, postgres, drizzle-orm — as bare imports, so the
-# runtime still needs a node_modules. `pnpm deploy` resolves that graph,
-# including transitive dependencies reached only through the bundled workspace
-# packages, into one self-contained directory.
-# --legacy because the workspace does not use injected dependencies; pnpm 10
-# requires the flag to say so explicitly.
 RUN pnpm --filter @propgate/api deploy --prod --legacy /deploy
 
 FROM node:24-alpine AS runner
@@ -56,8 +38,6 @@ ENV NODE_ENV=production
 
 COPY --from=builder /deploy/node_modules ./node_modules
 COPY --from=builder /repo/apps/api/dist ./dist
-# The migration SQL, applied by a one-shot container before the API starts
-# rather than at boot. See src/migrate.ts for why.
 COPY --from=builder /repo/packages/db/drizzle ./drizzle
 
 EXPOSE 3001

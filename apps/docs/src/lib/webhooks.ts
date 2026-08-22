@@ -1,14 +1,6 @@
 import type { WebhookEvent } from "@propgate/webhooks";
 import { TOLERANCE_SECONDS, WEBHOOK_EVENTS } from "@propgate/webhooks";
 
-/**
- * The published webhook reference, keyed by the code it describes.
- *
- * `Record<WebhookEvent, …>` makes a new event without documentation a `tsc`
- * error, which is the same trick `api.ts` uses for check kinds. An event a
- * customer receives and cannot look up is a support ticket we wrote ourselves.
- */
-
 export interface EventDoc {
   readonly fires: string;
   readonly summary: string;
@@ -40,5 +32,4 @@ export const EVENTS: Record<WebhookEvent, EventDoc> = {
 
 export const EVENT_NAMES = WEBHOOK_EVENTS;
 
-/** Quoted from the signing code so the docs cannot state a different tolerance. */
 export const TIMESTAMP_TOLERANCE_SECONDS = TOLERANCE_SECONDS;

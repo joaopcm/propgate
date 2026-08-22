@@ -60,8 +60,6 @@ describe("recordObservation", () => {
   });
 
   it("writes nothing when the value is unchanged", async () => {
-    // The assertion the bill depends on. A sweep that observes the same value
-    // six times a day must not write six rows.
     const domainId = await domain();
     const observed = "v=spf1 include:a -all";
 
@@ -101,8 +99,6 @@ describe("recordObservation", () => {
   });
 
   it("treats a record disappearing as a change", async () => {
-    // Deletion is the change people most want to see in a timeline, and a null
-    // observation is how it arrives.
     const domainId = await domain();
 
     await recordObservation(db, {
@@ -152,7 +148,6 @@ describe("recordObservation", () => {
       requirementKey: "dkim",
     });
 
-    // Same value, different requirement — two first sightings, not a no-op.
     expect(await db.select().from(recordChanges)).toHaveLength(2);
   });
 });

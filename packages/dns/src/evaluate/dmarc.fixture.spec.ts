@@ -7,15 +7,6 @@ import type { DmarcCheck } from "./dmarc";
 import { evaluateDmarc } from "./dmarc";
 import type { EvaluationResult } from "./types";
 
-/**
- * DMARC against real servers.
- *
- * The point of most of these is **discovery order**: RFC 7489 §6.6.3 queries the
- * exact name first and only falls back to the organizational domain. An earlier
- * comment in this repo stated it backwards, so the difference is asserted here
- * rather than described.
- */
-
 const TIMEOUT_MS = 2000;
 
 function target(): ServerAddress {
@@ -38,9 +29,6 @@ function codes(result: EvaluationResult): string[] {
 
 describe("discovery order", () => {
   it("uses a subdomain's own policy, not the organizational one", async () => {
-    // own.dmarc.test publishes p=none. The org domain publishes p=reject with
-    // sp=quarantine. The subdomain's own record wins, so this is p=none — and
-    // the sp= at the parent is irrelevant.
     const result = await evaluate({
       checkExternalReports: false,
       domain: "own.dmarc.test",
@@ -49,14 +37,11 @@ describe("discovery order", () => {
     expect(codes(result)).toContain(DiagnosisCode.DMARC_POLICY_NONE);
     expect(codes(result)).not.toContain(DiagnosisCode.DMARC_POLICY_INHERITED);
 
-    // One lookup: the exact name answered, so no fallback was needed.
     expect(result.lookups).toHaveLength(1);
     expect(result.lookups[0]?.name).toBe("_dmarc.own.dmarc.test");
   });
 
   it("falls back to the organizational domain and applies sp=", async () => {
-    // inherit.dmarc.test publishes nothing, so the org policy governs — via
-    // sp=quarantine rather than p=reject.
     const result = await evaluate({
       checkExternalReports: false,
       domain: "inherit.dmarc.test",
@@ -69,7 +54,6 @@ describe("discovery order", () => {
     );
     expect(inherited?.evidence.detail).toContain("sp=quarantine");
 
-    // Two lookups, in the order the RFC requires.
     expect(result.lookups.map((lookup) => lookup.name)).toEqual([
       "_dmarc.inherit.dmarc.test",
       "_dmarc.dmarc.test",
@@ -97,8 +81,6 @@ describe("discovery order", () => {
   });
 
   it("never falls back past the organizational domain", async () => {
-    // dmarc.test IS the org domain, so there is nothing above it to try. A
-    // second lookup here would mean climbing toward the public suffix.
     const result = await evaluate({
       checkExternalReports: false,
       domain: "dmarc.test",
@@ -154,8 +136,6 @@ describe("malformed policies", () => {
   });
 
   it("ignores an unrelated TXT sharing the name", async () => {
-    // Filtering happens before counting, so one policy plus a verification
-    // token is one policy.
     const result = await evaluate({
       checkExternalReports: false,
       domain: "shared.dmarc.test",
@@ -166,8 +146,6 @@ describe("malformed policies", () => {
   });
 
   it("does not recognise a record whose v= is not first", async () => {
-    // A receiver would not see this as DMARC either, so the honest report is
-    // that the domain has no policy — and the org-domain fallback then runs.
     const result = await evaluate({
       checkExternalReports: false,
       domain: "vlast.dmarc.test",
@@ -211,7 +189,6 @@ describe("malformed policies", () => {
 
 describe("external report authorization", () => {
   it("passes when the destination has authorised the source", async () => {
-    // reports.test publishes dmarc.test._report._dmarc, per RFC 7489 §7.1.
     const result = await evaluate({ domain: "authorized.dmarc.test" });
 
     expect(codes(result)).not.toContain(
@@ -235,7 +212,6 @@ describe("external report authorization", () => {
     const finding = result.findings.find(
       (f) => f.code === DiagnosisCode.DMARC_EXTERNAL_REPORT_UNAUTHORIZED
     );
-    // The evidence names the exact record that has to be created.
     expect(finding?.evidence.expected).toContain(
       "dmarc.test._report._dmarc.unauth-reports.test"
     );
@@ -243,7 +219,6 @@ describe("external report authorization", () => {
   });
 
   it("does not check authorization for a same-domain address", async () => {
-    // rua=mailto:agg@dmarc.test needs no authorization, so no lookup for it.
     const result = await evaluate({ domain: "dmarc.test" });
 
     expect(

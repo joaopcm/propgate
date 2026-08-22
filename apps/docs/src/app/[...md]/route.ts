@@ -6,14 +6,6 @@ export const dynamic = "force-static";
 
 const LEADING_SLASH = /^\//;
 
-/**
- * `{path}.md` for every HTML page.
- *
- * `generateStaticParams` only emits `*.md` segments, so this does not collide
- * with the HTML pages. The Worker maps `Accept: text/markdown` on `/quickstart`
- * onto `/quickstart.md`.
- */
-
 export function generateStaticParams(): { md: string[] }[] {
   return listMarkdownPages().map((page) => ({
     md: page.markdownPath.replace(LEADING_SLASH, "").split("/"),

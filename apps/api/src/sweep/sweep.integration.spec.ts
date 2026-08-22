@@ -36,14 +36,6 @@ import { checkAndPersist } from "../domains/check";
 import { checkClaimedDomain } from "./check-domain";
 import { runReconcile, runTick } from "./tick";
 
-/**
- * The sweeper end to end: Postgres decides, Redis carries, DNS answers.
- *
- * The one spec in the repo that needs all three tiers, and the only place the
- * central claim of this design is actually tested — that a domain gets checked
- * because time passed, with nobody calling an endpoint.
- */
-
 const db: Database = createDb(process.env.DATABASE_URL ?? "", {
   maxConnections: 6,
 });
@@ -78,13 +70,6 @@ function queueWith(prefix: string): Queue<CheckDomainPayload> {
   return queue;
 }
 
-/**
- * A domain that is due, pointed at a fixture zone.
- *
- * `customer.test` is the clean fixture — it satisfies an SPF include and a DKIM
- * selector — so a passing sweep is the expected outcome and any finding is a real
- * failure rather than a property of the zone.
- */
 async function dueDomain(
   nextCheckAt: Date,
   options: {
@@ -120,15 +105,12 @@ async function dueDomain(
   }
 
   await db.execute(
-    // Registration sets `next_check_at` to now via the column default; making it
-    // due in the past is what a tick would find on a real box.
     `update domains set next_check_at = '${nextCheckAt.toISOString()}' where id = '${outcome.domain.id}'`
   );
 
   return { domainId: outcome.domain.id, tenantId };
 }
 
-/** A profile whose DKIM key is issued per domain, against the fixture selector. */
 const DEFERS_KEY: ProfileDefinition = {
   requirements: [
     {
@@ -140,13 +122,6 @@ const DEFERS_KEY: ProfileDefinition = {
   ],
 };
 
-/**
- * The key `customer.test` really publishes, read from the zone at run time.
- *
- * Discovered rather than pasted in: a hardcoded copy goes stale the next time the
- * fixtures are re-signed, and the test that would then fail is the one asserting
- * a match — so it would read as the sweeper breaking rather than the constant.
- */
 async function publishedKey(): Promise<string> {
   const outcome = await query({
     name: "pg1._domainkey.customer.test",
@@ -170,7 +145,6 @@ async function publishedKey(): Promise<string> {
   return parsed.record.publicKeyBase64;
 }
 
-/** Claim, dequeue and check exactly as a worker would. */
 async function sweepOnce(prefix: string) {
   const queue = queueWith(prefix);
 
@@ -191,7 +165,6 @@ async function sweepOnce(prefix: string) {
 
 const PAST = new Date(Date.now() - 60_000);
 
-/** A full SHA-256, which is what `compileProfile` produces. */
 const FINGERPRINT = /^[0-9a-f]{64}$/;
 
 describe("the sweep loop", () => {
@@ -229,22 +202,16 @@ describe("the sweep loop", () => {
 
     const after = await domainById(db, tenantId, domainId);
 
-    // The three things a sweep is for: it looked, it wrote down what it saw, and
-    // it decided when to look again.
     expect(after?.lastCheckedAt).not.toBeNull();
     expect(after?.lastResult?.verdict).toBe("pass");
     expect(after?.state).toBe("verified");
 
-    // Rescheduled a day out rather than left on the lease. A domain that keeps
-    // its lease deadline gets re-checked in five minutes forever.
     const nextCheck = after?.nextCheckAt?.getTime() ?? 0;
 
     expect(nextCheck - Date.now()).toBeGreaterThan(23 * 3600 * 1000);
   });
 
   it("stores the lookups that produced the verdict", async () => {
-    // Derivation over verdict. A stored `pass` that cannot say which queries
-    // produced it is the thing every other checker already gives you.
     const prefix = testPrefix("sweep-lookups");
     const queue = queueWith(prefix);
     const { domainId, tenantId } = await dueDomain(PAST);
@@ -269,8 +236,6 @@ describe("the sweep loop", () => {
   });
 
   it("re-enqueues work after Redis loses it", async () => {
-    // The reason nothing in this design is afraid of a flushed Redis. The rows
-    // stay due in Postgres, so recovery is a tick rather than an intervention.
     const prefix = testPrefix("sweep-amnesia");
     const queue = queueWith(prefix);
 
@@ -283,14 +248,10 @@ describe("the sweep loop", () => {
 
     expect(await queue.getWaitingCount()).toBe(0);
 
-    // Still holding its lease, so an immediate reconcile correctly finds nothing:
-    // the row is not due, and re-checking it now would be the double-check the
-    // lease exists to prevent.
     expect(
       await runReconcile({ batchSize: 10, db, leaseSeconds: 300, queue })
     ).toBe(0);
 
-    // Once the lease lapses the work comes back on its own.
     await db.execute(
       "update domains set next_check_at = now() - interval '1 second'"
     );
@@ -302,8 +263,6 @@ describe("the sweep loop", () => {
   });
 
   it("treats a domain deleted mid-flight as nothing to do", async () => {
-    // A customer removing a domain between the claim and the check must not
-    // produce a failed job that retries three times against a row that is gone.
     const { domainId, tenantId } = await dueDomain(PAST);
 
     await db.execute(`delete from domains where id = '${domainId}'`);
@@ -318,15 +277,6 @@ describe("the sweep loop", () => {
 });
 
 describe("the sweeper and per-domain expectations", () => {
-  /**
-   * The test the whole mechanism exists for.
-   *
-   * The sweeper reads a domain through `domainById` and nothing else, so a
-   * missing column, a missing spread, or an optional argument anywhere between the
-   * row and the evaluator produces a sweeper that compares against nothing — and
-   * because an absent expectation used to mean "any valid key is fine", it would
-   * report `pass` while doing so. No route spec can reach this path.
-   */
   it("compares the domain's own key and passes when it matches", async () => {
     const key = await publishedKey();
     const { domainId, tenantId } = await dueDomain(PAST, {
@@ -340,13 +290,10 @@ describe("the sweeper and per-domain expectations", () => {
 
     expect(after?.lastResult?.verdict).toBe("pass");
     expect(after?.state).toBe("verified");
-    // The digest proves which values the verdict was produced against.
     expect(after?.lastResult?.expectationsFingerprint).toMatch(FINGERPRINT);
   });
 
   it("fails with a mismatch when the wrong key is expected", async () => {
-    // Same zone, same profile, different value. `customer.test` publishes a
-    // perfectly valid key here, so this fails only because the comparison ran.
     const { domainId, tenantId } = await dueDomain(PAST, {
       definition: DEFERS_KEY,
       expectations: {
@@ -367,11 +314,6 @@ describe("the sweeper and per-domain expectations", () => {
   });
 
   it("leaves a domain alone when a required value was never supplied", async () => {
-    /**
-     * Five assertions, because each is a separate way for "we cannot judge this"
-     * to become either a false verdict or a domain that quietly stopped being
-     * monitored — and the last one is the worst failure this product has.
-     */
     const { domainId, tenantId } = await dueDomain(PAST, {
       definition: DEFERS_KEY,
     });
@@ -386,13 +328,10 @@ describe("the sweeper and per-domain expectations", () => {
     expect(after?.consecutiveFailures).toBe(before?.consecutiveFailures);
     expect(await domainTimeline(db, domainId, 10)).toEqual([]);
     expect(await domainTransitions(db, domainId)).toEqual([]);
-    // Still monitored. A domain that drops out of the sweep is unrecoverable
-    // without someone noticing it is missing.
     expect((after?.nextCheckAt?.getTime() ?? 0) > Date.now()).toBe(true);
   });
 
   it("names the value it is waiting for", async () => {
-    // An agent can act on a JSON path. It cannot act on `indeterminate`.
     const { domainId, tenantId } = await dueDomain(PAST, {
       definition: DEFERS_KEY,
     });
@@ -410,9 +349,6 @@ describe("the sweeper and per-domain expectations", () => {
   });
 
   it("sends no DNS at all when it cannot judge the domain", async () => {
-    // The reason the incomplete branch skips the resolver rather than running the
-    // requirements that are complete: an incomplete domain never fixes itself, so
-    // any queries spent here are spent on every sweep forever.
     const { domainId, tenantId } = await dueDomain(PAST, {
       definition: DEFERS_KEY,
     });
@@ -425,14 +361,6 @@ describe("the sweeper and per-domain expectations", () => {
   });
 
   it("re-verifies without a false failure after a key is rotated", async () => {
-    /**
-     * The fleet-rotation case, which is why a config write resets to `pending`.
-     *
-     * Without the reset this domain goes `verified → degraded` on the very first
-     * check — `degradedAfter` is 1 — and fires `domain.degraded` claiming the
-     * customer's DNS broke. Across ten thousand domains that is ten thousand false
-     * pages inside one sweep interval, with no zone change behind any of them.
-     */
     const key = await publishedKey();
     const { domainId, tenantId } = await dueDomain(PAST, {
       definition: DEFERS_KEY,
@@ -458,8 +386,6 @@ describe("the sweeper and per-domain expectations", () => {
 
     const after = await domainById(db, tenantId, domainId);
 
-    // One definite failure against the new key, so it is only `degraded` if the
-    // reset never happened. From `pending` the same failure cannot skip a step.
     expect(after?.lastResult?.verdict).toBe("fail");
     expect(after?.state).not.toBe("degraded");
     expect(
@@ -468,11 +394,6 @@ describe("the sweeper and per-domain expectations", () => {
   });
 
   it("does not claim the customer's zone changed when we changed", async () => {
-    /**
-     * The timeline is the surface built to deflect support tickets, and its whole
-     * value is that "the DKIM record changed Tuesday at 14:02" is about the
-     * customer. A rotation must not write that sentence about us.
-     */
     const key = await publishedKey();
     const { domainId, tenantId } = await dueDomain(PAST, {
       definition: DEFERS_KEY,
@@ -492,26 +413,10 @@ describe("the sweeper and per-domain expectations", () => {
     });
     await sweepOnce(testPrefix("sweep-timeline-second"));
 
-    // Still one entry: the first observation. Nothing appended for the check whose
-    // only change was the value we asked it to compare.
     expect(await domainTimeline(db, domainId, 10)).toHaveLength(1);
   });
 
   it("discards a check whose configuration moved while it was running", async () => {
-    /**
-     * A check holding a row that has been rotated under it.
-     *
-     * The production sequence is read → up to ten seconds of DNS → write, with a
-     * `PATCH` landing in the middle. Driven here by capturing the row, rotating,
-     * and *then* running the check against that snapshot: identical state from
-     * `checkAndPersist`'s point of view, and with no dependence on whether a 20 ms
-     * fixture lookup finishes before the rotation commits. Starting the check
-     * first and racing it decides the outcome on machine speed, which is the kind
-     * of test that goes red in CI for reasons nobody can reproduce.
-     *
-     * Everything after the row write has to be skipped too, not just the row: a
-     * transition would owe a webhook announcing a state that was never stored.
-     */
     const key = await publishedKey();
     const { domainId, tenantId } = await dueDomain(PAST, {
       definition: DEFERS_KEY,
@@ -539,7 +444,6 @@ describe("the sweeper and per-domain expectations", () => {
 
     const after = await domainById(db, tenantId, domainId);
 
-    // The reset stands, untouched by a verdict about the key it replaced.
     expect(after?.state).toBe("pending");
     expect(after?.lastResult).toBeNull();
     expect(after?.lastCheckedAt).toBeNull();
@@ -548,17 +452,6 @@ describe("the sweeper and per-domain expectations", () => {
   });
 
   it("honours a rotation that lands between the claim and the check", async () => {
-    /**
-     * The other half, and why a discarded check is rare rather than routine.
-     *
-     * A rotation after the claim is *not* superseded: the worker re-reads the row
-     * rather than trusting the payload, so it compares the new key and stores a
-     * normal verdict. Only a rotation landing inside the DNS window loses its
-     * check — which costs one re-check on the pending cadence, and never a write.
-     *
-     * The domain starts with a key the zone does not publish, so a `pass` here can
-     * only come from the re-read having picked up the rotation.
-     */
     const key = await publishedKey();
     const { domainId, tenantId } = await dueDomain(PAST, {
       definition: DEFERS_KEY,
@@ -593,9 +486,6 @@ describe("the sweeper and per-domain expectations", () => {
   });
 
   it("moves the fingerprint when the profile is re-pointed", async () => {
-    // A re-point changes what the domain is judged against with nothing written to
-    // its values, which is exactly what a digest over the *merged* set catches and
-    // a timestamp on the row would not.
     const { domainId, tenantId } = await dueDomain(PAST);
 
     await sweepOnce(testPrefix("sweep-repoint-first"));

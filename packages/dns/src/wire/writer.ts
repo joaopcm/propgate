@@ -1,15 +1,7 @@
 import { MAX_LABEL_LENGTH, MAX_NAME_LENGTH } from "./constants";
 
-/** A three-digit decimal escape, per RFC 1035 §5.1 presentation form. */
 const DECIMAL_ESCAPE = /^\d{3}$/;
 
-/**
- * Growable buffer for building a DNS message.
- *
- * Deliberately does NOT implement name compression on write. We only ever emit
- * queries, which carry one name; compression would save nothing and cost a
- * correctness risk. Decoding compression is mandatory, encoding it is not.
- */
 export class Writer {
   private buffer: Buffer;
   private cursor = 0;
@@ -61,12 +53,6 @@ export class Writer {
     return this;
   }
 
-  /**
-   * Encode a domain name.
-   *
-   * Handles presentation-form escapes (`\.` and `\DDD`) so a name round-trips
-   * through the reader. Empty string and "." both mean the root.
-   */
   name(value: string): this {
     if (value === "" || value === ".") {
       return this.uint8(0);
@@ -104,7 +90,6 @@ export class Writer {
     return this.cursor;
   }
 
-  /** Patch a previously written 16-bit field, used for rdlength backfill. */
   patchUint16(offset: number, value: number): void {
     this.buffer.writeUInt16BE(value & 0xff_ff, offset);
   }
@@ -114,12 +99,6 @@ export class Writer {
   }
 }
 
-/**
- * Split a presentation-form name into wire labels, honouring backslash escapes.
- *
- * An escaped dot (`\.`) is part of a label rather than a separator. This matters
- * for the appended-zone-name fixtures, where names are unusual on purpose.
- */
 export function splitName(value: string): Buffer[] {
   const trimmed = value.endsWith(".") ? value.slice(0, -1) : value;
   const labels: Buffer[] = [];

@@ -2,17 +2,6 @@ import { describe, expect, it } from "vitest";
 import { moveActive, type SearchRecord, search } from "./search";
 import { buildSearchIndex } from "./search-index";
 
-/**
- * Ranking, against the real corpus and against a made-up one.
- *
- * The mechanics — AND matching, the cap, deduplication — are asserted on a
- * handful of literal records, because a test that has to be reread whenever
- * somebody edits a page is a test that gets deleted. The three queries that
- * matter are asserted against the real index instead: what a query *returns*
- * is a property of the writing as much as of the weights, and a search that
- * ranks the wrong page first is not something a synthetic fixture can catch.
- */
-
 const index = buildSearchIndex();
 
 const LEADING_ELLIPSIS = /^…/;
@@ -170,12 +159,6 @@ describe("moveActive", () => {
     expect(moveActive(0, -1, 5)).toBe(0);
   });
 
-  /**
-   * The regression. ArrowDown pressed while the index was still being fetched
-   * stored -1, and the menu then arrived with nothing highlighted,
-   * `aria-activedescendant` naming an element that does not exist, and Enter
-   * doing nothing until the reader happened to press a key that healed it.
-   */
   it("stays at zero when there is nothing to move through yet", () => {
     expect(moveActive(0, 1, 0)).toBe(0);
     expect(moveActive(0, -1, 0)).toBe(0);

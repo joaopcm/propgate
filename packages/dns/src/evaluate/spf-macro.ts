@@ -1,38 +1,15 @@
 import type { IpAddress } from "./spf-ip";
 
-/**
- * SPF macro expansion (RFC 7208 §7).
- *
- * A macro turns one published record into a different name for every
- * connection: `exists:%{ir}.%{v}._spf.%{d}` asks a question about the sending
- * address itself. Until this file existed the evaluator reported those terms as
- * undecidable, which was honest but left the most interesting records unchecked.
- *
- * One tokenizer, two entry points. `validateMacroString` runs in the parser,
- * where a bad macro is a syntax error like any other; `expandMacros` runs in
- * the evaluator, where the same tokens are rendered against a connection. Two
- * implementations of this grammar would disagree eventually, and the way they
- * would disagree is that a record fails to parse but expands fine, or the other
- * way round.
- */
-
 const DEFAULT_DELIMITER = ".";
-/** §7.3: a domain-spec longer than this is left-truncated, not rejected. */
 const MAX_DOMAIN_LENGTH = 253;
 
-/** Macro letters valid in a domain-spec (§7.2). */
 const DOMAIN_LETTERS = "slodiphv";
-/** Valid only inside `exp=` text, so a permanent error anywhere else. */
 const EXP_ONLY_LETTERS = "crt";
 
 export interface MacroContext {
-  /** `%{d}` — the domain whose record is being evaluated right now. */
   readonly domain: string;
-  /** `%{h}` — the HELO/EHLO name the client gave. */
   readonly helo?: string;
-  /** `%{i}`, `%{v}` — the connecting address. */
   readonly ip?: IpAddress;
-  /** `%{s}`, `%{l}`, `%{o}` — the envelope sender, `local@domain`. */
   readonly sender?: string;
 }
 
@@ -40,12 +17,6 @@ export type MacroExpansion =
   | { readonly ok: true; readonly value: string }
   | {
       readonly ok: false;
-      /**
-       * `syntax` is a permanent error — the record is wrong. `unsupported`
-       * means the record is fine and we lack the input, which must stay
-       * distinguishable: one is the domain owner's problem and the other is
-       * ours.
-       */
       readonly reason: "syntax" | "unsupported";
       readonly detail: string;
     };
@@ -56,7 +27,6 @@ interface MacroToken {
   readonly kind: "macro";
   readonly letter: string;
   readonly reverse: boolean;
-  /** An uppercase letter means URL-escape the result. */
   readonly urlEscape: boolean;
 }
 
@@ -66,7 +36,6 @@ type Tokenized =
   | { readonly ok: true; readonly tokens: readonly Token[] }
   | { readonly ok: false; readonly detail: string };
 
-/** §7.1: letter, optional digits, optional "r", optional delimiter set. */
 const MACRO_BODY = /^([a-zA-Z])(\d*)(r?)([.\-+,/_=]*)\}/;
 const UNRESERVED = /[A-Za-z0-9\-._~]/;
 const V4_MAPPED_TEXT = /^::ffff:/i;
@@ -84,8 +53,6 @@ function readMacro(
   const [whole, letter = "", digits = "", reverse = "", delimiters = ""] =
     match;
 
-  // §7.1: "the DIGIT ... MUST be non-zero". Zero would ask for no parts at all,
-  // which has no meaning and no defined behaviour to fall back on.
   if (digits !== "" && Number(digits) === 0) {
     return `%{${letter}0...} asks for zero parts, which is not a number of parts`;
   }
@@ -145,9 +112,6 @@ function tokenize(raw: string): Tokenized {
     }
 
     if (next !== "{") {
-      // §7.1: a "%" followed by anything else is a syntax error, not a literal
-      // percent. Treating it as a literal would silently change what name the
-      // record asks about.
       return {
         detail: '"%" must be followed by "{", "%", "_" or "-"',
         ok: false,
@@ -170,13 +134,6 @@ function tokenize(raw: string): Tokenized {
   return { ok: true, tokens };
 }
 
-/**
- * Whether every macro in a domain-spec is well formed.
- *
- * Returns the reason it is not, or null when it is. Used by the parser, so a
- * record carrying a broken macro fails to parse rather than failing later in a
- * way that looks like a DNS problem.
- */
 export function validateMacroString(raw: string): string | null {
   const tokenized = tokenize(raw);
 
@@ -203,7 +160,6 @@ export function validateMacroString(raw: string): string | null {
   return null;
 }
 
-/** §7.3 splits on any of the delimiters, not on a single chosen one. */
 function splitOn(value: string, delimiters: string): string[] {
   const parts: string[] = [];
   let current = "";
@@ -223,13 +179,6 @@ function splitOn(value: string, delimiters: string): string[] {
   return parts;
 }
 
-/**
- * §7.3: split, reverse, keep the rightmost N, rejoin with ".".
- *
- * The order matters. `%{d2r}` reverses first and then takes the rightmost two,
- * which for `a.b.c` is `b.a` and not `c.b` — doing it the other way round asks
- * about a name nobody published.
- */
 function transform(value: string, token: MacroToken): string {
   const hasTransform =
     token.reverse ||
@@ -253,7 +202,6 @@ function transform(value: string, token: MacroToken): string {
   return parts.join(DEFAULT_DELIMITER);
 }
 
-/** §7.3 escapes everything outside RFC 3986's unreserved set. */
 function urlEscape(value: string): string {
   let escaped = "";
 
@@ -268,7 +216,6 @@ function urlEscape(value: string): string {
 
 const HEX_DIGITS = 16;
 
-/** §7.3: IPv6 becomes 32 nibbles, dot-separated, so `r` can reverse them. */
 function dottedNibbles(bytes: Uint8Array): string {
   const nibbles: string[] = [];
 
@@ -282,12 +229,6 @@ function dottedNibbles(bytes: Uint8Array): string {
   return nibbles.join(DEFAULT_DELIMITER);
 }
 
-/**
- * The envelope sender, split.
- *
- * §4.3: a bounce arrives with an empty MAIL FROM, and SPF substitutes
- * `postmaster@<helo>` so the record still has something to talk about.
- */
 function senderParts(
   context: MacroContext
 ): { local: string; domain: string } | undefined {
@@ -322,16 +263,11 @@ function macroValue(letter: string, context: MacroContext): string | undefined {
     case "v":
       return context.ip === undefined ? undefined : ipVersionMacro(context.ip);
     default:
-      // `p` is the validated domain name of the address, which needs a reverse
-      // lookup and a forward confirmation of every name it returns. §7.3 says
-      // outright not to publish it.
       return;
   }
 }
 
 function ipMacro(ip: IpAddress): string {
-  // A mapped address is IPv4 as far as SPF is concerned, and %{i} must be the
-  // dotted quad — the mapped spelling would ask about a name nobody published.
   return ip.family === "ipv4"
     ? ip.text.replace(V4_MAPPED_TEXT, "")
     : dottedNibbles(ip.bytes);
@@ -341,10 +277,6 @@ function ipVersionMacro(ip: IpAddress): string {
   return ip.family === "ipv4" ? "in-addr" : "ip6";
 }
 
-/**
- * §7.3: an expanded domain-spec over 253 characters loses whole labels from the
- * left until it fits, rather than being rejected.
- */
 function truncate(value: string): string {
   if (value.length <= MAX_DOMAIN_LENGTH) {
     return value;

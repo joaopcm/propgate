@@ -12,8 +12,6 @@ import {
   stateField,
 } from "./shared";
 
-/** Everything under `/v1/domains`. */
-
 const MAX_PAGE_LIMIT = 200;
 
 interface Requirement {
@@ -52,7 +50,6 @@ function rows(domains: readonly DomainRow[]): string[] {
   );
 }
 
-/** The single-domain view, which is the only place per-requirement detail fits. */
 function describe(domain: DomainRow): void {
   out(`${domain.name}  ${domain.state}`);
   out("");
@@ -121,8 +118,6 @@ async function add(input: Input, context: Context): Promise<number> {
   }
 
   out(`${result.body.data.name} registered as ${result.body.data.id}.`);
-  // Registration does not touch DNS, which is worth saying: otherwise `state:
-  // pending` reads as a failure rather than as "nobody has looked yet".
   out("Nothing has been checked yet — the sweeper will pick it up.");
 
   return 0;
@@ -195,7 +190,6 @@ function report(domains: readonly DomainRow[]): number {
     out(line);
   }
 
-  // An empty list is a real answer, and printing nothing looks like a failure.
   if (domains.length === 0) {
     out(
       "No domains yet. Add one with `propgate domains add <domain> --profile <key>`."
@@ -283,8 +277,6 @@ async function timeline(input: Input, context: Context): Promise<number> {
   }
 
   if (result.body.data.length === 0) {
-    // Not the same as "nothing has happened": only actual changes are appended,
-    // so a domain checked hourly for a month and never altered has an empty one.
     out("Nothing has changed. Only differences are recorded, not checks.");
 
     return 0;
@@ -340,8 +332,6 @@ async function update(input: Input, context: Context): Promise<number> {
   const supplied = anyExpectations(expectations);
 
   if (!supplied && profile === undefined) {
-    // Sent as-is this is a 422, and saying so here saves the round trip. It is
-    // also not a harmless no-op: the call resets the domain and re-verifies it.
     return usage("nothing to change. Pass --expect, --profile, or both.");
   }
 
@@ -370,8 +360,6 @@ async function update(input: Input, context: Context): Promise<number> {
 
   describe(result.body.data);
   out("");
-  // The reset is the surprising part, and the reason it is not a regression is
-  // worth one line: nothing has looked at the new values yet.
   out(
     "Back to pending, and no webhook was sent — the value we compare changed"
   );
@@ -389,12 +377,6 @@ const profileField = {
   required: true,
 };
 
-/**
- * One value a profile requires per domain, repeatable.
- *
- * Declared once and shared by `add` and `update`, so the two cannot drift on the
- * spelling of the thing a rotation depends on.
- */
 const expectField = {
   describe:
     "A value the profile requires per domain, as <requirement>.<field>=<value>. Repeatable.",
@@ -499,11 +481,6 @@ export const domainsCommands: readonly Command[] = [
     path: ["domains", "check"],
     positional: idPositional,
     run: verify,
-    /**
-     * Not the same command as top-level `check`, and the summary has to say so.
-     * This one writes: it moves the domain's state, spends the per-tenant check
-     * budget, and a transition here is what fires a webhook.
-     */
     summary:
       "Re-check a registered domain now. Writes its state and can fire a webhook — unlike `propgate check`, which only reads DNS.",
   },

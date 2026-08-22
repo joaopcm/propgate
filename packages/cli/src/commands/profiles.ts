@@ -8,8 +8,6 @@ import { askConfirm, askSelect, askText, CANCELLED } from "../prompt";
 import { parseRequirements, type Requirement } from "../require";
 import { table } from "../table";
 
-/** `POST /v1/profiles` and `GET /v1/profiles/:key`. */
-
 interface ProfileVersion {
   readonly id: string;
   readonly key: string;
@@ -22,7 +20,6 @@ interface Definition {
   readonly requirements: readonly Requirement[];
 }
 
-/** `-` reads stdin, so a profile can be generated and piped in one line. */
 function readDefinition(path: string): Definition | string {
   let raw: string;
 
@@ -62,9 +59,6 @@ function describe(requirement: Requirement): string {
     requirement.caaIssuer === undefined
       ? null
       : `caaIssuer=${requirement.caaIssuer}`,
-    // Rendered for the same reason `requiredPerDomain` is: a profile whose spf
-    // sits on a bounce host and one whose spf sits on the apex are different
-    // contracts, and nothing else on this line tells them apart.
     requirement.label === undefined ? null : `label=${requirement.label}`,
     requirement.target === undefined ? null : `target=${requirement.target}`,
     requirement.token === undefined ? null : "token set",
@@ -74,9 +68,6 @@ function describe(requirement: Requirement): string {
     requirement.expectedPublicKey === undefined
       ? null
       : "expectedPublicKey set",
-    // Rendered rather than omitted: it is the difference between a profile that
-    // works on its own and one every domain must supply a value for, and the
-    // registration that fails without it says nothing about which profile asked.
     requirement.requiredPerDomain === undefined ||
     requirement.requiredPerDomain.length === 0
       ? null
@@ -101,15 +92,6 @@ function show(profile: ProfileVersion): void {
   }
 }
 
-/**
- * The guided path: one requirement at a time, asking only the fields that
- * requirement's check actually has.
- *
- * The two conditional questions — a selector for `dkim`, an issuer for `caa` —
- * are the same two rules `parseRequirement` enforces, which is why they are worth
- * knowing on this side. Everything else about a valid profile is the server's to
- * say.
- */
 async function askOne(first: boolean): Promise<Requirement | typeof CANCELLED> {
   const key = await askText({
     describe: "",
@@ -142,10 +124,6 @@ async function build(): Promise<readonly Requirement[] | typeof CANCELLED> {
   const requirements: Requirement[] = [];
 
   for (;;) {
-    /**
-     * Sequential, and not a candidate for `Promise.all`: the next question
-     * depends on the last answer, and a person answers one at a time.
-     */
     // biome-ignore lint/performance/noAwaitInLoops: one requirement at a time, by definition
     const answered = await askOne(requirements.length === 0);
 
@@ -203,15 +181,6 @@ async function dkimFields(
     return CANCELLED;
   }
 
-  /**
-   * Asked before the key itself, because the answer decides whether there is a
-   * key to ask for.
-   *
-   * Defaulting to yes: a DKIM key is issued per domain, so a profile holding one
-   * literal key is a profile that works for exactly one domain. Someone reaching
-   * this prompt with ten thousand domains needs the default to be the shape that
-   * scales, and the other answer is one keypress away.
-   */
   const perDomain = await askConfirm(
     "Is the public key different for every domain?",
     true
@@ -260,13 +229,6 @@ async function caaFields(key: string): Promise<Requirement | typeof CANCELLED> {
   return caaIssuer === CANCELLED ? CANCELLED : { caaIssuer, check: "caa", key };
 }
 
-/**
- * The label question both mail checks ask.
- *
- * Optional, and the placeholder is `send` because that is what the answer almost
- * always is: a platform's return-path host. Skipping it means the apex, which is
- * the other half of the same profile rather than a lesser answer.
- */
 async function labelField(
   prompt: string
 ): Promise<string | undefined | typeof CANCELLED> {
@@ -298,13 +260,6 @@ async function spfFields(key: string): Promise<Requirement | typeof CANCELLED> {
 }
 
 async function mxFields(key: string): Promise<Requirement | typeof CANCELLED> {
-  /**
-   * Three answers, not a yes/no.
-   *
-   * `expectsMail` is tri-state, and a skipped confirm would become `false` — an
-   * assertion that the domain receives no mail, which is a different claim from
-   * making none. So "do not say" has to be an option someone can pick.
-   */
   const answer = await askSelect({
     choices: [
       { hint: "Make no claim either way.", value: "unstated" },
@@ -336,7 +291,6 @@ async function mxFields(key: string): Promise<Requirement | typeof CANCELLED> {
   };
 }
 
-/** Only the fields this check actually has. `delegation` and `dmarc` have none. */
 async function fieldsFor(
   check: CheckKind,
   key: string
@@ -356,13 +310,6 @@ async function fieldsFor(
   return check === "mx" ? await mxFields(key) : { check, key };
 }
 
-/**
- * Three ways in, and they do not mix.
- *
- * `--file` carries the key as well, so `--key … --file …` would leave a reader
- * guessing which one wins. Returning a string is a complaint, `CANCELLED` is
- * Ctrl-C, and a `Definition` is something to POST.
- */
 async function definitionFrom(
   input: Input,
   interactive: boolean
@@ -475,13 +422,6 @@ export const profilesCommands: readonly Command[] = [
       "propgate profiles create --file profile.json",
       "cat profile.json | propgate profiles create --file -",
     ],
-    /**
-     * `--key` rather than a positional, unlike every other create in this CLI.
-     *
-     * `--file` carries the key as well, and `profiles create sending --file x.json`
-     * would leave a reader guessing which one wins. A profile is one compound
-     * object; it arrives whole or it is built up out of flags.
-     */
     fields: [
       {
         describe: "The profile key. Re-using one writes a new version.",
@@ -489,14 +429,6 @@ export const profilesCommands: readonly Command[] = [
         kind: "string",
         placeholder: "key",
         prompt: "What should this profile be called?",
-        /**
-         * Optional to `resolve` but always asked for in a terminal.
-         *
-         * It cannot be `required`, because `--file` carries the key itself and a
-         * required field would make `--file` alone impossible. Marking it here
-         * gets the question asked anyway, and `definitionFrom` produces the
-         * error for the scripted case.
-         */
         promptWhenOptional: true,
         required: false,
       },
@@ -506,9 +438,6 @@ export const profilesCommands: readonly Command[] = [
         flag: "require",
         kind: "string",
         placeholder: "key:check:field=value",
-        // Never prompted for through the generic path: the guided flow asks one
-        // question per field of one requirement at a time, which the micro-syntax
-        // exists to avoid making anyone type.
         prompt: "A requirement, as key:check:field=value",
         repeatable: true,
         required: false,

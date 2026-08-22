@@ -3,27 +3,12 @@ import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-/**
- * Zero runtime dependencies, enforced.
- *
- * This is the package's headline promise and the reason the DNS wire format is
- * hand-rolled rather than pulled from npm. A promise nobody checks is a promise
- * that quietly stops being true the first time someone reaches for a helper, so
- * it gets a test.
- *
- * Static — reads the sources, so it needs no build step and cannot go stale
- * against dist/.
- */
-
 const PACKAGE_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const SOURCE_ROOT = join(PACKAGE_ROOT, "src");
-// Module specifiers never contain whitespace, which keeps prose out of the
-// match even before comments are stripped.
 const IMPORT_SPECIFIER = /(?:from|import)\s*\(?\s*["']([^"'\s]+)["']/g;
 const BLOCK_COMMENT = /\/\*[\s\S]*?\*\//g;
 const LINE_COMMENT = /\/\/.*$/gm;
 
-/** Test-only trees, which may use devDependencies freely. */
 const TEST_ONLY = ["test"];
 
 function isShipped(path: string): boolean {
@@ -56,9 +41,6 @@ function shippedSources(dir = SOURCE_ROOT): string[] {
 }
 
 function importsOf(path: string): string[] {
-  // Strip comments first. The guard is about code, and a doc comment discussing
-  // an outcome named `from "answered with tc set"` is not an import — which the
-  // first version of this test cheerfully reported as a dependency violation.
   const source = readFileSync(path, "utf8")
     .replace(BLOCK_COMMENT, "")
     .replace(LINE_COMMENT, "");
@@ -101,7 +83,6 @@ describe("@propgate/dns runtime dependencies", () => {
   });
 
   it("covers a meaningful number of files, so a glob bug cannot make it vacuous", () => {
-    // A test that silently matches nothing is worse than no test.
     expect(shippedSources().length).toBeGreaterThan(5);
   });
 });

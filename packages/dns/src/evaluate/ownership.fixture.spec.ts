@@ -7,15 +7,6 @@ import type { OwnershipCheck } from "./ownership";
 import { evaluateOwnership } from "./ownership";
 import type { EvaluationResult } from "./types";
 
-/**
- * Ownership tokens against real servers.
- *
- * `nearMissFor` has unit tests; this asserts what only shows up with DNS in the
- * way — that the apex's crowd of unrelated TXT records does not count as a pass,
- * that a chunked value arrives joined the way RFC 6763 says, and that the
- * appended-name probe fires on the token rather than on the name answering.
- */
-
 const TIMEOUT_MS = 2000;
 const TOKEN = "propgate-verify=6c1f9a24b7e5d03812af49b6c5d0e7f3";
 const LABEL = "_pg-challenge";
@@ -58,8 +49,6 @@ describe("a token published as issued", () => {
   });
 
   it("passes at the apex, among records belonging to other vendors", async () => {
-    // The case a presence check gets wrong: this name has three TXT records and
-    // only one of them is ours.
     const result = await evaluate({
       domain: "apex.ownership.test",
       token: TOKEN,
@@ -123,9 +112,6 @@ describe("a token that was published and then spent", () => {
   });
 
   it("blames the record editor when the chunks were rejoined with whitespace", async () => {
-    // Two findings rather than one: the value is not the token, *and* the reason
-    // is a fault in how it was stored. The second is the one that sends someone
-    // to the right screen.
     const result = await evaluate({
       domain: "spaced.ownership.test",
       label: LABEL,
@@ -180,9 +166,6 @@ describe("a token that is not there", () => {
   });
 
   it("does not blame the provider when the doubled name carries someone else's token", async () => {
-    // The probe is guarded on the token, not on the doubled name answering. A
-    // wildcard answers it too, and an appended-zone-name finding raised by one
-    // sends somebody to fix a record they wrote correctly.
     const result = await evaluate({
       domain: "appended.test",
       label: LABEL,

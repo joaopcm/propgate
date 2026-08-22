@@ -1,10 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
-/**
- * An aside. Same two kinds as the docs' and the same accent bar, so a warning
- * reads identically in both apps.
- */
 export function Callout({
   children,
   kind = "note",

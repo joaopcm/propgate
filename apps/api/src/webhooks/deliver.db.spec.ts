@@ -12,15 +12,6 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { attemptDelivery } from "./deliver";
 import { enqueueForTransition } from "./enqueue";
 
-/**
- * Transition in, HTTP request out, ledger updated.
- *
- * No Redis: the queue is optional precisely so this path can be tested without
- * one, and the row is the obligation either way. What is under test is that a
- * state change becomes a verifiable request and that the ledger ends up agreeing
- * with what happened.
- */
-
 const db: Database = createDb(process.env.DATABASE_URL ?? "", {
   maxConnections: 4,
 });
@@ -116,8 +107,6 @@ describe("a transition reaching a real endpoint", () => {
     });
     const tenantId = await fixture(url);
 
-    // `domainId` is not a real row here, so the delivery carries a null reference
-    // rather than failing the insert — the same shape a deleted domain leaves.
     const recorded = await enqueueForTransition(
       { db },
       { ...NOTICE, domainId: null as unknown as string, tenantId }
@@ -174,8 +163,6 @@ describe("a transition reaching a real endpoint", () => {
     const [pending] = (await listDeliveries(db, tenantId, { limit: 5 }))
       .deliveries;
 
-    // Still owed. The worker throws on `retry`, which is how BullMQ is asked for
-    // the backoff, and the reconciler can also find this row.
     expect(pending?.status).toBe("pending");
     expect(pending?.attempts).toBe(1);
   });
@@ -205,13 +192,10 @@ describe("a transition reaching a real endpoint", () => {
       .deliveries;
 
     expect(failed?.status).toBe("failed");
-    // One attempt, not five: a wrong URL is not made right by repetition.
     expect(failed?.attempts).toBe(1);
   });
 
   it("does not deliver twice when two attempts race for one row", async () => {
-    // At-least-once means the reconciler and a live job can both point here. The
-    // second one has to notice the row is settled rather than send a duplicate.
     let hits = 0;
 
     const url = await serving((_request, response) => {
@@ -243,7 +227,6 @@ describe("a transition reaching a real endpoint", () => {
   });
 
   it("records nothing for a tenant with no endpoint subscribed", async () => {
-    // The common case early on, and it must cost one indexed query and no rows.
     const url = await serving((_request, response) =>
       response.writeHead(200).end()
     );

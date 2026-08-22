@@ -2,18 +2,6 @@ import { describe, expect, it } from "vitest";
 import { commandName } from "../command";
 import { COMMANDS, lookup } from "./registry";
 
-/**
- * The parity tripwire.
- *
- * The CLI is supposed to reach every endpoint the API has. Nothing enforced that
- * before, and the answer drifted to seven of twenty-two without a single test
- * going red. The list below is hand-kept — there is no OpenAPI document to derive
- * it from — but it is hand-kept *next to an assertion*, so adding a route and
- * forgetting the command fails here rather than in a support thread.
- *
- * `GET /health` is deliberately absent: a container healthcheck is not a command.
- */
-
 const ENDPOINTS: readonly { command: string; endpoint: string }[] = [
   { command: "check", endpoint: "POST /v1/checks" },
   { command: "signup", endpoint: "POST /v1/signup" },
@@ -51,8 +39,6 @@ describe("coverage", () => {
   });
 
   it("has a command for every endpoint and no command without one", () => {
-    // Both directions. The first catches a route nobody exposed; the second
-    // catches a command left behind by a route that was removed.
     expect([...names].sort()).toEqual(
       [...ENDPOINTS.map((entry) => entry.command)].sort()
     );
@@ -117,14 +103,6 @@ describe("declarations", () => {
     }
   });
 
-  /**
-   * The regression these two exist for.
-   *
-   * A command whose fields are each optional but not collectively — `profiles
-   * create` needs a key, `webhooks update` needs something to change — skipped
-   * every prompt and then errored, so the guided flow was unreachable for
-   * exactly the commands that most needed it.
-   */
   it("asks for a field that run() requires even when the flag is optional", () => {
     const cases = [
       ["profiles create", "key"],
@@ -142,8 +120,6 @@ describe("declarations", () => {
   });
 
   it("never offers two boolean flags for one two-valued thing", () => {
-    // `--disable` and `--enable` needed a guard against being passed together,
-    // for a state that a single `select` cannot express in the first place.
     for (const command of COMMANDS) {
       const flags = command.fields.map((field) => field.flag);
 
@@ -155,8 +131,6 @@ describe("declarations", () => {
   });
 
   it("authenticates everything except the three that cannot be", () => {
-    // `check` runs before an account exists, and the signup pair is how one comes
-    // to exist. Everything else carries a bearer token.
     const open = COMMANDS.filter((command) => !command.authenticated).map(
       commandName
     );

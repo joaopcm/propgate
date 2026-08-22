@@ -10,8 +10,6 @@ import {
   summarise,
 } from "./check";
 
-/** The pure parts of the client. The rendering is not worth a snapshot. */
-
 function outcome(
   kind: CheckOutcome["kind"],
   verdict: CheckOutcome["verdict"]
@@ -41,9 +39,6 @@ function result(findings: Finding[], verdict: CheckResult["verdict"]) {
 
 describe("verdict ranking", () => {
   it("puts indeterminate above warn and below fail", () => {
-    // The same ordering the resolver uses. "We could not tell" is more serious
-    // than a warning because the check did not run, and less serious than a
-    // failure that was actually observed.
     expect(rankOf("pass")).toBeLessThan(rankOf("warn"));
     expect(rankOf("warn")).toBeLessThan(rankOf("indeterminate"));
     expect(rankOf("indeterminate")).toBeLessThan(rankOf("fail"));
@@ -77,8 +72,6 @@ describe("summarise", () => {
   });
 
   it("does not count info findings as problems", () => {
-    // MX_NULL is reported on a correctly configured sending-only domain. If it
-    // counted, every healthy customer would be told they have something wrong.
     expect(summarise(result([finding("info")], "pass"))).toBe("nothing to fix");
   });
 
@@ -102,8 +95,6 @@ const TAXONOMY_PATH = /\/taxonomy\/spf-record-missing$/;
 
 describe("docsUrlFor", () => {
   it("addresses a finding's own page by its slug", () => {
-    // The API sends a slug on every finding so a consumer can link here without
-    // shipping a copy of the taxonomy. This is that link.
     expect(docsUrlFor("spf-record-missing")).toMatch(TAXONOMY_PATH);
   });
 });

@@ -10,23 +10,10 @@
   },
   "overrides": [
     {
-      // The DNS wire codec is bit manipulation by nature: header flags, the
-      // compression-pointer mask, the OPT record's extended RCODE and DO bit.
-      // SPF's CIDR matching is the same thing one layer up — a prefix that does
-      // not land on a byte boundary is a mask, and writing it any other way is
-      // slower and less clear. `noBitwiseOperators` exists to catch `&` where
-      // `&&` was meant, which is a real hazard in business logic and a
-      // non-hazard here — every `&` in these files is deliberate and carries an
-      // RFC citation. Scoped to the wire format and to the one evaluator file
-      // that does address arithmetic, so the rule keeps protecting the rest of
-      // the evaluators.
       "includes": [
         "**/packages/dns/src/wire/**",
         "**/packages/dns/src/transport/**",
         "**/packages/dns/src/evaluate/spf-ip.ts",
-        // Sets QR and TC in a DNS header by hand, for the same reason as the
-        // codec above: it is a fixture that has to produce a truncated response
-        // without depending on the package it exists to test.
         "**/packages/dns-fixtures/src/tcp-blackhole.ts"
       ],
       "linter": {

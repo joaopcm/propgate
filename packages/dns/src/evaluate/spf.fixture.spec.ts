@@ -7,15 +7,6 @@ import type { SpfCheck } from "./spf";
 import { evaluateSpf } from "./spf";
 import type { EvaluationResult, Evidence } from "./types";
 
-/**
- * SPF against real servers.
- *
- * Everything interesting about SPF is a count spent across a tree of records,
- * so the fixtures are sized to land one term either side of each boundary. A
- * limit test that passes because the number happens to be large enough is not a
- * test of the limit.
- */
-
 const TIMEOUT_MS = 2000;
 const FILLER_TARGET = /^n\d+\./;
 
@@ -29,9 +20,6 @@ async function evaluate(
   role: Parameters<typeof fixtureTarget>[0] = "auth"
 ): Promise<EvaluationResult> {
   const context = createEvaluationContext({
-    // The whole include: tree can cost more than the default backstop leaves
-    // room for once the limit fixtures are in play, and the backstop is not the
-    // limit under test.
     maxLookups: 60,
     recursionDesired: role === "resolver" || role === "permissive",
     target: target(role),
@@ -62,8 +50,6 @@ describe("a sound record", () => {
   it("walks the whole include tree, nearest first", async () => {
     const result = await evaluate({ domain: "spf.test" });
 
-    // Four lookups recorded: the domain's own record, then one per include —
-    // and three.spf.test is only reachable through two.spf.test.
     expect(result.lookups.map((lookup) => lookup.name)).toEqual([
       "spf.test",
       "one.spf.test",
@@ -90,9 +76,6 @@ describe("authorisation", () => {
   });
 
   it("accepts a source reached through another include", async () => {
-    // A platform a customer reaches through their own aggregator is authorised
-    // just the same, so the check has to run against the expanded tree rather
-    // than the terms written at the apex.
     const result = await evaluate({
       domain: "spf.test",
       include: "three.spf.test",
@@ -115,16 +98,12 @@ describe("authorisation", () => {
       DiagnosisCode.SPF_SOURCE_NOT_AUTHORIZED
     );
     expect(evidence.observed).toContain("one.spf.test");
-    // Where to put it matters: after `all` the term never runs.
     expect(evidence.detail).toContain("before the all mechanism");
   });
 });
 
 describe("the ten-lookup limit", () => {
   it("warns while the record is still legal", async () => {
-    // Eight lookups. Nothing is broken yet, and that is the point: the next
-    // sending service added is what breaks it, and by then the symptom is
-    // failing mail rather than a record that looks wrong.
     const result = await evaluate({ domain: "near.spf.test" });
 
     expect(result.verdict).toBe("warn");
@@ -145,9 +124,6 @@ describe("the ten-lookup limit", () => {
   });
 
   it("never performs the lookup that would exceed the limit", async () => {
-    // Ten queries, not eleven. The eleventh term is what fails the record, and
-    // a conforming receiver knows that before sending it — so issuing it would
-    // be work no receiver does, against a record already known to be broken.
     const result = await evaluate({ domain: "limit.spf.test" });
 
     expect(
@@ -176,10 +152,6 @@ describe("void lookups", () => {
 
 describe("temperror is not permerror", () => {
   it("returns indeterminate when an include SERVFAILs", async () => {
-    // bogus-zone.test has deliberately broken signatures, so the validating
-    // resolver answers SERVFAIL. Receivers defer on temperror rather than
-    // reject, and this record may be entirely correct — reporting it as a
-    // configuration error would send someone to edit something that is fine.
     const result = await evaluate({ domain: "temperror.spf.test" }, "resolver");
 
     expect(result.verdict).toBe("indeterminate");
@@ -197,9 +169,6 @@ describe("temperror is not permerror", () => {
   });
 
   it("resolves fine through the non-validating tier", async () => {
-    // The same include, the same record: only the resolver differs. This is
-    // what makes the finding above a property of validation rather than of the
-    // SPF record.
     const result = await evaluate(
       { domain: "temperror.spf.test" },
       "permissive"
@@ -230,8 +199,6 @@ describe("permanent errors", () => {
   });
 
   it("does not count an unrelated TXT record as a second SPF record", async () => {
-    // Filtering on v=spf1 before counting. Without it, every domain that also
-    // publishes a verification token is reported as broken.
     const result = await evaluate({ domain: "token.spf.test" });
 
     expect(codes(result)).not.toContain(DiagnosisCode.SPF_MULTIPLE_RECORDS);
@@ -248,7 +215,6 @@ describe("permanent errors", () => {
   });
 
   it("treats an include of a domain with no SPF record as permerror", async () => {
-    // §5.2. Not "matched nothing, carry on" — the whole evaluation fails.
     const result = await evaluate({ domain: "unresolvable.spf.test" });
 
     expect(result.verdict).toBe("fail");
@@ -256,8 +222,6 @@ describe("permanent errors", () => {
   });
 
   it("names the chain when an include loops", async () => {
-    // The lookup limit would eventually stop this, but "too many lookups" is
-    // not a sentence anyone can act on and "your chain loops" is.
     const result = await evaluate({ domain: "loop.spf.test" });
 
     expect(result.verdict).toBe("fail");
@@ -278,9 +242,6 @@ describe("permanent errors", () => {
 
     expect(result.verdict).toBe("fail");
     expect(codes(result)).toContain(DiagnosisCode.SPF_RECORD_MISSING);
-    // norecord.spf.test has an address and no TXT, so the name exists and the
-    // shape of the absence is worth saying: this is a record published at the
-    // wrong name, not one that was never added.
     expect(codes(result)).toContain(DiagnosisCode.NODATA_NOT_NXDOMAIN);
   });
 });
@@ -326,9 +287,6 @@ describe("terms that never run", () => {
   });
 
   it("does not spend a lookup on them", async () => {
-    // A receiver stops at `all`. Expanding past it would charge the record for
-    // a lookup nobody makes, and could raise a temperror from a name that is
-    // never queried in practice.
     const result = await evaluate({ domain: "afterall.spf.test" });
 
     expect(result.lookups.map((lookup) => lookup.name)).toEqual([
@@ -359,9 +317,6 @@ describe("terms that never run", () => {
 
 describe("macros", () => {
   it("says a term could not be evaluated rather than guessing", async () => {
-    // exists:%{i}._spf... expands differently for every connection. Inventing a
-    // client address would produce a pass or a void that the real evaluation
-    // never sees.
     const result = await evaluate({ domain: "macro.spf.test" });
 
     expect(codes(result)).toContain(DiagnosisCode.SPF_MACRO_NOT_EVALUATED);
@@ -369,7 +324,6 @@ describe("macros", () => {
   });
 
   it("still charges the term its lookup", async () => {
-    // The receiver spends one whether or not we can expand the name.
     const result = await evaluate({ domain: "macro.spf.test" });
 
     expect(codes(result)).not.toContain(

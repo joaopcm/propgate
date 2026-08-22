@@ -1,12 +1,3 @@
-/**
- * The curl and CLI commands are quoted from QUICKSTART.md (`REGISTER_CURL` /
- * `REGISTER_CLI` in `apps/docs/src/app/(docs)/quickstart/_snippets.ts`) — real
- * commands run against the live API. QUICKSTART.md moves straight into the
- * check response and never prints the register response on its own, so the
- * response below is a shape read off `serialise` in
- * `apps/api/src/routes/domains.ts`, before the first check has run.
- */
-
 export const REGISTER_CURL = `curl -s -X POST https://api.propgate.dev/v1/domains \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H 'content-type: application/json' -d '{
@@ -62,13 +53,6 @@ export const REGISTER_NAME_TAKEN = `{
   "meta": null
 }`;
 
-/**
- * The SDK calls assume a client constructed once, as `/sdk` shows:
- * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
- * name and shape here is checked against `@propgate/sdk` itself by
- * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
- */
-
 export const REGISTER_SDK = `const { data, error, meta } = await propgate.domains.create({
   name: "yourdomain.dev",
   profile: "sending",
@@ -78,5 +62,4 @@ export const REGISTER_SDK = `const { data, error, meta } = await propgate.domain
   },
 });
 
-// False means this external id was already registered, and nothing was written.
 meta?.created;`;

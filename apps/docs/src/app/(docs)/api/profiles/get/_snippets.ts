@@ -1,11 +1,3 @@
-/**
- * Neither the request nor the response for this endpoint is captured in
- * QUICKSTART.md — it does not call `GET /v1/profiles/:key`. The curl is the
- * predictable counterpart of the register call there; the response is a
- * shape read off `serialise` in `apps/api/src/routes/profiles.ts`. The page
- * marks both with a `Callout`.
- */
-
 export const PROFILE_GET_CURL = `curl -s https://api.propgate.dev/v1/profiles/sending \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
@@ -52,12 +44,5 @@ export const PROFILE_GET_NOT_FOUND = `{
   },
   "meta": null
 }`;
-
-/**
- * The SDK calls assume a client constructed once, as `/sdk` shows:
- * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
- * name and shape here is checked against `@propgate/sdk` itself by
- * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
- */
 
 export const PROFILE_GET_SDK = `const { data, error } = await propgate.profiles.get("sending");`;

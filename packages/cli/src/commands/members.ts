@@ -3,15 +3,6 @@ import type { Command } from "../command";
 import { json, out, reportApiError } from "../output";
 import { table, when } from "../table";
 
-/**
- * `GET /v1/members`.
- *
- * One command, and there will not be more. Membership is granted by proving
- * control of a mailbox through signup, so there is nothing here to create or
- * delete — a `members add` would be a way to add someone who never proved
- * anything.
- */
-
 interface MemberRow {
   readonly createdAt: string;
   readonly email: string;

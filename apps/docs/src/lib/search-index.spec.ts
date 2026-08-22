@@ -5,28 +5,12 @@ import { describe, expect, it } from "vitest";
 import { flattenNavigation } from "./navigation";
 import { buildSearchIndex } from "./search-index";
 
-/**
- * The index against the site it claims to describe.
- *
- * The realistic failure here is not a crash. It is the extractor leaking an
- * `import` line or a JSX tag into `text`, which nobody sees: the build passes,
- * the menu opens, and the results are quietly worse than they should be. Every
- * assertion below is aimed at that shape of defect rather than at the happy
- * path.
- */
-
 const index = buildSearchIndex();
 
 const LEAKED_SYNTAX = /^import |<[A-Z]|```|\{/;
 const URL_SAFE_HASH = /^#[a-z0-9-]+$/;
 const PAGES_DIR = join(process.cwd(), "src/app/(docs)");
 
-/**
- * Records that came out of a `page.mdx`, which is the only place the extractor
- * runs. The registry-fed pages are exempt from the leak check below on purpose:
- * RFC 7208's own prose contains `%{p}`, and failing that is the test being
- * wrong rather than the index being broken.
- */
 function fromMdx(href: string): boolean {
   return existsSync(join(PAGES_DIR, href === "/" ? "" : href, "page.mdx"));
 }
@@ -99,7 +83,6 @@ describe("buildSearchIndex", () => {
       (entry) => entry.href === "/api/webhooks/rotate-secret"
     );
 
-    // The sidebar calls this one "Rotate secret", for width.
     expect(record?.title).toBe("Rotate a webhook secret");
   });
 

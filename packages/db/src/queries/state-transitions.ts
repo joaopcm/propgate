@@ -7,13 +7,6 @@ import type {
 } from "../schema/state-transitions";
 import { stateTransitions } from "../schema/state-transitions";
 
-/**
- * The audit trail behind every state change.
- *
- * Written before any webhook is sent, so a lost Redis costs an attempt and never
- * the record of what was owed.
- */
-
 export interface TransitionInput {
   readonly domainId: string;
   readonly evidence: TransitionEvidence;
@@ -46,13 +39,6 @@ export async function recordTransition(
   return row;
 }
 
-/**
- * A domain's transitions, newest first.
- *
- * Newest first, unlike `listDomains`, because nobody reconciles this — they read
- * it to answer "what happened", and the answer is almost always the most recent
- * thing.
- */
 export async function domainTransitions(
   db: Database,
   domainId: string,

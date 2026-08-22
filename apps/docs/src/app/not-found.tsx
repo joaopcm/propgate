@@ -1,15 +1,6 @@
 import Link from "next/link";
 import { notFoundMarkdown } from "@/lib/not-found-markdown";
 
-/**
- * Real HTTP 404 page.
- *
- * Cloudflare `not_found_handling: "404-page"` serves this file as 404.html
- * with status 404. The visible markdown is the same recovery body the Worker
- * returns for `Accept: text/markdown`, so an agent that landed on HTML still
- * gets sitemap / llms.txt / OpenAPI pointers it can follow.
- */
-
 export default function NotFound() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-16">

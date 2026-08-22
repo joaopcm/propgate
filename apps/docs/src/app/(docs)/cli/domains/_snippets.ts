@@ -1,11 +1,3 @@
-/**
- * Mirrors `apps/api/src/routes/domains.ts` and
- * `packages/cli/src/commands/domains.ts` exactly, so the cURL and the CLI tab
- * describe the same request. The response shapes are read off `DomainRow` and the
- * route's `serialise`, not a captured run — registering a real domain needs a
- * live tenant.
- */
-
 export const ADD_CURL = `curl -X POST https://api.propgate.dev/v1/domains \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H "content-type: application/json" \\
@@ -31,11 +23,6 @@ export const ADD_OUTPUT = `yourdomain.dev registered as 019fcf4f-....
 
 Nothing has been checked yet — the sweeper will pick it up.`;
 
-/**
- * `state` is one of the five values `domain_state` defines
- * (`packages/db/src/schema/domains.ts`): `pending`, `verifying`, `verified`,
- * `degraded`, `failed`. The CLI passes it straight through as a query string.
- */
 export const LIST_CURL = `curl "https://api.propgate.dev/v1/domains?state=failed" \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
@@ -47,10 +34,8 @@ failed      other.example                0/4           checked 2026-08-05 01:02`
 export const LIST_EMPTY_OUTPUT =
   "No domains yet. Add one with `propgate domains add <domain> --profile <key>`.";
 
-export const LIST_PAGED = `# one page, then continue where it left off
-propgate domains list --limit 200 --cursor 019fcf4f-...
+export const LIST_PAGED = `propgate domains list --limit 200 --cursor 019fcf4f-...
 
-# or walk to the end in one command
 propgate domains list --all --json`;
 
 export const GET_CLI =

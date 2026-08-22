@@ -8,17 +8,6 @@ import { profilesCommands } from "./profiles";
 import { confirmCommand, signupCommand } from "./signup";
 import { webhooksCommands } from "./webhooks";
 
-/**
- * Every command, in one list.
- *
- * This is the whole surface: twenty-three commands covering the API's
- * twenty-two endpoints, plus the local check. `GET /health` is not here on
- * purpose — it is a container healthcheck, not something a person runs.
- *
- * Help text, option tables and the coverage spec are all derived from this
- * array. Nothing about a command is written down twice.
- */
-
 export const COMMANDS: readonly Command[] = [
   checkCommand,
   signupCommand,
@@ -44,13 +33,6 @@ const FAMILIES = [
   ),
 ];
 
-/**
- * Which command was asked for.
- *
- * Two words before one, so `domains list` never resolves to a `domains` that
- * does not exist. A family name on its own is not an error — it is someone who
- * wants to see what is under it.
- */
 export function lookup(words: readonly string[]): Match {
   const [first, second] = words;
 
@@ -82,7 +64,6 @@ export function lookup(words: readonly string[]): Match {
     : { kind: "unknown", word: first };
 }
 
-/** How many leading positionals the match consumed. */
 export function pathLength(command: Command): number {
   return command.path.length;
 }
@@ -99,12 +80,6 @@ export function familyUsage(family: string): string {
   return `propgate ${family}\n\n${members.map((command) => `  ${signature(command)}`).join("\n")}\n\nRun \`propgate ${family} <command> --help\` for the options.\n`;
 }
 
-/**
- * The top-level help, generated rather than written.
- *
- * A hand-kept list is how the previous one came to omit half the surface: there
- * was nothing that failed when a command was added and the paragraph was not.
- */
 export function usage(): string {
   const local = COMMANDS.filter((command) => command.path.length === 1);
   const grouped = FAMILIES.map(

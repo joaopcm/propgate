@@ -12,27 +12,10 @@ import { rejectDefinition } from "../profiles/compile";
 import { error, success } from "../utils/response";
 import { firstIssue } from "../utils/validation";
 
-/**
- * `POST /v1/profiles` and `GET /v1/profiles/:key`.
- *
- * A profile is what a tenant expects of a domain's records. Editing one writes
- * a new version rather than changing the old, because domains pin the version
- * they were registered against — see `packages/db/src/schema/profiles.ts`.
- */
-
 const MAX_KEY_LENGTH = 64;
 const MAX_VALUE_LENGTH = 253;
 const MAX_SELECTOR_LENGTH = 63;
 const MAX_PUBLIC_KEY_LENGTH = 4096;
-/**
- * One TXT character-string, per RFC 1035 §3.3.14.
- *
- * A tripwire rather than a constraint. The evaluator reads a token split across
- * several character-strings and rejoined, because providers do that to long
- * values — so this is not the longest token that can *work*, it is well past the
- * longest anybody issues. A token that hits it is a key or a URL pasted into the
- * wrong field.
- */
 const MAX_TOKEN_LENGTH = 255;
 
 const requirementSchema = z.object({
@@ -43,13 +26,6 @@ const requirementSchema = z.object({
   include: z.string().min(1).max(MAX_VALUE_LENGTH).optional(),
   key: z.string().min(1).max(MAX_KEY_LENGTH),
   label: z.string().min(1).max(MAX_VALUE_LENGTH).optional(),
-  /**
-   * Which of this requirement's values the domain supplies instead.
-   *
-   * Whether a named field makes sense for the check kind, and whether it clashes
-   * with a literal, is `rejectDefinition`'s job — a zod enum can say the field
-   * exists but not that `include` means nothing to a DKIM check.
-   */
   requiredPerDomain: z.array(z.enum(PER_DOMAIN_FIELDS)).min(1).optional(),
   selector: z.string().min(1).max(MAX_SELECTOR_LENGTH).optional(),
   target: z.string().min(1).max(MAX_VALUE_LENGTH).optional(),
@@ -91,8 +67,6 @@ export function createProfilesRoute(options: { db: Database }) {
       requirements: parsed.data.requirements,
     };
 
-    // Zod covers the shape. This covers whether the evaluators could ever
-    // answer it, which a schema cannot express.
     const rejection = rejectDefinition(definition);
 
     if (rejection !== null) {

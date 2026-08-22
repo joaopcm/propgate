@@ -1,14 +1,5 @@
 import { env } from "@/env";
 
-/**
- * The client for `POST /v1/checks`.
- *
- * Types are declared here rather than imported from `@propgate/dns`: the web
- * app talks to the API over HTTP and should be constrained by the wire format,
- * not by the resolver's internals. If the two drift, that is a fact worth
- * finding out at the boundary.
- */
-
 export const CHECK_KINDS = [
   "delegation",
   "spf",
@@ -75,7 +66,6 @@ export type CheckResponse =
   | { readonly ok: true; readonly result: CheckResult }
   | { readonly ok: false; readonly message: string };
 
-/** What each check is asking, in the words someone would use out loud. */
 export const CHECK_LABELS: Readonly<Record<CheckKind, string>> = {
   caa: "Certificates",
   delegation: "Nameservers",
@@ -94,13 +84,6 @@ export const CHECK_QUESTIONS: Readonly<Record<CheckKind, string>> = {
   spf: "Which hosts may send as this domain",
 };
 
-/**
- * How bad each verdict is, for sorting.
- *
- * `indeterminate` sits above `warn` and below `fail`, matching the resolver:
- * "we could not tell" is more serious than a warning because the check did not
- * run, and less serious than a failure that was actually observed.
- */
 const VERDICT_RANK: Readonly<Record<Verdict, number>> = {
   fail: 3,
   indeterminate: 2,
@@ -112,17 +95,10 @@ export function rankOf(verdict: Verdict): number {
   return VERDICT_RANK[verdict];
 }
 
-/** Worst first, so the thing to fix is at the top and the rest is reference. */
 export function byUrgency(a: CheckOutcome, b: CheckOutcome): number {
   return rankOf(b.verdict) - rankOf(a.verdict);
 }
 
-/**
- * One line saying what happened, for the summary rail.
- *
- * Counting by severity rather than listing codes: someone who just typed a
- * domain wants to know whether to keep reading.
- */
 export function summarise(result: CheckResult): string {
   const errors = result.findings.filter((f) => f.severity === "error").length;
   const warnings = result.findings.filter(
@@ -146,7 +122,6 @@ export function summarise(result: CheckResult): string {
   return "nothing to fix";
 }
 
-/** DNS record types, for the trail. Only the ones the evaluators ask for. */
 const RECORD_TYPES: Readonly<Record<number, string>> = {
   1: "A",
   2: "NS",
@@ -158,7 +133,6 @@ const RECORD_TYPES: Readonly<Record<number, string>> = {
   257: "CAA",
 };
 
-/** Where a finding's own page lives. The slug exists for exactly this. */
 export function docsUrlFor(slug: string): string {
   return `${env.NEXT_PUBLIC_DOCS_URL}/taxonomy/${slug}`;
 }
@@ -186,8 +160,6 @@ export async function runCheck(
       ...(signal === undefined ? {} : { signal }),
     });
   } catch {
-    // A network failure is not a verdict about the domain, and must never be
-    // rendered as one.
     return { message: "Could not reach the checker.", ok: false };
   }
 
@@ -198,9 +170,6 @@ export async function runCheck(
   }
 
   if (!response.ok || envelope.data === null) {
-    // The API sends a message with every error. A response carrying neither is
-    // a bug on our side, not something the caller did, so it gets the neutral
-    // sentence rather than a blank one.
     return envelope.error === null
       ? { message: "The check could not be run.", ok: false }
       : { message: envelope.error.message, ok: false };

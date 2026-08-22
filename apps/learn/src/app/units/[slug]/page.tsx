@@ -45,12 +45,7 @@ export default async function UnitPage({
 
   return (
     <CourseFrame currentSlug={slug}>
-      {/*
-        The gate wraps the content rather than replacing the page, so a reader
-        who takes the escape hatch sees the unit appear in place instead of
-        being bounced through a navigation. See `Gate` on why this is a
-        courtesy rather than a lock.
-      */}
+      {}
       <Gate slug={slug}>
         <article className="rise-in">
           <UnitHeader index={index} unit={unit} />

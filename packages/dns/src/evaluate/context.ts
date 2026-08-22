@@ -5,56 +5,17 @@ import type { QueryOutcome } from "../transport/types";
 import type { ServerAddress } from "../types";
 import type { Evidence, Finding, Lookup } from "./types";
 
-/**
- * Shared state for one evaluation.
- *
- * Evaluators do not call `query()` directly. They go through a context so that
- * three things are possible, none of which a bare function call can provide:
- *
- *  - **A shared lookup budget.** SPF's limit is 10 lookups *per evaluation*,
- *    not per record, and it has to survive recursive `include:` expansion. That
- *    counter has to live somewhere above the evaluator.
- *  - **A shared deadline.** A check that takes 30 seconds because each of six
- *    lookups waited 5 is a check nobody will run interactively.
- *  - **The derivation.** Every lookup is recorded with the reason it happened,
- *    which is what turns a verdict into an explanation.
- *
- * DKIM needs only the last of these today. The seam exists now because
- * retrofitting a budget through an evaluator written against `query()` means
- * rewriting it, and SPF is two evaluators away.
- */
-
 export interface EvaluationContextOptions {
-  /**
-   * Whole-evaluation deadline. Once passed, further lookups short-circuit to a
-   * timeout outcome rather than starting.
-   */
   readonly budgetMs?: number;
-  /** Request DNSSEC records, so RRSIG-based signals are available. */
   readonly dnssecOk?: boolean;
-  /**
-   * Total DNS lookups allowed across the evaluation.
-   *
-   * Not the SPF limit — that is a stricter sub-budget SPF will enforce itself.
-   * This is a backstop so a pathological zone (a deep CNAME chain, a wide
-   * `include:` tree) cannot make one check run forever.
-   */
   readonly maxLookups?: number;
-  /** Talking to a recursive resolver rather than an authoritative server. */
   readonly recursionDesired?: boolean;
-  /** Where to send queries. Phase 2 fans this out across vantage points. */
   readonly target: ServerAddress;
-  /** Per-query deadline. */
   readonly timeoutMs?: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 3000;
 const DEFAULT_BUDGET_MS = 15_000;
-/**
- * Generous on purpose. This is a tripwire, not a design constraint: a good
- * domain never comes close, and if a real one does, the number is wrong and
- * should be re-measured rather than worked around.
- */
 const DEFAULT_MAX_LOOKUPS = 50;
 
 export class EvaluationContext {
@@ -89,12 +50,6 @@ export class EvaluationContext {
     return Math.max(0, budget - (Date.now() - this.startedAt));
   }
 
-  /**
-   * Record a finding. Severity comes from the registry rather than the call
-   * site, so the same code cannot be an error in one evaluator and a warning in
-   * another — consumers switch on these, and inconsistency would make that
-   * switch a lie.
-   */
   report(code: DiagnosisCode, evidence: Evidence = {}): void {
     this.recordedFindings.push({
       code,
@@ -103,37 +58,14 @@ export class EvaluationContext {
     });
   }
 
-  /**
-   * Run a lookup, recording it and its purpose.
-   *
-   * Exhausting the budget or the deadline yields a timeout outcome rather than
-   * a throw, because from the caller's perspective "we ran out of time" and
-   * "the server did not answer" are the same kind of fact: we could not tell.
-   * Both must land as `indeterminate`, never as a failure.
-   */
   async lookup(spec: {
     name: string;
     type: number;
     purpose: string;
-    /** Omit OPT entirely, to observe truncation rather than resolve past it. */
     retryOverTcp?: boolean;
     ednsBufferSize?: number;
-    /**
-     * Ask this server instead of the configured one.
-     *
-     * Delegation checks have to address each nameserver individually — whether
-     * one of them is lame is not something any other server can answer.
-     */
     target?: ServerAddress;
-    /** Override recursion for this lookup, for talking straight to authority. */
     recursionDesired?: boolean;
-    /**
-     * Ask the resolver to skip DNSSEC validation for this query.
-     *
-     * The only way to tell a bogus zone from an unreachable one with a single
-     * resolver: if a SERVFAIL becomes an answer when validation is off, the
-     * signatures are what failed.
-     */
     checkingDisabled?: boolean;
   }): Promise<QueryOutcome> {
     const timeoutMs = Math.min(
@@ -146,7 +78,6 @@ export class EvaluationContext {
     if (this.remainingLookups <= 0 || timeoutMs <= 0) {
       const exhausted: QueryOutcome = {
         elapsedMs: 0,
-        // No exchange happened at all, let alone a fallback.
         retriedOverTcp: false,
         status: "timeout",
         timeoutMs: 0,

@@ -6,17 +6,6 @@ import {
   NOT_LOCALLY_REPRODUCIBLE,
 } from "./codes";
 
-/**
- * The guard that makes a ~50-code taxonomy survivable.
- *
- * A diagnosis code with no fixture is a claim we cannot support. This spec makes
- * adding one a deliberate act: either write the fixture, or write down why it
- * cannot exist locally. "We forgot" and "this is genuinely not reproducible" can
- * then never be mistaken for one another.
- *
- * Static assertions only — no containers needed, so this runs everywhere.
- */
-
 describe("diagnosis coverage", () => {
   it("every code is either fixture-backed or has a written reason", () => {
     const covered = coveredDiagnosisCodes();
@@ -72,8 +61,6 @@ describe("diagnosis registry", () => {
 
   it("writes summaries for end users, not for us", () => {
     for (const definition of Object.values(DIAGNOSIS_REGISTRY)) {
-      // A summary is what a customer's customer reads in a support reply, so it
-      // has to be a real sentence rather than a restated code name.
       expect(
         definition.summary.length,
         `${definition.code} summary is too terse`

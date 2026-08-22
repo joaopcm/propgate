@@ -19,8 +19,6 @@ function messageFor(body: unknown): string {
 
 describe("firstIssue", () => {
   it("names the field, which is the part Zod leaves out", () => {
-    // "Invalid input: expected string, received undefined" is true of a great
-    // many bodies and tells an integrator nothing about which one they sent.
     expect(messageFor({})).toBe(
       "domain: Invalid input: expected string, received undefined"
     );
@@ -33,17 +31,12 @@ describe("firstIssue", () => {
   });
 
   it("adds no prefix when the fault is the whole body", () => {
-    // There is no field to name: the issue path is empty. Zod's own message
-    // contains a colon of its own, so the assertion is about the absence of a
-    // path prefix rather than the absence of punctuation.
     expect(messageFor("not an object at all")).toBe(
       "Invalid input: expected object, received string"
     );
   });
 
   it("reports one issue, not a list", () => {
-    // A caller fixes one thing and asks again. Eight complaints about a body
-    // they got fundamentally wrong is noise rather than help.
     const message = messageFor({ requirements: [{}] });
 
     expect(message.split("\n")).toHaveLength(1);

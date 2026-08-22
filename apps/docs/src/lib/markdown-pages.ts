@@ -11,15 +11,6 @@ import {
   webhooksMarkdown,
 } from "./tsx-markdown";
 
-/**
- * Every HTML page this site can serve as markdown.
- *
- * Navigation pages plus the taxonomy slug pages (those are not in the sidebar)
- * plus the trust/developer pages that live outside the API reading order.
- * `navigation.spec.ts` already asserts every sidebar href resolves on disk, so
- * this list cannot invent a path the site does not have.
- */
-
 const APP = join(process.cwd(), "src/app/(docs)");
 
 const TSX_MARKDOWN: Record<string, () => string> = {

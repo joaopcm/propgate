@@ -6,16 +6,6 @@ import { describe, expect, it } from "vitest";
 import { FIXTURE_EXPECTATIONS } from "./expectations";
 import { readCommittedRevision } from "./ready";
 
-/**
- * Integrity of the fixtures themselves. Static file assertions — no containers,
- * so these run everywhere and are the first thing to look at when the harness
- * misbehaves.
- *
- * These exist because a silently-broken fixture is worse than a missing one: the
- * suite goes green while testing nothing. Each check below corresponds to a way
- * that has actually happened or nearly happened.
- */
-
 const PACKAGE_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const ZONES = join(PACKAGE_ROOT, "zones");
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
@@ -41,20 +31,6 @@ function read(...parts: string[]): string {
 const TEST_SUFFIX = /\.test$/;
 const WHITESPACE = /\s+/;
 
-/**
- * Whether `zoneText` delegates the child sitting at `ownerLabel`.
- *
- * Line-based rather than a built regex: the owner name comes from a filename, so
- * a regex would need escaping, and "first field on the line, then IN NS" is what
- * we actually mean.
- *
- * Both spellings of the owner are accepted, because the parent's file is written
- * by hand or by `dnssec-signzone` depending on whether it is signed. A source
- * zone carries the relative label (`island`); the signed output rewrites it fully
- * qualified (`island.secure.test.`). Matching only the label made this guard
- * blind to any delegation from a signed parent — which stayed invisible until
- * island.secure.test became the first one.
- */
 function hasDelegation(
   zoneText: string,
   ownerLabel: string,
@@ -72,7 +48,6 @@ function hasDelegation(
   });
 }
 
-/** Every zone dns-auth serves, mapped to the text of its file. */
 function servedZones(): Map<string, string> {
   const served = new Map<string, string>();
 
@@ -85,7 +60,6 @@ function servedZones(): Map<string, string> {
   return served;
 }
 
-/** RRSIG rdata is: type alg labels origTTL expiration inception keytag signer. */
 function rrsigExpirations(zoneText: string): number[] {
   const matches = zoneText.matchAll(/^\s+(\d{14}) (\d{14}) \d+ /gm);
   const stamps: number[] = [];
@@ -104,10 +78,6 @@ describe("fixture delegation graph", () => {
     const testZone = read("src", "test.zone");
     const served = servedZones();
 
-    // Usually the parent is test.zone. A zone cut one level deeper —
-    // inner.caa-child.test — is delegated from its own parent's file instead,
-    // with an owner name relative to that parent. Demanding a delegation in
-    // test.zone for those would demand a record that would be wrong to write.
     const undelegated = [...served.keys()].filter((zone) => {
       const [label, ...rest] = zone.split(".");
       const parent = served.get(rest.join("."));
@@ -121,11 +91,6 @@ describe("fixture delegation graph", () => {
   });
 
   it("carries every delegation into the signed copy the root actually serves", () => {
-    // dns-root serves signed/root/test.zone.signed, not zones/src/test.zone.
-    // Adding a delegation to the source and not re-signing leaves the new zone
-    // reachable by querying dns-auth directly and invisible to the recursive
-    // tier — which looks like a resolver bug and is not one. This bit once,
-    // silently, and only showed up when a fixture needed the resolver.
     const source = read("src", "test.zone");
     const signed = read("signed", "root", "test.zone.signed");
 
@@ -153,9 +118,6 @@ describe("fixture delegation graph", () => {
   });
 
   it("keeps the PSL zones out of the fake root on purpose", () => {
-    // example.co.uk and user.github.io are reachable only by querying dns-auth
-    // directly. The fake root has no uk. or com., and inventing one would model
-    // the wrong thing — see the header comment in zones/psl/example.co.uk.zone.
     const testZone = read("src", "test.zone");
 
     for (const file of zoneFilesIn("psl")) {
@@ -170,8 +132,6 @@ describe("fixture delegation graph", () => {
       expect(testZone).toContain(`${zoneNameOf(file)}.\t`);
     }
 
-    // The whole point of insecure-island.test is the absent DS. If a DS ever
-    // appears here, the zone stops testing anything.
     const dsOwners = testZone
       .split("\n")
       .filter((line) => line.includes("IN DS"))
@@ -234,9 +194,6 @@ describe("fixture expectations table", () => {
     const testZone = read("src", "test.zone");
 
     const dangling = FIXTURE_EXPECTATIONS.filter((row) => {
-      // A `listener` fixture is an in-process server, not a zone — there is
-      // deliberately no file to find. Exempting the role rather than the name
-      // keeps this check strict for everything that *is* served from a zone.
       if (row.role === "listener") {
         return false;
       }
@@ -244,8 +201,6 @@ describe("fixture expectations table", () => {
       if (zoneNames.has(row.zone)) {
         return false;
       }
-      // lame.test has no zone file anywhere by design — it exists purely as a
-      // delegation pointing at a server that is not authoritative for it.
       return !hasDelegation(testZone, row.zone.replace(TEST_SUFFIX, ""));
     }).map((row) => row.zone);
 

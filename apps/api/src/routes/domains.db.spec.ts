@@ -3,19 +3,10 @@ import { createApiKey, createDb, tenants, truncateAll } from "@propgate/db";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app";
 
-/**
- * The routes, without DNS.
- *
- * Registration, tenancy, and the shape of every answer. The half that needs a
- * resolver — what a check does to a domain's state and its timeline — is in
- * `domains.fixture.spec.ts`, against the real tier.
- */
-
 const db: Database = createDb(process.env.DATABASE_URL ?? "", {
   maxConnections: 4,
 });
 
-// Nothing here reaches a lookup; the address is never asked anything.
 const app = createApp({ db, resolver: { address: "127.0.0.1", port: 53 } });
 
 const SENDING = {
@@ -79,10 +70,6 @@ async function register(
 }
 
 describe("authentication covers the collection endpoints too", () => {
-  // Hono's `/v1/domains/*` does match the bare `/v1/domains`, so these are
-  // covered by the same middleware the child routes use. Pinned anyway: it is a
-  // routing detail, and if it ever changes the failure is two unauthenticated
-  // write endpoints with every other spec still green.
   it.each([
     ["POST", "/v1/domains"],
     ["POST", "/v1/profiles"],
@@ -150,8 +137,6 @@ describe("GET /v1/profiles/:key", () => {
 
 describe("POST /v1/domains", () => {
   it("registers without touching DNS at all", async () => {
-    // Registration is a write. Importing tens of thousands of domains must not
-    // fire tens of thousands of DNS runs as a side effect of a bulk insert.
     const key = await tenantKey("partner");
     await withProfile(key);
 
@@ -170,7 +155,6 @@ describe("POST /v1/domains", () => {
     const first = await withProfile(key);
     const registered = await (await register(key, { name: "a.test" })).json();
 
-    // Editing the profile afterwards must not move the domain.
     await withProfile(key);
     const reread = await (
       await request(key, `/v1/domains/${registered.data.id}`)
@@ -181,8 +165,6 @@ describe("POST /v1/domains", () => {
   });
 
   it("returns the existing domain when an external id is re-sent", async () => {
-    // A partner's retry, not a second customer. Returning the row removes the
-    // mapping table on their side.
     const key = await tenantKey("partner");
     await withProfile(key);
 
@@ -201,8 +183,6 @@ describe("POST /v1/domains", () => {
   });
 
   it("refuses a name already registered under a different external id", async () => {
-    // Two records of one domain is not an idempotent retry, and quietly
-    // returning one of them hides it.
     const key = await tenantKey("partner");
     await withProfile(key);
 
@@ -214,8 +194,6 @@ describe("POST /v1/domains", () => {
   });
 
   it("lets two tenants register the same domain", async () => {
-    // Two platforms can legitimately both be verifying one customer's domain,
-    // and neither should be able to detect the other.
     const first = await tenantKey("first");
     const second = await tenantKey("second");
     await withProfile(first);
@@ -258,8 +236,6 @@ describe("POST /v1/domains", () => {
 
 describe("tenancy, per route", () => {
   it("hides another tenant's domain from every one of them", async () => {
-    // Asserted per route rather than once. A scoping bug is a per-query
-    // mistake, and one route forgetting is all it takes.
     const owner = await tenantKey("owner");
     const other = await tenantKey("other");
     await withProfile(owner);
@@ -338,8 +314,6 @@ describe("GET /v1/domains/:id/timeline", () => {
 describe("GET /v1/domains", () => {
   async function registerMany(key: string, count: number): Promise<void> {
     for (let index = 0; index < count; index += 1) {
-      // Sequential on purpose: uuidv7 orders by insertion time, and the walk
-      // below asserts that order.
       // biome-ignore lint/performance/noAwaitInLoops: ordering is the assertion
       await register(key, {
         externalId: `cust_${index}`,
@@ -364,8 +338,6 @@ describe("GET /v1/domains", () => {
   });
 
   it("pages with a cursor, and finishes", async () => {
-    // Keyset rather than offset: page N must not cost N pages of scanning when
-    // a partner reconciles tens of thousands of domains.
     const key = await tenantKey("partner");
     await withProfile(key);
     await registerMany(key, 5);
@@ -394,7 +366,6 @@ describe("GET /v1/domains", () => {
   });
 
   it("finds a domain by the partner's own identifier", async () => {
-    // Without this a partner who loses our ids cannot find anything again.
     const key = await tenantKey("partner");
     await withProfile(key);
     await registerMany(key, 3);
@@ -445,8 +416,6 @@ describe("GET /v1/domains", () => {
   });
 
   it("leaves lookups out of the list", async () => {
-    // 389 bytes a domain without them, 1,728 with. The list is the one path
-    // where that multiplies.
     const key = await tenantKey("partner");
     await withProfile(key);
     await registerMany(key, 1);
@@ -457,7 +426,6 @@ describe("GET /v1/domains", () => {
   });
 });
 
-/** A profile whose DKIM key is issued per domain — the case the split is for. */
 const PER_DOMAIN = {
   key: "per-domain",
   requirements: [
@@ -503,9 +471,6 @@ describe("registering against a profile that requires values per domain", () => 
   });
 
   it("refuses one that supplies nothing, naming the path to set", async () => {
-    // Discovered here rather than at the first sweep. A domain whose profile
-    // requires a key it never received can only ever report `indeterminate`, and
-    // finding that out from a dashboard days later is strictly worse.
     const key = await tenantKey("partner");
     await withPerDomainProfile(key);
 
@@ -610,15 +575,6 @@ describe("PATCH /v1/domains/:id", () => {
   });
 
   it("re-points to another profile, which may be a different key entirely", async () => {
-    /**
-     * "Customer upgraded from sending-only to full-mail" is the same operation as
-     * a rotation: judge this domain against something else now.
-     *
-     * `sending` asks for nothing per domain, so the `dkim` value this domain
-     * carries is meaningless to it. That is accepted rather than refused — the
-     * key is stale rather than mistyped, and pruning it would make re-pointing
-     * back mean re-sending a value we already have.
-     */
     const key = await tenantKey("partner");
     const id = await domain(key);
     await withProfile(key);
@@ -636,8 +592,6 @@ describe("PATCH /v1/domains/:id", () => {
   });
 
   it("still refuses a submitted key the new profile does not use", async () => {
-    // The leniency above is for values already in storage, not for what the
-    // caller just typed. A mistyped key here is a domain compared against nothing.
     const key = await tenantKey("partner");
     const id = await domain(key);
     await withProfile(key);
@@ -654,13 +608,6 @@ describe("PATCH /v1/domains/:id", () => {
   });
 
   it("refuses a re-point the stored values cannot satisfy, unchanged", async () => {
-    /**
-     * Validated against the effective pair, not the submitted one.
-     *
-     * Writing this and letting the next sweep discover the gap would turn a
-     * fixable 422 into a domain stuck at `indeterminate` — and at `pending`, so it
-     * would look like it was merely still being verified.
-     */
     const key = await tenantKey("partner");
     await request(key, "/v1/profiles", {
       body: {
@@ -692,8 +639,6 @@ describe("PATCH /v1/domains/:id", () => {
   });
 
   it("refuses the same bodies the register route refuses", async () => {
-    // What keeps the shared validator shared. Two spellings of the same rule is
-    // how one of them drifts.
     const key = await tenantKey("partner");
     const id = await domain(key);
     const body = { expectations: { dkm: { expectedPublicKey: "x" } } };
@@ -710,8 +655,6 @@ describe("PATCH /v1/domains/:id", () => {
   });
 
   it("refuses a request that changes nothing", async () => {
-    // It would still reset the domain and re-verify it: a no-op with a side
-    // effect.
     const key = await tenantKey("partner");
     const id = await domain(key);
 

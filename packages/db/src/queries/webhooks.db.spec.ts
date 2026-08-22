@@ -21,14 +21,6 @@ import {
   rotateSecret,
 } from "./webhooks";
 
-/**
- * The ledger, against a real Postgres.
- *
- * Two properties here are the reason this table exists rather than a Redis job
- * being the only record: a delivery survives the queue being flushed, and it
- * survives the domain being deleted. Neither is checkable without a database.
- */
-
 const db: Database = createDb(process.env.DATABASE_URL ?? "", {
   maxConnections: 4,
 });
@@ -106,7 +98,6 @@ describe("createEndpoint", () => {
   });
 
   it("does not rotate the secret when a retry finds an existing endpoint", async () => {
-    // A retry is not a request to invalidate what the customer already stored.
     const tenantId = await tenant();
     const created = await createEndpoint(db, {
       events: [],
@@ -154,8 +145,6 @@ describe("activeSecrets", () => {
   });
 
   it("returns both during the window, newest first", async () => {
-    // Both are signed with, so a customer who has redeployed and one who has not
-    // are each still verifying successfully.
     const tenantId = await tenant();
     const endpointId = await endpoint(tenantId);
 
@@ -173,9 +162,6 @@ describe("activeSecrets", () => {
   });
 
   it("drops the old secret the moment the window lapses", async () => {
-    // Compared at read time rather than swept by a job: a rotation window that
-    // outlives its expiry because a cron did not run is the kind of thing nobody
-    // notices until an audit.
     const tenantId = await tenant();
     const endpointId = await endpoint(tenantId);
 
@@ -192,8 +178,6 @@ describe("activeSecrets", () => {
   });
 
   it("is empty for an endpoint belonging to another tenant", async () => {
-    // Every query here is tenant-scoped. Signing with a secret fetched across a
-    // tenant boundary would be the worst bug in this file.
     const owner = await tenant("one");
     const other = await tenant("two");
     const endpointId = await endpoint(owner);
@@ -229,8 +213,6 @@ describe("endpointsForEvent", () => {
   });
 
   it("excludes a disabled endpoint, so turning one off stops the obligation", async () => {
-    // Filtered here rather than at delivery time on purpose: a disabled endpoint
-    // should accrue no rows at all, not a backlog waiting to be re-enabled.
     const tenantId = await tenant();
     const endpointId = await endpoint(tenantId);
 
@@ -265,9 +247,6 @@ describe("the delivery ledger", () => {
   });
 
   it("freezes the payload rather than describing the domain later", async () => {
-    // A retry three minutes on must describe the state that fired the event, not
-    // the state the domain has drifted to since — and the signature covers these
-    // exact bytes, so they cannot change between attempts.
     const tenantId = await tenant();
     const endpointId = await endpoint(tenantId);
     const domainId = await domain(tenantId);
@@ -294,9 +273,6 @@ describe("the delivery ledger", () => {
   });
 
   it("survives the domain being deleted", async () => {
-    // "Why did I never get the failure notification for the domain I then
-    // deleted" is exactly the question this table answers, so the reference is
-    // set null rather than cascaded.
     const tenantId = await tenant();
     const endpointId = await endpoint(tenantId);
     const domainId = await domain(tenantId);
@@ -337,8 +313,6 @@ describe("the delivery ledger", () => {
     const [row] = (await listDeliveries(db, tenantId, { limit: 10 }))
       .deliveries;
 
-    // Still pending: the reconciler may pick it up, and the customer has not been
-    // told anything final.
     expect(row?.status).toBe("pending");
     expect(row?.attempts).toBe(1);
     expect(row?.lastError).toContain("503");
@@ -393,8 +367,6 @@ describe("the delivery ledger", () => {
 
     expect(row?.status).toBe("delivered");
     expect(row?.attempts).toBe(2);
-    // A stale error on a delivered row would send someone hunting a problem that
-    // resolved itself.
     expect(row?.lastError).toBeNull();
   });
 });
@@ -404,9 +376,6 @@ describe("listDeliveries", () => {
     const tenantId = await tenant();
     const endpointId = await endpoint(tenantId);
 
-    // Sequential rather than a loop or Promise.all: the ids are uuidv7 and the
-    // assertion below is about their order, which concurrent inserts would not
-    // guarantee.
     const record = (event: string) =>
       recordDelivery(db, {
         domainId: null,
@@ -460,8 +429,6 @@ describe("listDeliveries", () => {
 
 describe("pendingDeliveries", () => {
   it("returns what is still owed, oldest first", async () => {
-    // Oldest first so a backlog drains in the order it accrued rather than
-    // starving the earliest events.
     const tenantId = await tenant();
     const endpointId = await endpoint(tenantId);
     const first = await recordDelivery(db, {

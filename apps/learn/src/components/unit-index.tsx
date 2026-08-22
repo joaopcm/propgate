@@ -13,15 +13,6 @@ const MARK: Record<UnitStatus, string> = {
   skipped: "skipped",
 };
 
-/**
- * The nine units on the cover, with their blurbs.
- *
- * Every unit is a link here, including the locked ones, and that is on purpose:
- * a reader deciding whether the course is worth their evening needs to see what
- * is in it. The gate is on the unit page, where it can offer the escape hatch.
- * A cover that hid seven of nine titles behind a lock would be selling rather
- * than describing.
- */
 export function UnitIndex() {
   const { progress } = useProgressContext();
 

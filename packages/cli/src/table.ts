@@ -1,19 +1,5 @@
-/**
- * Columns that line up, without a table library.
- *
- * Every list command was doing its own `padEnd` against a width someone guessed,
- * which is fine until a domain name is longer than the guess and the column after
- * it walks off. Measuring the rows first costs one pass and removes the guess.
- */
-
 const GAP = "  ";
 
-/**
- * Pad every column to its widest cell.
- *
- * The last column is never padded — trailing spaces are invisible until someone
- * pipes the output somewhere that shows them.
- */
 export function table(rows: readonly (readonly string[])[]): string[] {
   if (rows.length === 0) {
     return [];
@@ -36,7 +22,6 @@ export function table(rows: readonly (readonly string[])[]): string[] {
   );
 }
 
-/** An ISO timestamp as something a person reads, or `never`. */
 export function when(value: string | null | undefined): string {
   return value === null || value === undefined
     ? "never"

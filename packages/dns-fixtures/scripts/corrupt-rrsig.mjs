@@ -1,33 +1,4 @@
 #!/usr/bin/env node
-/**
- * Deterministically corrupt the RRSIGs covering a type in a signed zone file.
- *
- *   node corrupt-rrsig.mjs <zonefile> <covered-type>
- *
- * Rotates four base64 characters inside every matching signature. Length and
- * character set are preserved, so:
- *
- *   - NSD still parses and loads the zone (an authoritative server has no
- *     opinion about whether signatures verify), and
- *   - a validating resolver reports the zone bogus.
- *
- * Corrupting the DNSKEY RRSIGs makes the whole zone bogus, which models a
- * botched key rollover — a more common real-world failure than one bad RRset.
- *
- * Two details that are easy to get wrong, and did bite here:
- *
- *  1. **Every** matching RRSIG must be corrupted. BIND signs the DNSKEY RRset
- *     with the ZSK *and* the KSK, and the DS in the parent points at the KSK.
- *     Corrupting only the first leaves a valid path through the other key and
- *     the zone verifies fine, which is a fixture that silently tests nothing.
- *  2. The header pattern requires a digit after the covered type (the algorithm
- *     number). Without that, an NSEC type bitmap such as
- *     `NSEC next. A NS SOA TXT RRSIG NSEC DNSKEY` can match and the script
- *     mutates a bitmap instead of a signature.
- *
- * Deterministic on purpose: the same input always yields the same output, so
- * re-running `pnpm dns:sign` produces no spurious diff.
- */
 import { readFileSync, writeFileSync } from "node:fs";
 
 const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -41,7 +12,6 @@ function rotate(char) {
     return char;
   }
 
-  // +7 is arbitrary but fixed. Any non-zero shift breaks the signature.
   return B64[(index + 7) % B64.length];
 }
 
@@ -69,9 +39,6 @@ for (let i = 0; i < lines.length; i += 1) {
     continue;
   }
 
-  // dnssec-signzone wraps RRSIG rdata in parentheses across several lines. Walk
-  // the continuation lines and mutate the first base64 run; the header line's
-  // own long tokens are the signer name and the inception/expiration stamps.
   for (let j = i + 1; j < lines.length; j += 1) {
     const line = lines[j] ?? "";
     const match = line.match(

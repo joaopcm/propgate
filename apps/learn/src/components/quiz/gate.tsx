@@ -6,24 +6,6 @@ import { useProgressContext } from "@/components/progress-provider";
 import { CURRICULUM, unitBySlug, unitIndex } from "@/lib/curriculum";
 import { recordUnit, statusFor } from "@/lib/progress";
 
-/**
- * The locked screen, and the way out of it.
- *
- * Two things about this are deliberate and both are worth stating plainly.
- *
- * **The gate is a courtesy, not a lock.** This is a static export: the unit's
- * prose is in the HTML the browser already has, and anybody who wants it can
- * read it with the network tab open. Pretending otherwise would mean moving the
- * content behind a server and an account, which is a large price for stopping
- * somebody from reading a free course in the wrong order.
- *
- * **The skip is a real, recorded choice.** Principle 6 in `docs/DESIGN.md` says
- * escape hatches always, and a reader who already knows how SPF's lookup limit
- * is counted should not have to prove it. Taking the hatch stores `skipped`
- * rather than `passed`, and the rail shows that difference for good. Storing it
- * as a pass would be a tick asserting something nobody checked, which is the
- * shape of lie this entire codebase is organised against.
- */
 export function Gate({
   children,
   slug,
@@ -41,9 +23,6 @@ export function Gate({
     update(recordUnit(progress, slug, "skipped", 0, new Date().toISOString()));
   }, [progress, slug, update]);
 
-  // One quiet frame while the browser is asked. See `useProgress`: painting
-  // "locked" to somebody who finished this last week is worse than painting
-  // nothing for 16ms.
   if (progress === null) {
     return null;
   }

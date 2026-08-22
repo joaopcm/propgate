@@ -7,49 +7,21 @@ import { tenants } from "../schema/tenants";
 
 export interface Authenticated {
   readonly apiKeyId: string;
-  /**
-   * The tenant's override, or null for the default.
-   *
-   * Carried out of authentication rather than fetched by the limiter, because
-   * the limiter runs on every authenticated request and a second query there
-   * would double the fixed cost of the cheapest route in the API to read a
-   * column that is null for almost every tenant.
-   */
   readonly requestQuotaPerSecond: number | null;
   readonly tenantId: string;
 }
 
-/**
- * Why a key did not authenticate.
- *
- * `revoked` is told apart from `unknown` on purpose. Whoever presented the key
- * already holds it, so naming its state leaks nothing they do not have, and
- * "your key was revoked" is a thing an integrator can act on where "invalid"
- * sends them hunting for a typo.
- */
 export type AuthFailure = "revoked" | "unknown";
 
 export type AuthOutcome =
   | { readonly authenticated: Authenticated; readonly ok: true }
   | { readonly ok: false; readonly reason: AuthFailure };
 
-/**
- * How stale `last_used_at` is allowed to get.
- *
- * Touching it on every request is a write per request for a column nobody reads
- * at second resolution — at a partner's import rate that is thousands of
- * pointless row versions a minute, and vacuum's problem afterwards. A minute of
- * staleness answers every question the column exists to answer.
- */
 const LAST_USED_RESOLUTION_MS = 60_000;
 
 export async function createApiKey(
   db: Database,
   input: {
-    /**
-     * Who is making it, when that is knowable. Omitted by the operator CLI, where
-     * there is no member in the transaction at all.
-     */
     readonly createdByMemberId?: string | undefined;
     readonly name: string;
     readonly tenantId: string;
@@ -88,14 +60,6 @@ export async function revokeApiKey(
     .where(eq(apiKeys.id, apiKeyId));
 }
 
-/**
- * Resolve a presented key to a tenant.
- *
- * The lookup is by hash against a unique index — 0.288 ms measured on this
- * schema, which is what makes authenticating on every request rather than
- * caching the obvious choice. Nothing here compares strings in JavaScript: the
- * index does the matching, on a value that is already a hash.
- */
 export async function authenticateApiKey(
   db: Database,
   presented: string,
@@ -103,9 +67,6 @@ export async function authenticateApiKey(
 ): Promise<AuthOutcome> {
   const hashed = hashApiKey(presented);
 
-  // Joined rather than looked up separately: the tenant is on the other end of a
-  // non-null foreign key, so this cannot lose a row, and it means the rate
-  // limiter downstream never has to ask the database anything.
   const [row] = await db
     .select({
       id: apiKeys.id,
@@ -139,10 +100,6 @@ export async function authenticateApiKey(
   };
 }
 
-/**
- * Conditional in SQL rather than in JavaScript so two concurrent requests
- * cannot both decide the column is stale and both write.
- */
 async function touchLastUsed(
   db: Database,
   apiKeyId: string,

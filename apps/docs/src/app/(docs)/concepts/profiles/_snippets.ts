@@ -1,10 +1,3 @@
-/**
- * Shapes read off `apps/api/src/routes/profiles.ts` (`serialise`) and
- * `apps/api/src/profiles/compile.ts` (`rejectDefinition`), not captured runs —
- * the page marks that with a `Callout` where they appear. The rejection
- * message is copied verbatim from `rejectDefinition`.
- */
-
 export const PROFILE_CREATE_CURL = `curl -s -X POST https://api.propgate.dev/v1/profiles \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H 'content-type: application/json' -d '{

@@ -1,48 +1,7 @@
-/**
- * What the course is, in order.
- *
- * One array, and it is the only place the answer lives. The spine renders it,
- * the routes are generated from it, the exam samples it, and
- * `curriculum.spec.ts` walks it against the filesystem — so a unit listed here
- * without content on disk is a failing test rather than a blank page, and a
- * directory nobody listed is a failing test rather than dead weight.
- *
- * That is the same shape as `apps/docs/src/lib/navigation.ts`, deliberately.
- * It is the pattern this repository already trusts for the problem of a table
- * and a filesystem drifting apart.
- *
- * Order is array order. There is no `order` field to get wrong.
- */
-
 export interface Unit {
-  /**
-   * What the reader should already have, in one line.
-   *
-   * Shown on the unit header rather than used to compute anything. Gating is
-   * strictly sequential, so this is a promise about the prose rather than a
-   * dependency graph — but a reader who skipped ahead deserves to know what
-   * the unit assumes they read.
-   */
   readonly assumes: string;
-  /** One sentence on what the reader leaves with. Shown on the cover. */
   readonly blurb: string;
-  /**
-   * Whether this unit's exercises need the fixture tier running.
-   *
-   * Drives the setup note. Units 7 and 8 are false: their exercises are
-   * reading guard specs and making one fail on purpose, which needs a
-   * checkout and no containers.
-   */
   readonly needsFixtures: boolean;
-  /**
-   * The `##` headings inside `unit.mdx`, in order.
-   *
-   * Duplicated from the prose, which would normally be a smell. It earns its
-   * place because `curriculum.spec.ts` asserts each one appears in the file:
-   * the spine can show a unit's shape without parsing MDX at request time, and
-   * a heading renamed in the prose without being renamed here fails the suite
-   * rather than quietly dropping out of the rail.
-   */
   readonly sections: readonly string[];
   readonly slug: string;
   readonly title: string;
@@ -213,7 +172,6 @@ export const CURRICULUM: readonly Unit[] = [
   },
 ];
 
-/** Directory name for a unit's content, zero-padded so `ls` sorts correctly. */
 export function contentDirFor(index: number, slug: string): string {
   return `${String(index).padStart(2, "0")}-${slug}`;
 }

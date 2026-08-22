@@ -17,12 +17,6 @@ import {
   unreproducibleCodeCount,
 } from "./counts";
 
-/**
- * The point of this file is not that the numbers are right — the packages own
- * that. It is that they are *derived*, so nobody can quiet a failing build by
- * pasting today's value in.
- */
-
 describe("the counts", () => {
   it("are all non-zero", () => {
     expect(diagnosisCodeCount()).toBeGreaterThan(0);
@@ -49,11 +43,6 @@ describe("the counts", () => {
     expect(fixtureZoneCount()).toBeLessThanOrEqual(fixtureCount());
   });
 
-  /**
-   * The guard that matters. A number written as a literal here would satisfy
-   * every assertion above and then go stale in silence, which is the exact
-   * failure this module exists to prevent.
-   */
   it("contains no numeric literals other than zero", () => {
     const source = readFileSync(join(import.meta.dirname, "counts.ts"), "utf8");
     const code = source.replace(BLOCK_COMMENT, "");

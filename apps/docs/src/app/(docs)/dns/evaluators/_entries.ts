@@ -11,18 +11,6 @@ import {
   SPF_SAMPLE,
 } from "./_snippets";
 
-/**
- * What each evaluator is, and the part of it a reader would get wrong.
- *
- * Here rather than in the page because MDX is parsed as plain JavaScript: a
- * type annotation or a `import type` in a `.mdx` file is a syntax error, so a
- * table declared there cannot be keyed by `CheckKind` and cannot be checked
- * against it. Two check kinds shipped while this lived in the page; it still
- * compiled, and died at prerender reading `nonObvious` of `undefined`.
- *
- * `Record<CheckKind, …>` is the whole point of the move. A ninth kind now
- * fails `tsc --noEmit`, which CI already runs, instead of `next build`.
- */
 export const EVALUATOR_ENTRIES: Record<CheckKind, EvaluatorEntry> = {
   caa: {
     code: CAA_SAMPLE,

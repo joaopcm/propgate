@@ -40,7 +40,6 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Each package's `lint` script is `tsc --noEmit`.
       - run: pnpm lint
 
   zones:
@@ -53,9 +52,6 @@ jobs:
       - name: Install BIND tools
         run: sudo apt-get update && sudo apt-get install -y bind9-dnsutils bind9utils
 
-      # Catches a malformed fixture before the DNS tier is even built. Cheap, and
-      # it turns "NSD failed to load a zone and now everything SERVFAILs" into a
-      # named file and line number.
       - name: named-checkzone every fixture
         run: ./packages/dns-fixtures/scripts/check-zones.sh
 
@@ -75,14 +71,6 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Proves the vendored data is exactly what the generator produces from
-      # upstream, so nobody can hand-edit a generated file and nobody has to
-      # trust that the last refresh was run correctly.
-      #
-      # Deliberately NOT a staleness check. Failing because upstream moved would
-      # break unrelated PRs for a reason the author cannot fix, which is a
-      # time-bomb rather than a signal. Refreshing the list is a deliberate act:
-      # `pnpm --filter @propgate/dns psl:refresh`.
       - name: Vendored PSL matches the generator
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -104,8 +92,5 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The ledger is data; this asserts the README table still matches it.
-      # Without the check the published figure is a snapshot of whenever someone
-      # last remembered to regenerate, which is worse than no figure.
       - name: README conformance table matches the ledger
         run: pnpm --filter @propgate/dns conformance:check

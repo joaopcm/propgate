@@ -1,8 +1,3 @@
-/**
- * Every sample here is checked against the real exports of `@propgate/dns` —
- * see the task report for how. Each is a complete, runnable file.
- */
-
 export const RECIPE_CHECK_AND_SWITCH = `import { runChecks, sendingOnly } from "@propgate/dns";
 
 const profile = sendingOnly({
@@ -33,10 +28,6 @@ switch (result.verdict) {
 
 export const RECIPE_CUSTOM_RESOLVER_PORT = `import { runChecks, webOnly } from "@propgate/dns";
 
-// A resolver container listening on a non-standard port, the way this
-// repo's own DNS fixture tier does. Production nameservers still listen on
-// 53, but nothing about the resolver assumes that — the target is always
-// { address, port, transport }.
 const result = await runChecks({
   domain: "customer.example",
   profile: webOnly({ caaIssuer: "letsencrypt.org" }),
@@ -62,10 +53,6 @@ if (dkim === undefined) {
 } else if (dkim.verdict === "pass") {
   console.log("DKIM is set up correctly");
 } else {
-  // The findings say what's wrong; the lookups say how we know. A customer
-  // asking "why does your dashboard say this is broken" gets the name
-  // queried, what came back, and which finding that answer produced —
-  // nothing here has to be re-derived by re-running the check by hand.
   for (const finding of dkim.findings) {
     console.log(finding.code, "—", finding.evidence.detail ?? finding.evidence.observed);
   }

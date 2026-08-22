@@ -1,17 +1,5 @@
 import type { Choice, Field } from "./command";
 
-/**
- * The only file that knows `@clack/prompts` exists.
- *
- * Two reasons it is quarantined here. Commands stay testable without a TTY,
- * because they never call a prompt directly — `resolve` does, and `resolve` is
- * given the decision as a boolean. And the import is **dynamic**, so
- * `propgate check example.com` never loads it: that command is a local
- * diagnostic that resolves DNS and touches nothing else, and it should not pay
- * for a dependency it cannot reach.
- */
-
-/** Ctrl-C. Distinct from every valid answer, including `false` and `""`. */
 export const CANCELLED: unique symbol = Symbol("cancelled");
 
 export type Answer<T> = T | typeof CANCELLED;
@@ -28,12 +16,6 @@ function options(choices: readonly Choice[]) {
   }));
 }
 
-/**
- * An empty answer is not an answer for a required field.
- *
- * clack returns `""` when someone presses enter on an empty line, and without
- * this the CLI would happily POST a blank name and let the API's 422 explain it.
- */
 function validator(
   field: Field
 ): (value: string | undefined) => string | undefined {

@@ -1,11 +1,3 @@
-/**
- * Copy and machine-readable files for propgate.dev.
- *
- * One module so the HTML pages, the markdown variants, llms.txt and the
- * JSON-LD cannot disagree about what the product is. Specs below assert
- * the lengths and filenames an agent audit actually counts.
- */
-
 export const SITE_URL = "https://propgate.dev";
 export const API_URL = "https://api.propgate.dev";
 export const DOCS_URL = "https://docs.propgate.dev";
@@ -24,13 +16,6 @@ export const HOME_H1 = "What is actually wrong with this domain?";
 export const HOME_LEAD =
   "propgate diagnoses a domain's DNS the way a receiving mail server would: nameservers, SPF, DKIM, DMARC, mail delivery, and certificate authorities, plus every lookup behind each answer. Type a name below. Nothing is stored. The same engine runs in the CLI, the API, and this page.";
 
-/**
- * Footer prose that stays in the prerendered HTML.
- *
- * The checker is a client component. Crawlers that do not execute JavaScript
- * still see this, the H1, and HOME_LEAD, which is the whole point of keeping
- * it out of the interactive tree.
- */
 export const HOME_FOOTER = [
   "Nothing is stored. Every check runs against live DNS at the moment you ask, and the queries behind each answer are listed with it. The public checker is the same evaluators as POST /v1/checks on api.propgate.dev, npx @propgate/cli check, and the @propgate/dns library.",
   "Use propgate when a customer has to configure DNS for you — custom sending domains, tracking hosts, ownership tokens — and you need a verdict you can switch on, not a regex over a TXT record. Four verdicts: pass, warn, fail, and indeterminate, because “this is broken” and “we could not tell” are different answers.",

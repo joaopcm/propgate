@@ -7,41 +7,13 @@ import { Propgate } from "@propgate/sdk";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app";
 
-/**
- * `@propgate/sdk` against a real API, over a socket.
- *
- * The seam nothing else covers. Every spec inside the SDK package answers its
- * own questions: the server on the other end is a body written by whoever wrote
- * the client, so renaming `nextCursor` on the wire leaves them green while
- * `listAll` silently walks one page and stops. This is the same argument, and
- * the same file layout, as `cli.e2e.spec.ts` — see the long note there.
- *
- * So nothing here is a stand-in. The client is the published `Propgate` class,
- * the server is `createApp()`, the DNS is the fixture tier, the database is
- * Postgres. What is deliberately *not* asserted is anything a cheaper spec
- * already pins: hysteresis, delivery signing and the state machine belong to
- * `cli.e2e` and the integration specs. This one covers the join between the two
- * beliefs about the wire, and nothing else.
- *
- * There is no signup here because the SDK has none. A key is minted directly,
- * which is what a customer holding one already has.
- */
-
 const db: Database = createDb(process.env.DATABASE_URL ?? "", {
   maxConnections: 4,
 });
 
-/** The key both fixture zones publish, so one expectation serves both domains. */
 const DKIM_KEY =
   "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApbBuIv1NwQ/rmgGPN8OufvLBfd2asvyk4ajVkiW2CsC12MohickhGufJPsGNyO/ZXD4b/HnClukz07BZwpJe80wz0w/AfhJCqM8F3v/aVHF7wWnd9wBBPBroTL7kNx5u39NnBZZj8SYJF7zNaQ3rud4ekF+GAyTovT7MUfXHQBgEZn0n5Y4dN7b7VEMi4/97TDCNDJucFywdDmbJ9r6LaCu+l+gWfZGl4rDimTJCw3oCQIpCOGlNrWPwxRLuB0sLR2gR1GT9EqBg3yGforXasq2wqBuZlpI1YXmdldEZh3VRIyft4TeVTHRJAf7/TKuAINb8+LOoXHj5hFYl+C4zUQIDAQAB";
 
-/**
- * Loopback is the whole point, so the production policy has to be replaced.
- *
- * Written here rather than exported from the route, for the reason given in
- * `cli.e2e.spec.ts`: the only artefact in this repository that permits a webhook
- * to a private address should be a spec file.
- */
 function allowLoopbackWebhookUrl(raw: string): string | null {
   return raw.startsWith("https://hooks.")
     ? null
@@ -87,14 +59,6 @@ async function start(): Promise<Harness> {
   };
 }
 
-/**
- * The data, or a throw naming why there is none.
- *
- * For the values a test needs in order to keep going — an id it is about to
- * check. A precondition that fails is an error rather than a verdict about the
- * thing under test, and the obvious alternative, `result.data?.id ?? ""`, sends
- * an empty id into the next request and fails there instead.
- */
 function must<T, M>(result: PropgateResult<T, M>): T {
   if (result.error !== null) {
     throw new Error(`${result.error.code}: ${result.error.message}`);
@@ -141,11 +105,6 @@ describe("a partner driving the whole lifecycle from Node", () => {
       { check: "dmarc", key: "dmarc" },
     ]);
 
-    /**
-     * The refusal before the success, because it is the more valuable of the
-     * two: a profile that requires a per-domain value and a registration that
-     * omits it has to fail at write time, with a message naming the field.
-     */
     const refused = await propgate.domains.create({
       name: "customer.test",
       profile: "sending",
@@ -166,8 +125,6 @@ describe("a partner driving the whole lifecycle from Node", () => {
     });
 
     expect(added.error).toBeNull();
-    // Registration does not touch DNS. The day this arrives `verified`, a bulk
-    // import has become a DNS storm.
     expect(added.data?.state).toBe("pending");
     expect(added.meta?.created).toBe(true);
 
@@ -177,8 +134,6 @@ describe("a partner driving the whole lifecycle from Node", () => {
     expect(checked.error).toBeNull();
     expect(checked.data?.state).toBe("verified");
     expect(checked.data?.requirementsMet).toBe(checked.data?.requirementsTotal);
-    // The derivation, which only the detail routes carry. A verdict that cannot
-    // be explained is a verdict nobody can dispute.
     expect(checked.data?.lookups?.length).toBeGreaterThan(0);
     expect(checked.meta?.resolver).toContain(":");
 
@@ -221,8 +176,6 @@ describe("a partner driving the whole lifecycle from Node", () => {
 
     expect((await propgate.domains.check(id)).data?.state).toBe("verified");
 
-    // Re-sending `create` with the same external id is the idempotent path, and
-    // it deliberately writes nothing — which is why a rotation is `update`.
     const again = await propgate.domains.create({
       expectations: { dkim: { expectedPublicKey: "rotated" } },
       externalId: "cust_1",
@@ -241,21 +194,12 @@ describe("a partner driving the whole lifecycle from Node", () => {
       },
     });
 
-    // Back to `pending`: nothing has judged the new key yet, and claiming the
-    // old verdict still holds would be the SDK reporting a state for a
-    // configuration nothing has checked.
     expect(rotated.data?.state).toBe("pending");
     expect(rotated.meta?.profileVersionId).toEqual(expect.any(String));
     expect((await propgate.domains.check(id)).data?.state).toBe("pending");
   });
 
   it("walks every page of a list the server pages", async () => {
-    /**
-     * The failure this file exists for. `listAll` follows `meta.nextCursor`, and
-     * the SDK's own specs answer that question with a body they wrote
-     * themselves — so renaming the field on the server is invisible to them
-     * while it silently truncates a customer's reconciliation run.
-     */
     await profile("sending", [{ check: "dkim", key: "dkim", selector: "pg1" }]);
 
     for (const name of ["customer.test", "healthy.test", "split.test"]) {
@@ -279,19 +223,12 @@ describe("a partner driving the whole lifecycle from Node", () => {
   });
 
   it("records what a state change owes, and lists it under the endpoint", async () => {
-    /**
-     * No queue and no receiver: with neither, a transition still writes the
-     * delivery row and leaves it `pending` for the reconciler. That is the
-     * property being relied on rather than a testing convenience — the row is
-     * the obligation, and Redis is only how an attempt gets scheduled promptly.
-     */
     const endpoint = await propgate.webhooks.create({
       events: ["domain.verified"],
       url: "https://hooks.example.test/propgate",
     });
 
     expect(endpoint.meta?.created).toBe(true);
-    // Readable exactly once, and only on the call that created it.
     expect(endpoint.data?.secret).toEqual(expect.any(String));
 
     const { id: webhookId } = must(endpoint);
@@ -347,7 +284,6 @@ describe("a partner driving the whole lifecycle from Node", () => {
     const created = await propgate.apiKeys.create({ name: "second" });
 
     expect(created.error).toBeNull();
-    // The only time the secret is ever readable, on this route or any other.
     expect(created.data?.key).toEqual(expect.any(String));
     expect(created.data?.prefix).toEqual(expect.any(String));
 
@@ -356,10 +292,6 @@ describe("a partner driving the whole lifecycle from Node", () => {
     expect(keys.data).toHaveLength(2);
     expect(keys.data?.map((key) => key.name)).toContain("second");
 
-    // The new key authenticates, which is the half of "create" that a response
-    // body cannot demonstrate. Another tenant's id — and any id that does not
-    // exist — is a 404 rather than a 403, so a wrong answer cannot confirm that
-    // an id exists somewhere.
     const second = new Propgate(must(created).key, {
       baseUrl: harness.baseUrl,
     });
@@ -370,8 +302,6 @@ describe("a partner driving the whole lifecycle from Node", () => {
 
     expect(revoked.data?.revoked).toBe(true);
     expect(revoked.meta?.alreadyRevoked).toBe(false);
-    // Not a failure: the key is revoked either way, but a script re-running its
-    // own cleanup deserves to know it was not the one that did it.
     expect(
       (await propgate.apiKeys.revoke(must(created).id)).meta?.alreadyRevoked
     ).toBe(true);
@@ -388,8 +318,6 @@ describe("a partner driving the whole lifecycle from Node", () => {
       { check: "dmarc", key: "dmarc" },
     ]);
 
-    // Writing an existing key is a new version rather than an edit, because
-    // domains pin the version they were registered against.
     await profile("sending", [
       { check: "dmarc", key: "dmarc" },
       { check: "mx", expectsMail: true, key: "mx" },
@@ -409,9 +337,6 @@ describe("a partner driving the whole lifecycle from Node", () => {
 
     expect((await anonymous.health()).data?.status).toBe("ok");
 
-    // One check kind rather than the default of all of them: `customer.test`
-    // publishes DKIM, and asking it about CAA or MX would be asserting things
-    // about the fixture zone that this file has no reason to pin.
     const check = await anonymous.checks.run({
       checks: ["dkim"],
       dkimSelectors: ["pg1"],
@@ -421,14 +346,11 @@ describe("a partner driving the whole lifecycle from Node", () => {
     expect(check.error).toBeNull();
     expect(check.data?.verdict).toBe("pass");
     expect(check.data?.object).toBe("check");
-    // The taxonomy travels with the finding, so a consumer renders something a
-    // human reads without shipping a copy of the registry.
     for (const finding of check.data?.findings ?? []) {
       expect(finding.slug).toEqual(expect.any(String));
       expect(finding.summary).toEqual(expect.any(String));
     }
 
-    // No round trip: the client knows this one cannot work.
     const refused = await anonymous.members.list();
 
     expect(refused.error?.code).toBe("missing_api_key");
@@ -443,8 +365,6 @@ describe("a partner driving the whole lifecycle from Node", () => {
   it("names who is on the account", async () => {
     const members = await propgate.members.list();
 
-    // A tenant minted without a signup has no member, which is a real state and
-    // not an error: `createdBy` on its keys is null for the same reason.
     expect(members.error).toBeNull();
     expect(members.data).toEqual([]);
   });

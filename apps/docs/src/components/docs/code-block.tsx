@@ -1,12 +1,5 @@
 import { highlight } from "@/lib/shiki";
 
-/**
- * `dangerouslySetInnerHTML` is correct here and nowhere near a user.
- *
- * Shiki returns markup, and every string it is given in this app is a literal
- * written in this repository — there is no request-time input on this path, and
- * the site is a static export with no user content at all.
- */
 export async function CodeBlock({
   code,
   lang,

@@ -4,16 +4,6 @@ import type { ServerAddress } from "../types";
 import { createEvaluationContext } from "./context";
 import { evaluateSpf } from "./spf";
 
-/**
- * The whole-evaluation deadline, which RFC 7208 §4.6.4 asks for alongside the
- * lookup count: "SPF implementations SHOULD limit the total amount of data
- * obtained" and the total time spent obtaining it.
- *
- * Ten lookups against a slow authority is ten timeouts, and a check nobody will
- * run interactively. The budget is what makes the worst case bounded in seconds
- * rather than in round trips.
- */
-
 const fixture = fixtureTarget("auth");
 const TARGET: ServerAddress = {
   address: fixture.address,
@@ -22,9 +12,6 @@ const TARGET: ServerAddress = {
 
 describe("the evaluation deadline", () => {
   it("stops spending lookups once the budget is gone", async () => {
-    // near.spf.test costs eight lookups. With no time left, the first is the
-    // only one attempted and the rest are recorded as skipped rather than
-    // silently dropped — the derivation has to show what did not happen too.
     const context = createEvaluationContext({
       budgetMs: 0,
       target: TARGET,
@@ -42,8 +29,6 @@ describe("the evaluation deadline", () => {
   });
 
   it("is indeterminate, never a verdict about the domain", async () => {
-    // We ran out of time; the domain did not do anything wrong. Reporting a
-    // failure here would page someone because our own deadline was too tight.
     const context = createEvaluationContext({
       budgetMs: 0,
       target: TARGET,

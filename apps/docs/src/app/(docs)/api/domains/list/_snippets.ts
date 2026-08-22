@@ -1,11 +1,3 @@
-/**
- * The three request forms are quoted from QUICKSTART.md's "List and
- * reconcile" section — real commands run against the live API. QUICKSTART.md
- * never prints a response body for this call, so the response below is a
- * shape read off `serialise` in `apps/api/src/routes/domains.ts`, mapped
- * without `lookups` the way the list route always calls it.
- */
-
 export const LIST_CURL = `curl -s "https://api.propgate.dev/v1/domains?limit=200" \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 curl -s "https://api.propgate.dev/v1/domains?state=failed" \\
@@ -45,16 +37,8 @@ export const LIST_RESPONSE = `{
   }
 }`;
 
-/**
- * The SDK calls assume a client constructed once, as `/sdk` shows:
- * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
- * name and shape here is checked against `@propgate/sdk` itself by
- * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
- */
-
 export const LIST_SDK = `const page = await propgate.domains.list({ state: "failed" });
 
-page.meta?.nextCursor; // null when the walk is done
+page.meta?.nextCursor;
 
-// Or let the client follow the cursor to the end, 200 rows a request.
 const { data, error } = await propgate.domains.listAll({ state: "failed" });`;

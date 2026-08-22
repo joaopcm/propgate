@@ -1,11 +1,3 @@
-/**
- * `POST /v1/checks`, the public checker's endpoint.
- *
- * The response is trimmed to one check and one finding. The real answer carries
- * all six checks and every lookup behind each of them, which is several hundred
- * lines and makes the shape harder to see rather than easier.
- */
-
 export const CHECKS_CURL = `curl -s -X POST https://api.propgate.dev/v1/checks \\
   -H 'content-type: application/json' \\
   -d '{"domain":"example.com","checks":["spf"],"spfInclude":"_spf.google.com"}'`;
@@ -57,13 +49,6 @@ export const CHECKS_RATE_LIMITED = `HTTP/1.1 429 Too Many Requests
 retry-after: 43
 
 {"data":null,"error":{"message":"too many checks; try again in 43s"},"meta":null}`;
-
-/**
- * The SDK calls assume a client constructed once, as `/sdk` shows:
- * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
- * name and shape here is checked against `@propgate/sdk` itself by
- * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
- */
 
 export const CHECKS_SDK = `const { data, error } = await propgate.checks.run({
   domain: "example.com",

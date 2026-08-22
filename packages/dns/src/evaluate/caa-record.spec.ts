@@ -7,8 +7,6 @@ import {
   parseCaaPolicy,
 } from "./caa-record";
 
-/** Property semantics are pure. The tree climb is in the fixture spec. */
-
 function caa(tag: string, value: string, critical = false): RdataCAA {
   return {
     critical,
@@ -29,8 +27,6 @@ describe("parseCaaIssuer", () => {
   });
 
   it("separates parameters from the CA name", () => {
-    // Mistaking the parameters for part of the name would make every
-    // account-bound policy look like it names an unknown CA.
     const issuer = parseCaaIssuer(
       "letsencrypt.org; accounturi=https://acme.test/acct/1; validationmethods=dns-01"
     );
@@ -72,8 +68,6 @@ describe("parseCaaPolicy", () => {
       caa("criticalprop", "y", true),
     ]);
 
-    // An unknown non-critical property is explicitly ignorable; a critical one
-    // blocks issuance entirely.
     expect(policy.unknownCritical).toEqual(["criticalprop"]);
   });
 });
@@ -95,7 +89,6 @@ describe("decideIssuance", () => {
     expect(decision.allowed).toBe(false);
     if (!decision.allowed) {
       expect(decision.reason).toBe("not-listed");
-      // Naming the permitted CAs is what makes the finding actionable.
       expect(decision.permitted).toEqual(["digicert.com", "sectigo.com"]);
     }
   });
@@ -110,7 +103,6 @@ describe("decideIssuance", () => {
   });
 
   it("blocks issuance on an unknown critical property, whatever else is allowed", () => {
-    // RFC 8659 §4.1. The policy also names a CA, and that does not help.
     const policy = parseCaaPolicy([
       caa("issue", "letsencrypt.org"),
       caa("unknownprop", "x", true),
@@ -124,7 +116,6 @@ describe("decideIssuance", () => {
   });
 
   it("permits issuance when the RRset restricts nothing relevant", () => {
-    // An iodef-only record set expresses no issuance restriction.
     const policy = parseCaaPolicy([caa("iodef", "mailto:a@example.com")]);
 
     expect(decideIssuance(policy, "letsencrypt.org").allowed).toBe(true);
@@ -138,8 +129,6 @@ describe("issuewild governs wildcards exclusively", () => {
   ]);
 
   it("uses issuewild for a wildcard, ignoring issue", () => {
-    // Merging the two would authorise letsencrypt for wildcards, which the
-    // owner deliberately did not do.
     expect(
       decideIssuance(split, "digicert.com", { wildcard: true }).allowed
     ).toBe(true);

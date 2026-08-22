@@ -7,15 +7,6 @@ import { truncateAll } from "../test/truncate";
 import { createProfileVersion } from "./profiles";
 import { domainTransitions, recordTransition } from "./state-transitions";
 
-/**
- * The audit trail the thresholds depend on.
- *
- * `DEGRADED_AFTER_FAILURES` and `FAILED_AFTER_FAILURES` are unmeasured guesses.
- * The first false alarm is how they stop being guesses — and only if the evidence
- * that fired it is still readable afterwards, which `last_result` cannot promise
- * because the next check overwrites it.
- */
-
 const db: Database = createDb(process.env.DATABASE_URL ?? "", {
   maxConnections: 4,
 });
@@ -73,15 +64,11 @@ describe("recordTransition", () => {
 
     expect(stored.fromState).toBe("degraded");
     expect(stored.toState).toBe("failed");
-    // The per-vantage verdicts are the whole point: "did every vantage point
-    // agree when you paged me" is the first question a false alarm raises.
     expect(stored.evidence?.vantages).toHaveLength(2);
     expect(stored.evidence?.consecutiveFailures).toBe(3);
   });
 
   it("returns a domain's transitions newest first", async () => {
-    // Newest first, unlike listDomains: nobody reconciles this, they read it to
-    // answer "what just happened".
     const domainId = await domain();
 
     await recordTransition(db, {
@@ -105,9 +92,6 @@ describe("recordTransition", () => {
   });
 
   it("goes away with the domain", async () => {
-    // Cascades, unlike profile_version_id. A transition for a domain that no
-    // longer exists is not a record anyone can act on, and truncateAll depends on
-    // reaching this table through tenants.
     const domainId = await domain();
 
     await recordTransition(db, {

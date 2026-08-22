@@ -8,16 +8,6 @@ import {
   severityQuestion,
 } from "./derived";
 
-/**
- * The generated questions, checked against the registries that generated them.
- *
- * Most of this is redundant while the generators are correct, which is the
- * point: the assertions that matter are the last two, which walk every
- * question actually reaching a reader and confirm its answer still exists.
- * A diagnosis code renamed in `@propgate/dns` is a breaking change by
- * invariant 7 — this is the line in the course that notices.
- */
-
 const CODES = new Set(Object.keys(DIAGNOSIS_REGISTRY));
 const NO_FIXTURE = /no fixture/;
 const NOT_EXPECTED = /not expected to produce/;
@@ -137,11 +127,6 @@ describe("a conformance gap question", () => {
 });
 
 describe("every question that reaches a reader", () => {
-  /**
-   * The assertion this file exists for. A generated question's answer is a
-   * string copied out of a registry at build time; if the registry has since
-   * dropped it, the quiz marks a correct answer wrong and nothing else notices.
-   */
   it("names a diagnosis code that still exists, where it names one at all", () => {
     for (const question of allQuestions()) {
       if (!question.id.startsWith("fixture:")) {

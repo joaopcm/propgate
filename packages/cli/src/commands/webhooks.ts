@@ -11,25 +11,9 @@ import {
   positiveInteger,
 } from "./shared";
 
-/** Everything under `/v1/webhooks`. */
-
 const MAX_DELIVERY_LIMIT = 200;
 const MAX_ROTATION_WINDOW_HOURS = 168;
 
-/**
- * The one address `http://` is allowed for.
- *
- * The reason a webhook URL must be https is that the signature protects the
- * body and not the connection — so it is a statement about a network, and
- * loopback has none. This is the same line browsers draw when they treat
- * `http://127.0.0.1` as a secure context.
- *
- * Refusing it here anyway would mean the CLI cannot talk to a self-hosted API,
- * because this check happens before any request is made and the CLI has no way
- * to know what the server on the other end permits. api.propgate.dev still
- * refuses loopback outright, so this relaxes nothing for anyone pointed at us:
- * it moves the final say to the server, which is the only side that knows.
- */
 const LOOPBACK = /^http:\/\/(127\.\d+\.\d+\.\d+|\[?::1\]?|localhost)(:\d+)?\//i;
 
 interface WebhookRow {
@@ -41,7 +25,6 @@ interface WebhookRow {
   readonly url: string;
 }
 
-/** Empty means every event, which is what an omitted `events` produces. */
 function events(row: WebhookRow): string {
   return row.events.length === 0 ? "all events" : row.events.join(", ");
 }
@@ -97,8 +80,6 @@ async function create(input: Input, context: Context): Promise<number> {
     out("");
     out(`  signing secret  ${created.secret}`);
     out("");
-    // The endpoint is idempotent on the URL and only returns a secret on the call
-    // that actually created the row, so there is no second chance at this one.
     out(
       "Shown once. Rotate with `propgate webhooks rotate <id>` if it is lost."
     );
@@ -176,8 +157,6 @@ async function update(input: Input, context: Context): Promise<number> {
   const state = input.text("state");
 
   if ((state === undefined || state === "unchanged") && chosen.length === 0) {
-    // The API accepts a PATCH with an empty body and changes nothing. Reporting
-    // success for a request that did nothing is worse than naming the flag.
     return usage(
       "webhooks update needs --events or --state; without one of them there is nothing to change"
     );
@@ -388,13 +367,6 @@ const eventsField = {
   flag: "events",
   kind: "multiselect" as const,
   prompt: "Which events? Select none for all of them",
-  /**
-   * Optional to the API, always asked for in a terminal.
-   *
-   * Without this the guided flow skipped straight past every optional field and
-   * `webhooks update` — whose fields are all optional individually but not
-   * collectively — errored instead of asking anything.
-   */
   promptWhenOptional: true,
   required: false,
 };
@@ -464,14 +436,6 @@ export const webhooksCommands: readonly Command[] = [
           },
           { hint: "Change the events only.", value: "unchanged" },
         ],
-        /**
-         * One field rather than `--disable` and `--enable`.
-         *
-         * Two boolean flags for one two-valued thing means a caller can pass
-         * both, which needs a guard, an error message and a spec for a state
-         * that should never have been expressible. A `select` cannot contradict
-         * itself, and it is the shape a prompt wants anyway.
-         */
         describe: "Whether to deliver to this endpoint.",
         flag: "state",
         kind: "select",

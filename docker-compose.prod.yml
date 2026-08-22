@@ -1,35 +1,3 @@
-# The production stack: the application, and nothing that terminates TLS.
-#
-#   api ─────▶ postgres ◀───── worker
-#    └───────▶ unbound ◀──────────┤ ──▶ the internet
-#    └───────▶  redis  ◀──────────┘
-#
-# Postgres is the truth and Redis is the conveyor belt: everything Redis holds is
-# re-derivable from `domains.next_check_at` and `webhook_deliveries`, so losing it
-# costs in-flight attempts and never obligations.
-#
-# Nothing here publishes a port. Getting requests from the internet to the API
-# is the *environment's* job, and environments disagree about how:
-#
-#   bare VPS       docker compose -f docker-compose.prod.yml \
-#                                 -f docker-compose.caddy.yml up -d
-#   Coolify, Dokploy, CapRover, Kamal, Nomad, a Kubernetes ingress
-#                  this file alone — they already run a proxy, and a second one
-#                  binding :443 would collide with it
-#
-# Splitting it that way is not a courtesy to any one platform. A compose file
-# that assumes it owns port 443 is a compose file that only runs where nothing
-# else does, and this is an open-source project people will deploy in places we
-# have never seen.
-#
-# `docker-compose.yml` in the repo root is the DNS *fixture* tier for tests and
-# has nothing to do with this file. They are never run together.
-#
-# No top-level `name:` — compose takes the project name from the directory, and
-# platforms that manage their own naming get to do so without a fight.
-#
-# See DEPLOYING.md.
-
 services:
   postgres:
     image: postgres:17-alpine
@@ -41,19 +9,6 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
-      # Loopback by default, which is what makes this safe to ship on: nothing
-      # outside the machine can reach it, and a GUI or `drizzle-kit studio` gets
-      # there over an SSH tunnel. See "Looking at the database" in DEPLOYING.md.
-      #
-      # DB_BIND_ADDRESS takes an address rather than a boolean so that exposing
-      # the database has to be typed out. A tailnet address (`tailscale ip -4`)
-      # reaches it from your other machines without a tunnel; **never 0.0.0.0**,
-      # which publishes it to an internet where scanners sweep 5432 constantly
-      # and only POSTGRES_PASSWORD would be left in the way.
-      #
-      # DB_BIND_PORT exists because a machine already running Postgres — the
-      # normal case wherever a PaaS lives — otherwise fails to start with
-      # "port is already allocated" and no hint that a host port is the cause.
       - "${DB_BIND_ADDRESS:-127.0.0.1}:${DB_BIND_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U propgate -d propgate"]
@@ -64,27 +19,9 @@ services:
   redis:
     image: redis:8-alpine
     restart: unless-stopped
-    # Two flags, both load-bearing.
-    #
-    # `noeviction` because BullMQ keeps job state in Redis keys. Under any other
-    # policy Redis silently drops them when memory fills, and the symptom is a
-    # domain that stopped being checked with nothing in any log. With this, a full
-    # Redis fails writes loudly instead — the right failure.
-    #
-    # `appendonly` because a restart otherwise loses whatever was mid-flight.
-    # Postgres is still the truth and the reconciler would recover it, but a
-    # crash-safe queue means that path stays a backstop rather than a routine.
-    #
-    # Deliberately **no `maxmemory`**: a cap nobody has measured is a tripwire in
-    # the wrong place, and it would turn a slow leak into an outage at a number we
-    # picked by feel. The retention on the queues bounds growth instead — see
-    # RETENTION in packages/jobs/src/queues.ts. Phase 6 measures the real RSS.
     command: ["redis-server", "--maxmemory-policy", "noeviction", "--appendonly", "yes"]
     volumes:
       - redis-data:/data
-    # Unpublished, like unbound. Workbench is how you look at the queues, and it
-    # has its own port below; an exposed Redis with no password would be a second
-    # door to the same room.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -96,9 +33,6 @@ services:
       context: docker/unbound
     image: ghcr.io/${GITHUB_REPOSITORY:-joaopcm/propgate}/unbound:${TAG:-latest}
     restart: unless-stopped
-    # Also unpublished. The config refuses everything outside this network as
-    # well — an open recursive resolver is an amplification weapon, and one lock
-    # on that door is not enough.
     healthcheck:
       test:
         ["CMD", "dig", "+short", "+time=2", "+tries=1", "@127.0.0.1", "a.root-servers.net", "A"]
@@ -107,13 +41,7 @@ services:
       retries: 3
       start_period: 15s
 
-  # Runs to completion before the API starts, and the API will not start if it
-  # fails. Migrating at boot instead would turn a bad migration into a crash
-  # loop rather than a failed deploy, and becomes a race the moment there are
-  # two replicas.
   migrate:
-    # `build` so the stack can be brought up from a checkout without a registry,
-    # which is how it gets tested. A deploy sets TAG and pulls instead.
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -137,27 +65,15 @@ services:
       NODE_ENV: production
       PORT: 3001
       REDIS_URL: redis://redis:6379
-      # Our own resolver, by name on this network. Never a public one: an answer
-      # from someone else's cache is an answer we cannot explain.
       RESOLVER_ADDRESS: unbound
       RESOLVER_PORT: 53
-      # The vantage-point pool. Empty means "just RESOLVER_ADDRESS", which is the
-      # pre-consensus behaviour, so an existing .env keeps working untouched.
       RESOLVER_ADDRESSES: ${RESOLVER_ADDRESSES:-}
-      # The same thresholds as the worker. POST /v1/domains/:id/checks runs the
-      # same state machine, and two processes with different thresholds would give
-      # one domain two different states depending on who looked at it.
       DEGRADED_AFTER_FAILURES: ${DEGRADED_AFTER_FAILURES:-}
       FAILED_AFTER_FAILURES: ${FAILED_AFTER_FAILURES:-}
       WEBHOOK_ATTEMPTS: ${WEBHOOK_ATTEMPTS:-}
       WEBHOOK_TIMEOUT_MS: ${WEBHOOK_TIMEOUT_MS:-}
-      # Confirmation mail. Required — without it the API refuses to start, which
-      # is deliberate: optional would mean a box that boots cleanly and 404s
-      # signup, discovered by a stranger trying to create an account.
       RESEND_API_KEY: ${RESEND_API_KEY:?}
       EMAIL_FROM: ${EMAIL_FROM:-}
-      # The marketing list. Optional and only read here — the worker never
-      # confirms a signup, so it has no use for it.
       RESEND_SEGMENT_ID: ${RESEND_SEGMENT_ID:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
     depends_on:
@@ -174,12 +90,6 @@ services:
       retries: 3
       start_period: 10s
 
-  # The background process: the sweeper, and the queue admin dashboard.
-  #
-  # Same image as the API with a different command, exactly like `migrate` above.
-  # Two containers rather than one PID is not about scale — it is so that a sweep
-  # of a hundred domains and an interactive check never share an event loop, and
-  # so the worker can be restarted without touching customer traffic.
   worker:
     build:
       context: .
@@ -195,17 +105,7 @@ services:
       RESOLVER_PORT: 53
       RESOLVER_ADDRESSES: ${RESOLVER_ADDRESSES:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
-      # The worker never sends mail, and still needs this.
-      #
-      # One image means one env schema, and `env.ts` requires the key. Leaving it
-      # out here would mean the worker container refusing to boot the moment
-      # signup shipped — which is exactly how a required REDIS_URL once broke the
-      # `migrate` container and gated a whole deploy.
       RESEND_API_KEY: ${RESEND_API_KEY:?}
-      # Passed through so `.env` can override them without a rebuild. Empty means
-      # unset, which means the code's default — `emptyStringAsUndefined` in env.ts
-      # is what makes that work, so these must never be given a literal fallback
-      # here or the schema's default becomes unreachable.
       CHECK_CONCURRENCY: ${CHECK_CONCURRENCY:-}
       DEGRADED_AFTER_FAILURES: ${DEGRADED_AFTER_FAILURES:-}
       FAILED_AFTER_FAILURES: ${FAILED_AFTER_FAILURES:-}
@@ -215,15 +115,9 @@ services:
       SWEEP_LEASE_SECONDS: ${SWEEP_LEASE_SECONDS:-}
       SWEEP_TICK_SECONDS: ${SWEEP_TICK_SECONDS:-}
       WORKBENCH_PORT: 3002
-      # Unset means the dashboard is not mounted at all. Workbench is pre-1.0, so
-      # a box that never looks at its queues should not be running it.
       WORKBENCH_PASS: ${WORKBENCH_PASS:-}
       WORKBENCH_USER: ${WORKBENCH_USER:-}
     ports:
-      # The same reasoning as DB_BIND_ADDRESS on postgres, and the same default:
-      # loopback, so reaching it means an SSH tunnel or a tailnet address
-      # (`tailscale ip -4`). **Never 0.0.0.0** — basic auth is the only thing in
-      # front of a dashboard that can retry and delete jobs.
       - "${WORKBENCH_BIND_ADDRESS:-127.0.0.1}:${WORKBENCH_BIND_PORT:-3002}:3002"
     depends_on:
       migrate:

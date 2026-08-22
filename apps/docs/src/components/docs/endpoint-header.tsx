@@ -9,19 +9,6 @@ export const METHOD_STYLE = {
 
 export type Method = keyof typeof METHOD_STYLE;
 
-/**
- * Method, path, and the CLI command that does the same thing.
- *
- * The CLI equivalent sits here rather than in a separate section because the two
- * are one decision for the reader — "how do I do this from a script" and "how do
- * I do this by hand" — and splitting them is how a CLI ends up undocumented.
- *
- * It is **looked up** rather than passed in. Twenty-two pages each repeating the
- * command by hand is twenty-two places to forget when one is renamed; `ENDPOINTS`
- * already carries it, and `Endpoint.cli` is required, so an endpoint cannot exist
- * without one. `cliCommand` stays as an override for the rare page that documents
- * something the registry does not.
- */
 export function EndpointHeader({
   cliCommand,
   method,

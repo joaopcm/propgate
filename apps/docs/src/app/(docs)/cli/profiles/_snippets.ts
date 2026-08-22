@@ -1,11 +1,3 @@
-/**
- * The `--require` micro-syntax and the two ways past it.
- *
- * Field names here are the API's own body field names, unaliased, which is the
- * point of the syntax: a `422` from the server names the same word that was
- * typed. See `packages/cli/src/require.ts`.
- */
-
 export const CREATE_CLI = `propgate profiles create --key sending \\
   --require 'ns:delegation' \\
   --require 'spf:spf:include=_spf.google.com' \\
@@ -43,7 +35,6 @@ sending  version 1
 
 export const FILE_CLI = `propgate profiles create --file profile.json
 
-# or from a generator, over stdin
 your-generator | propgate profiles create --file -`;
 
 export const GUIDED = `$ propgate profiles create

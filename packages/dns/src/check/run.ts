@@ -19,31 +19,6 @@ import { probeWildcard } from "../evaluate/wildcard";
 import type { CheckKind, DomainProfile } from "./profile";
 import { dkimSelectorName, nameAt, ownershipLabel } from "./profile";
 
-/**
- * One domain, one answer.
- *
- * Eight evaluators exist; a customer has one question. This composes them, and
- * the composition is where two decisions live that no single evaluator could
- * make:
- *
- *  1. **Checks run concurrently, each with its own context.** They share
- *     nothing and none of them is ordered relative to another, so the wall
- *     clock is the slowest check rather than their sum — which matters because
- *     the public checker is interactive. A shared context would have been
- *     simpler right up until attributing a finding to a check meant slicing an
- *     array by index, which stops working the moment anything runs in parallel.
- *  2. **A skipped check is not a passing check.** A profile that does not ask
- *     about DKIM produces no DKIM outcome at all, rather than a green one. The
- *     difference is the whole reason `checks` is explicit: a dashboard showing
- *     eight ticks for a domain that was only asked about two is lying.
- *
- * The verdict is the worst of the parts, which puts `indeterminate` above
- * `warn` and below `fail`: one check that could not run makes the whole answer
- * uncertain, but a failure we did observe is more actionable than uncertainty
- * about the rest.
- */
-
-/** One selector's own answer, inside the merged DKIM outcome. */
 export interface DkimSelectorOutcome {
   readonly findings: readonly Finding[];
   readonly lookups: readonly Lookup[];
@@ -51,19 +26,6 @@ export interface DkimSelectorOutcome {
   readonly verdict: Verdict;
 }
 
-/**
- * One name's own answer, inside a merged `ownership` or `cname` outcome.
- *
- * Keyed by the label the profile named — the empty string for an apex ownership
- * token — rather than by the full DNS name, because the label is what the caller
- * wrote down and what a requirement is matched back against.
- *
- * Deliberately not folded together with `DkimSelectorOutcome` above, and the
- * reason is not compatibility: a DKIM selector is *not* a label. The label is
- * `${selector}._domainkey`, so one field carrying both would store `pg1` for one
- * kind and `track` for another under a name that means something different in
- * each. Two keys with two meanings, named for what they are.
- */
 export interface RecordOutcome {
   readonly findings: readonly Finding[];
   readonly label: string;
@@ -75,27 +37,7 @@ export interface CheckOutcome {
   readonly findings: readonly Finding[];
   readonly kind: CheckKind;
   readonly lookups: readonly Lookup[];
-  /**
-   * Per-name detail. Present on every outcome that repeats per label —
-   * `ownership`, `cname`, `spf` and `mx`.
-   *
-   * There for the same reason `selectors` is: a platform that issues a tracking
-   * host and a bounce host has two requirements, and a merged verdict cannot
-   * tell it which of the two names is missing. An unlabelled check produces a
-   * single record keyed by the empty string, so the shape does not depend on
-   * whether anyone used a label.
-   */
   readonly records?: readonly RecordOutcome[];
-  /**
-   * Per-selector detail. Present on the `dkim` outcome and nowhere else.
-   *
-   * Additive rather than a replacement for the merged verdict above, because
-   * both questions are real and they are asked by different callers. "Is DKIM
-   * set up" is what the public checker shows a human; "which of the three keys
-   * we issued is actually published" is what a platform tracking one
-   * requirement per selector needs, and it cannot be recovered from a merged
-   * answer afterwards.
-   */
   readonly selectors?: readonly DkimSelectorOutcome[];
   readonly verdict: Verdict;
 }
@@ -103,11 +45,8 @@ export interface CheckOutcome {
 export interface CheckResult {
   readonly checks: readonly CheckOutcome[];
   readonly domain: string;
-  /** Every outcome's findings, flattened, in check order. */
   readonly findings: readonly Finding[];
-  /** Every lookup made, across every check. The derivation. */
   readonly lookups: readonly Lookup[];
-  /** The profile the domain was checked against. */
   readonly profile: string;
   readonly verdict: Verdict;
 }
@@ -115,12 +54,6 @@ export interface CheckResult {
 export interface RunOptions {
   readonly domain: string;
   readonly profile: DomainProfile;
-  /**
-   * Passed to every check's context.
-   *
-   * `budgetMs` becomes a shared deadline in practice: the contexts are created
-   * together and run together, so each one's clock starts at the same moment.
-   */
   readonly resolver: EvaluationContextOptions;
 }
 
@@ -132,13 +65,6 @@ interface RecordRun extends EvaluationResult {
   readonly records: readonly RecordOutcome[];
 }
 
-/**
- * Several names, one outcome — the shape every per-label check shares.
- *
- * Each entry gets its own context, so nothing about how many aliases a platform
- * issues affects any one of their budgets, and the wall clock stays the slowest
- * rather than their sum.
- */
 async function runPerRecord<T>(
   entries: readonly T[],
   labelOf: (entry: T) => string,
@@ -163,21 +89,10 @@ async function runPerRecord<T>(
   };
 }
 
-/** The apex, spelled the way `RecordOutcome` keys it. */
 function apexOrLabel(entry: { readonly label?: string }): string {
   return entry.label ?? "";
 }
 
-/**
- * An empty list still asks the question, at the apex, asserting nothing.
- *
- * `spf` and `mx` differ from the other repeatable kinds here, and the asymmetry
- * is not an oversight. No DKIM selector means the platform issued none, so there
- * is nothing to look for — but SPF and MX are properties every domain has, and
- * `checks: ["spf"]` with no configuration is the public checker's question:
- * "is this record valid", rather than "does it authorise us". Returning nothing
- * would turn that into a skipped check and drop it off the report.
- */
 function atLeastOne<T>(
   entries: readonly T[] | undefined,
   apex: T
@@ -185,14 +100,6 @@ function atLeastOne<T>(
   return entries === undefined || entries.length === 0 ? [apex] : entries;
 }
 
-/**
- * DKIM is per-selector, so one profile can produce several DKIM answers.
- *
- * They are merged, because a customer asked whether DKIM is set up and the
- * answer is not "yes for selector one" — and they are also kept apart, because
- * a platform that issued three keys tracks three requirements and a merged
- * verdict cannot tell it which one is missing. Both, rather than a choice.
- */
 async function runDkim(
   options: RunOptions,
   wildcardSynthesised: boolean
@@ -253,8 +160,6 @@ function runOne(
       );
 
     case "dkim":
-      // No selectors means the platform issued none, so there is nothing to
-      // check rather than something that is missing.
       return (profile.dkimSelectors ?? []).length === 0
         ? undefined
         : runDkim(options, wildcardSynthesised);
@@ -282,8 +187,6 @@ function runOne(
         : evaluateCaa(context(), { domain, issuer: profile.caaIssuer });
 
     case "ownership":
-      // Same rule as DKIM's selectors: no token means none was minted, which is
-      // nothing to check rather than something absent.
       return (profile.ownership ?? []).length === 0
         ? undefined
         : runPerRecord(
@@ -316,9 +219,6 @@ function runOne(
 }
 
 export async function runChecks(options: RunOptions): Promise<CheckResult> {
-  // One probe for the whole run, before anything that could trust a synthesised
-  // answer. A wildcard is a fact about the zone, so asking once is both cheaper
-  // and the only way the answer can be consistent across checks.
   const probeContext = createEvaluationContext(options.resolver);
   const wildcard = options.profile.checks.includes("dkim")
     ? await probeWildcard(probeContext, options.domain)
@@ -361,10 +261,6 @@ export async function runChecks(options: RunOptions): Promise<CheckResult> {
     checks,
     domain: options.domain,
     findings: checks.flatMap((check) => check.findings),
-    // The probe's lookup belongs here even though it belongs to no check. A
-    // query we made that does not appear in the derivation is a cost the caller
-    // pays and cannot see, and "results carry their derivation" has to mean all
-    // of them or it means nothing.
     lookups: [
       ...probeContext.lookups,
       ...checks.flatMap((check) => check.lookups),
@@ -374,7 +270,6 @@ export async function runChecks(options: RunOptions): Promise<CheckResult> {
   };
 }
 
-/** The outcome for one kind, or undefined when the profile did not ask. */
 export function outcomeFor(
   result: CheckResult,
   kind: CheckKind

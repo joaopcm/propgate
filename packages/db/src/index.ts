@@ -130,7 +130,4 @@ export { tenantMembers } from "./schema/tenant-members";
 export { tenants } from "./schema/tenants";
 export type { DeliveryStatus } from "./schema/webhooks";
 export { webhookDeliveries, webhookEndpoints } from "./schema/webhooks";
-// A test helper on the entry point, deliberately: the package is private and
-// never published, and every consumer with a Postgres-backed spec needs the
-// same one line between tests.
 export { truncateAll } from "./test/truncate";

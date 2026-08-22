@@ -1,10 +1,3 @@
-/**
- * Shapes read off `serialise` and the `PATCH /:id` handler in
- * `apps/api/src/routes/domains.ts`, not captured runs. The rejection messages are
- * copied verbatim from `rejectExpectations` in
- * `apps/api/src/profiles/expectations.ts` and from `updateSchema`.
- */
-
 export const UPDATE_CURL = `curl -s -X PATCH https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \\
   -H 'content-type: application/json' -d '{
@@ -57,13 +50,6 @@ export const UPDATE_EMPTY = `{
   },
   "meta": null
 }`;
-
-/**
- * The SDK calls assume a client constructed once, as `/sdk` shows:
- * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
- * name and shape here is checked against `@propgate/sdk` itself by
- * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
- */
 
 export const UPDATE_SDK = `const { data, error } = await propgate.domains.update("019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a", {
   expectations: {

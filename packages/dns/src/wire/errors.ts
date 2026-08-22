@@ -1,13 +1,3 @@
-/**
- * Decode failures.
- *
- * A malformed response is a *finding*, not an exception — a provider serving
- * garbage is exactly the sort of thing this library exists to report on. So the
- * decoder returns `DecodeResult` and callers switch on it. `WireFormatError` is
- * thrown only inside the decoder and converted at the boundary, which keeps the
- * parsing code readable without leaking throws into the public API.
- */
-
 export type WireFormatReason =
   | "truncated-buffer"
   | "label-too-long"
@@ -20,7 +10,6 @@ export type WireFormatReason =
 
 export class WireFormatError extends Error {
   readonly reason: WireFormatReason;
-  /** Byte offset where decoding gave up, for error messages worth reading. */
   readonly offset: number;
 
   constructor(reason: WireFormatReason, offset: number, detail?: string) {

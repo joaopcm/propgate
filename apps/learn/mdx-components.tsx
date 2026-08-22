@@ -7,15 +7,6 @@ import {
 import { Pre } from "@/components/mdx/pre";
 import { slugify } from "@/lib/slug";
 
-/**
- * Element styling for a unit's prose.
- *
- * Deliberately not the docs' scale. A unit is around two thousand words read
- * start to finish; the docs' 14px sans is tuned for a paragraph somebody skims
- * on the way to a code sample. The body face is a serif, the measure is capped
- * so a line does not run past comfortable reading length, and headings are the
- * display face rather than a bolder weight of the body.
- */
 function textOf(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
     return String(node);
@@ -61,11 +52,6 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         {children}
       </code>
     ),
-    // A unit's `# Heading` is rendered by `UnitHeader` from the curriculum
-    // rather than by the prose, so an h1 inside MDX would be a second title.
-    // The specs require it to be there — `curriculum.spec.ts` reads the file —
-    // so it is hidden rather than absent, which keeps the raw markdown readable
-    // on GitHub.
     h1: () => null,
     h2: ({ children, ...props }: ComponentPropsWithoutRef<"h2">) => (
       <h2

@@ -5,24 +5,7 @@ import {
 } from "@propgate/dns";
 import { FIXTURE_EXPECTATIONS } from "@propgate/dns-fixtures";
 
-/**
- * The published taxonomy, assembled from the same two sources the test suite
- * reads: `DIAGNOSIS_REGISTRY` in `@propgate/dns` and `FIXTURE_EXPECTATIONS` in
- * `@propgate/dns-fixtures`.
- *
- * That is the whole point. Documentation written by hand drifts from the code
- * it describes; documentation generated from the test matrix cannot, and
- * "which fixture proves this?" becomes answerable from a public page rather
- * than from a repository checkout.
- *
- * The slug is load-bearing beyond navigation: the API and the CLI put it on
- * every finding precisely so a consumer can link here without knowing anything
- * about our taxonomy. A duplicate slug would collide as a route and silently
- * hide one code, which is why there is a test for it.
- */
-
 export interface Fixture {
-  /** Why the fixture exists, in the words of the fixture table. */
   readonly reason: string;
   readonly zone: string;
 }
@@ -30,12 +13,10 @@ export interface Fixture {
 export interface Entry {
   readonly definition: DiagnosisDefinition;
   readonly fixtures: readonly Fixture[];
-  /** Set when no local fixture can produce this, with the written reason. */
   readonly unreproducible: string | undefined;
 }
 
 export interface Family {
-  /** One line on what this group of codes is about. */
   readonly blurb: string;
   readonly entries: readonly Entry[];
   readonly id: string;
@@ -143,7 +124,6 @@ function entryFor(definition: DiagnosisDefinition): Entry {
   };
 }
 
-/** Every code, grouped and sorted, with families that have no codes dropped. */
 export function families(): Family[] {
   const all = Object.values(DIAGNOSIS_REGISTRY);
 
@@ -174,14 +154,6 @@ export function entryBySlug(slug: string): Entry | undefined {
   return definition === undefined ? undefined : entryFor(definition);
 }
 
-/**
- * Codes that belong to no family.
- *
- * Exported so a test can assert it is empty: a new code with an unrecognised
- * prefix would otherwise vanish from the index while still being reachable at
- * its own URL, which is the kind of gap nobody notices until a customer follows
- * a link that leads nowhere useful.
- */
 export function unfiled(): string[] {
   const filed = new Set(
     families().flatMap((family) =>

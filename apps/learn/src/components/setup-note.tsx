@@ -1,19 +1,5 @@
 import { FIXTURE_SERVERS } from "@propgate/dns-fixtures";
 
-/**
- * What a reader needs running before the exercises in this unit work.
- *
- * Shown once, at the top, on the units that have queries in them. The
- * alternative — a note on every `Lookup` — is the kind of repetition that
- * trains people to skip the thing they most need to read.
- *
- * The macOS caveat is here rather than in the units because it is a property of
- * the machine, not of the lesson. Only `127.0.0.1` is up on Darwin, so the
- * compose override publishes high ports on loopback instead of using distinct
- * addresses, and every command in the unit needs different numbers. Saying so
- * once is the difference between a reader adjusting and a reader concluding the
- * fixtures are broken.
- */
 export function SetupNote() {
   return (
     <aside className="my-8 border-border border-y py-4 text-sm leading-7">

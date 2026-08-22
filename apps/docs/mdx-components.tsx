@@ -7,15 +7,6 @@ import {
 import { MdxPre } from "@/components/docs/mdx-pre";
 import { slugify } from "@/lib/slug";
 
-/**
- * The text of a heading, whatever it is made of.
- *
- * `## The \`SWEEP_TICK_SECONDS\` loop` reaches here as three children — a
- * string, a `<code>` element, another string — so the id cannot come from
- * `children` directly. The search index slugifies the same words off the raw
- * markdown, and a mismatch is silent: the link resolves, the page loads, and
- * the reader lands at the top.
- */
 function textOf(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
     return String(node);

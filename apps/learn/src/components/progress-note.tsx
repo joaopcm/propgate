@@ -11,16 +11,6 @@ import {
   settledCount,
 } from "@/lib/progress";
 
-/**
- * Where the progress lives, said plainly, with the two buttons that make the
- * answer survivable.
- *
- * A course with no account has one honest failure mode: clear the browser's
- * storage and nine units of work is gone. Export and import do not remove it,
- * they make it the reader's problem to solve rather than a surprise — which is
- * the most this design can offer and more than a silent `localStorage` write
- * usually does.
- */
 export function ProgressNote() {
   const { progress, update } = useProgressContext();
   const [message, setMessage] = useState<string | null>(null);

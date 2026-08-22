@@ -3,13 +3,7 @@ import { describe, expect, it } from "vitest";
 import { EXIT_OK, EXIT_PROBLEM, EXIT_UNKNOWN } from "./exit";
 import { exitCodeFor, render } from "./report";
 
-/**
- * Output and exit codes are pure, and are where a CLI is usually least tested
- * and most often wrong. Colour is off throughout so the assertions read.
- */
-
 const style = { colour: false };
-/** Two spaces, then the two-column mark, then the check name. */
 const CHECK_LINE = /^ {2}\S|^ {3}\S/;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: matching the escape is the assertion
 const ESCAPE = /\u001B\[/;
@@ -53,7 +47,6 @@ describe("exit codes", () => {
   });
 
   it("is zero for warnings, which are not failures", () => {
-    // A CI job should not go red because a domain has one nameserver.
     const warned = result("warn", [
       {
         findings: [finding("NS_SINGLE_NAMESERVER", "warning")],
@@ -78,9 +71,6 @@ describe("exit codes", () => {
   });
 
   it("gives 'could not tell' its own code", () => {
-    // Collapsing this into 1 would undo, at the one place a script reads, the
-    // distinction the resolver keeps all the way down. A deploy failing on a
-    // resolver blip is exactly what the four-valued verdict exists to prevent.
     expect(exitCodeFor(result("indeterminate", []))).toBe(EXIT_UNKNOWN);
     expect(EXIT_UNKNOWN).not.toBe(EXIT_PROBLEM);
   });
@@ -157,12 +147,10 @@ describe("the report", () => {
 
     expect(lines).toContain("found:  one.example.org");
     expect(lines).toContain("wanted: include:_spf.example.net");
-    // The code is printed so it can be looked up and switched on.
     expect(lines).toContain("SPF_SOURCE_NOT_AUTHORIZED");
   });
 
   it("does not count an info finding as a problem", () => {
-    // MX_NULL fires on every correctly configured sending-only domain.
     const lines = render(
       result("pass", [
         { findings: [finding("MX_NULL", "info")], kind: "mx", verdict: "pass" },

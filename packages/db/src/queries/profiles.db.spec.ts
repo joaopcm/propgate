@@ -91,10 +91,6 @@ describe("createProfileVersion", () => {
   });
 
   it("gives every concurrent create a distinct version", async () => {
-    // The spec that killed the first two attempts at this. Computing
-    // max(version) + 1 inside the INSERT still lets concurrent statements read
-    // the same maximum, and retrying on the unique violation just loses the
-    // same race again — five concurrent creates beat three retries.
     const tenantId = await tenant();
 
     const created = await Promise.all(
@@ -111,8 +107,6 @@ describe("createProfileVersion", () => {
   });
 
   it("leaves earlier versions exactly as they were", async () => {
-    // A domain pinned to version 1 must still be evaluable against version 1
-    // after someone edits the profile.
     const tenantId = await tenant();
     const first = await createProfileVersion(db, {
       definition: SENDING,
@@ -155,9 +149,6 @@ describe("currentProfileVersion", () => {
   });
 
   it("does not see another tenant's profile of the same name", async () => {
-    // Scoped in the query, not by the caller afterwards. A lookup that can
-    // return the wrong tenant's row is a tenancy bug waiting for the one caller
-    // who forgets to check.
     const first = await tenant("first");
     const second = await tenant("second");
 

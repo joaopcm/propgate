@@ -1,10 +1,3 @@
-/**
- * `REVOKE_CURL`/`REVOKE_CLI` and every response below are shapes read off
- * `apps/api/src/routes/api-keys.ts` (the `DELETE /:id` handler and
- * `serialise`), not a captured run. The 404, the 409 and the "already
- * revoked" meta message are copied verbatim from the route.
- */
-
 export const REVOKE_CURL = `curl -s -X DELETE https://api.propgate.dev/v1/api-keys/019fcb02-... \\
   -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
@@ -54,14 +47,6 @@ export const REVOKE_LAST_ACTIVE_409 = `{
   "meta": null
 }`;
 
-/**
- * The SDK calls assume a client constructed once, as `/sdk` shows:
- * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
- * name and shape here is checked against `@propgate/sdk` itself by
- * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
- */
-
 export const REVOKE_SDK = `const { data, meta } = await propgate.apiKeys.revoke("019fcb02-...");
 
-// data.revoked is true either way. meta.alreadyRevoked says whether this
-// call was the one that did it.`;
+`;

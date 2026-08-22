@@ -1,37 +1,7 @@
-/**
- * What each fixture is for.
- *
- * This table is the join between the zone files and the diagnosis taxonomy. Two
- * consumers read it, which is the point:
- *
- *  - `packages/dns/src/diagnosis/coverage.spec.ts` fails if a diagnosis code is
- *    neither listed here nor explicitly recorded as not locally reproducible.
- *  - `apps/docs` renders the published taxonomy from the same data, so the
- *    documentation and the test matrix cannot drift apart.
- *
- * Adding a fixture means adding a row. Adding a diagnosis code without either a
- * row or a written reason makes the suite red.
- */
-
 export interface FixtureExpectation {
-  /** Diagnosis codes this fixture is expected to produce. */
   readonly codes: readonly string[];
-  /** Why the fixture exists, in one line. */
   readonly reason: string;
-  /**
-   * Which server serves it.
-   *
-   * `listener` is the odd one out: an in-process server started by a spec rather
-   * than an `nsd` container. Some behaviour is not a property of a zone at all —
-   * a middlebox eating TCP is done *to* a conversation — and no zone file can
-   * express it. See `tcp-blackhole.ts`.
-   */
   readonly role: "auth" | "root" | "decoy" | "divergent" | "listener";
-  /**
-   * Zone the fixture lives in.
-   *
-   * For `listener`, the name the spec queries — there is no zone file behind it.
-   */
   readonly zone: string;
 }
 
@@ -345,7 +315,6 @@ export const FIXTURE_EXPECTATIONS: readonly FixtureExpectation[] = [
   },
 ];
 
-/** Every code any fixture is expected to produce. */
 export function coveredDiagnosisCodes(): ReadonlySet<string> {
   return new Set(FIXTURE_EXPECTATIONS.flatMap((row) => row.codes));
 }

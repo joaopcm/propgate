@@ -1,16 +1,5 @@
 import type { Context } from "hono";
 
-/**
- * Every response — success, error, and middleware short-circuit alike — is
- * `{ data, error, meta }`. Keeping the envelope uniform means SDK consumers
- * write one unwrap path instead of one per status code.
- *
- * Errors carry `code` and `hint` as well as `message`. `message` is what went
- * wrong; `code` is the switch an agent can branch on without parsing English;
- * `hint` is what to do next. The SDK still keys on `message` and the HTTP
- * status — extra fields here are additive.
- */
-
 export type ResourceObject = "check" | "lookup" | "diagnosis";
 
 export type ErrorStatus =
@@ -25,14 +14,6 @@ export type ErrorStatus =
   | 500
   | 502;
 
-/**
- * The same names `@propgate/sdk` uses for these statuses.
- *
- * Kept as a table rather than imported from the SDK: this package is the
- * producer of the wire format, and the SDK is a consumer. Importing the
- * consumer's names here would invert that, and a rename in the client would
- * look like an API change.
- */
 export const ERROR_CODE_FOR_STATUS: Readonly<Record<ErrorStatus, string>> = {
   400: "invalid_request",
   401: "unauthorized",
@@ -105,13 +86,6 @@ export function listResponse<T>(
   });
 }
 
-/**
- * 202, for work taken on but not finished when the response is written.
- *
- * Signup is the case: the code is stored, the mail is on its way, and neither
- * the mailbox nor the account exists yet as far as this response can promise.
- * A 200 there would claim something we cannot see.
- */
 export function accepted<T>(c: Context, data: T) {
   return c.json({ data, error: null, meta: null }, 202);
 }

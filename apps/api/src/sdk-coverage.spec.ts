@@ -4,55 +4,14 @@ import { Propgate } from "@propgate/sdk";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app";
 
-/**
- * Every route this API serves, against the SDK method that reaches it.
- *
- * "Full API coverage" is a claim, and a claim in a README is one nobody re-runs.
- * This is the receipt: the app's own router is the list, so adding a route
- * fails here until `@propgate/sdk` can call it. That is the failure worth
- * catching — a customer who cannot do from the SDK what they can do with curl
- * writes their own client, and then we have two.
- *
- * It costs nothing to run: the app is constructed only to be *read*, no handler
- * executes, and the SDK talks to a `fetch` that records the request and answers
- * from memory. Which is why it lives in the ungated project rather than beside
- * the end-to-end spec that needs three container tiers.
- */
-
-/**
- * Never queried. `createApp` passes `db` to route factories and to
- * `bearerAuth`, both of which only close over it — nothing touches it until a
- * request runs, and no request runs here.
- */
 const UNUSED_DB = {} as Database;
 
-/**
- * Constructed *with* a mailer so the signup routes are mounted and have to be
- * excluded explicitly below.
- *
- * Leaving the mailer out would unmount them, and the exclusion would then be
- * invisible rather than written down — which is the difference between "the SDK
- * deliberately omits signup" and "nobody noticed signup exists".
- */
 const app = createApp({
   db: UNUSED_DB,
   mailer: createRecordingMailer(),
   resolver: { address: "127.0.0.1", port: 53, transport: "udp" },
 });
 
-/**
- * The routes the SDK deliberately does not cover.
- *
- * Signup is a mailbox flow: it sends a six-digit code to an address and takes it
- * back to mint the first key. A server-side SDK is on the wrong side of that —
- * whoever is holding it already has a key — and the flow that hands out
- * credentials belongs in the CLI and the dashboard, where a human is present to
- * read the mail. `@propgate/cli` covers both, and this list is where to remove
- * an entry from if that ever stops being true.
- *
- * `GET /openapi.json` is the spec itself. An SDK method that returned it would
- * be a client fetching its own documentation; agents fetch the URL directly.
- */
 const NOT_IN_SDK: ReadonlySet<string> = new Set([
   "GET /openapi.json",
   "POST /v1/signup",
@@ -64,14 +23,6 @@ interface Route {
   readonly path: string;
 }
 
-/**
- * The routes with handlers, ignoring middleware.
- *
- * `app.use(path, ...)` registers under the `ALL` method with a wildcard path, so
- * `/v1/domains/*` is authentication rather than an endpoint. Including it would
- * make the coverage check trivially satisfiable by any call to any domains
- * route.
- */
 function routes(): readonly Route[] {
   const seen = new Set<string>();
 
@@ -91,7 +42,6 @@ function routes(): readonly Route[] {
     });
 }
 
-/** Whether a concrete request path matches a registered pattern. */
 function matches(pattern: string, path: string): boolean {
   const expected = pattern.split("/");
   const actual = path.split("/");
@@ -105,12 +55,6 @@ function matches(pattern: string, path: string): boolean {
   );
 }
 
-/**
- * Every request the SDK makes when every method is called once.
- *
- * The list is written as calls rather than as strings on purpose: a path
- * hand-copied here would prove only that this file agrees with itself.
- */
 async function requestsTheSdkMakes(): Promise<readonly Route[]> {
   const made: Route[] = [];
   const client = new Propgate("pg_coverage_key", {
@@ -171,8 +115,6 @@ describe("@propgate/sdk against this API's router", () => {
       )
       .map((route) => `${route.method} ${route.path}`);
 
-    // Named rather than counted: "expected 22 to be 23" sends the next reader
-    // looking for which one, and the answer is already here.
     expect(uncovered).toEqual([]);
   });
 
@@ -190,15 +132,10 @@ describe("@propgate/sdk against this API's router", () => {
       )
       .map((request) => `${request.method} ${request.path}`);
 
-    // The other direction, and the cheaper of the two to get wrong: a method
-    // pointing at a path that was renamed is a 404 nobody sees until a customer
-    // calls it.
     expect(unknown).toEqual([]);
   });
 
   it("excludes only what it says it excludes", () => {
-    // A route in the exclusion list that no longer exists means the list is
-    // stale, and a stale exclusion is how a route silently stops being covered.
     const registered = new Set(
       routes().map((route) => `${route.method} ${route.path}`)
     );

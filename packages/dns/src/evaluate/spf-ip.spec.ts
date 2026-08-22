@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cidrContains, fullPrefix, parseIpAddress } from "./spf-ip";
 
-/** Address arithmetic is pure. Matching against real records is in the fixture spec. */
-
 function ip(text: string) {
   const address = parseIpAddress(text);
 
@@ -49,15 +47,10 @@ describe("parseIpAddress", () => {
   });
 
   it("returns an IPv4-mapped address as IPv4", () => {
-    // A client that connected over IPv4 is routinely reported as ::ffff:… by a
-    // dual-stack MTA. Keeping the mapped form would mean no ip4 mechanism could
-    // ever match it, and the domain would be told its record does not authorise
-    // a host that it plainly does.
     const mapped = ip("::ffff:198.51.100.1");
 
     expect(mapped.family).toBe("ipv4");
     expect([...mapped.bytes]).toEqual([198, 51, 100, 1]);
-    // The text is kept verbatim, so evidence shows what the sender presented.
     expect(mapped.text).toBe("::ffff:198.51.100.1");
   });
 
@@ -77,8 +70,6 @@ describe("cidrContains on IPv4", () => {
   });
 
   it("handles a prefix that does not land on a byte boundary", () => {
-    // /25 splits the last byte, which is where an implementation that only
-    // compares whole bytes silently authorises twice the intended range.
     expect(contains("198.51.100.0", 25, "198.51.100.127")).toBe(true);
     expect(contains("198.51.100.0", 25, "198.51.100.128")).toBe(false);
     expect(contains("198.51.100.128", 25, "198.51.100.128")).toBe(true);
@@ -110,11 +101,8 @@ describe("cidrContains on IPv6", () => {
 
 describe("families never cross", () => {
   it("does not match an IPv6 client against an IPv4 network, or the reverse", () => {
-    // RFC 7208 §5.6. Comparing the four bytes of an IPv4 network against the
-    // first four of an IPv6 address would authorise unrelated hosts.
     expect(contains("198.51.100.0", 24, "2001:db8::1")).toBe(false);
     expect(contains("2001:db8::", 32, "198.51.100.1")).toBe(false);
-    // Even /0, which otherwise matches everything.
     expect(contains("2001:db8::", 0, "198.51.100.1")).toBe(false);
   });
 

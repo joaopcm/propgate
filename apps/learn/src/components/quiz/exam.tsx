@@ -9,27 +9,6 @@ import type { Question } from "@/lib/quiz/types";
 import { useMastery } from "@/lib/use-mastery";
 import { QuestionCard } from "./question-card";
 
-/**
- * The last thing, and it works the same way as everything before it.
- *
- * Same mastery rule, so "passing the exam" means what "passing a unit" means
- * and nobody has to learn a second set of rules at the end. What differs is
- * only what it draws from: two questions from every unit, sampled at an even
- * stride so it reaches the later material rather than nine sets of opening
- * paragraphs.
- *
- * Abandoning it costs the exam and nothing else. `clearExam` deliberately
- * leaves unit progress alone: resetting nine units because somebody stopped
- * halfway through the final would punish the reader engaging with it most, in a
- * course with no grade to protect.
- *
- * Questions arrive as a prop rather than being computed here, and that is not a
- * style choice. `examQuestions()` reads `@propgate/dns` and
- * `@propgate/dns-fixtures` to build the registry-derived questions, and those
- * reach `node:dgram` — calling it from a client component asks the bundler to
- * put a UDP socket in a browser, which fails the build. The sampling is
- * build-time data, so the page computes it and hands it over.
- */
 export function Exam({ questions }: { questions: readonly Question[] }) {
   const { progress, update } = useProgressContext();
   const mastery = useMastery(questions);

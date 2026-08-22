@@ -2,14 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { type Entry, families } from "@/lib/taxonomy";
 
-/**
- * The index.
- *
- * Grouped by family rather than listed flat: seventy-odd codes on one page is a
- * wall, and the question someone arrives with is "what can go wrong with SPF",
- * not "what is the alphabetically third code".
- */
-
 export const metadata: Metadata = {
   description:
     "Every DNS misconfiguration propgate detects, what it means, and which fixture proves it.",

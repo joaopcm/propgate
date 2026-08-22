@@ -1,12 +1,3 @@
-/**
- * Accept negotiation for HTML vs Markdown, per acceptmarkdown.com.
- *
- * One URL, two representations. q-values decide; ties prefer HTML, which is
- * what a browser that sends both should get. An absent or empty Accept is
- * HTML, which is what `curl` without `-H` and a crawler that forgot the
- * header both do.
- */
-
 export type Representation = "html" | "markdown";
 
 interface Range {
@@ -59,14 +50,6 @@ function quality(ranges: readonly Range[], type: string): number {
   return best;
 }
 
-/**
- * Which representation to serve.
- *
- * `markdown` only when text/markdown outranks text/html. A client that
- * sends `Accept: text/markdown` (q=1 implicit, html unmatched) gets
- * markdown. A browser's default Accept lists HTML first and wins on the
- * implicit q=1 tie-break.
- */
 export function negotiate(accept: string | null): Representation {
   if (accept === null || accept.trim() === "") {
     return "html";

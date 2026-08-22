@@ -3,14 +3,6 @@ import { SITE_URL } from "./site";
 import { allEntries, type Entry, families } from "./taxonomy";
 import { EVENT_NAMES, EVENTS, TIMESTAMP_TOLERANCE_SECONDS } from "./webhooks";
 
-/**
- * Markdown for the pages that are `.tsx`, not MDX.
- *
- * Those pages are JSX over a typed registry (taxonomy, conformance, webhooks)
- * so `pageMarkdown` cannot read them. Rebuilding from the same registries the
- * pages render is what stops the agent surface drifting from the HTML.
- */
-
 const SEVERITY_MEANING = {
   error: "Something is wrong and mail or certificates are affected.",
   info: "An observation. Whether it matters depends on what the domain is for.",

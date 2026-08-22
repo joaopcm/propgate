@@ -13,14 +13,6 @@ import {
   updateDomainConfig,
 } from "./domains";
 
-/**
- * The storage half of per-domain expectations.
- *
- * A DKIM key is the largest value this schema carries and the one where a
- * storage layer is most likely to bite — so the round trip is asserted against
- * real Postgres rather than assumed from the type.
- */
-
 const db = createDb(process.env.DATABASE_URL ?? "", { maxConnections: 2 });
 
 const DEFINITION: ProfileDefinition = {
@@ -34,7 +26,6 @@ const DEFINITION: ProfileDefinition = {
   ],
 };
 
-/** A 2048-bit key's worth of base64: the real size, not a short stand-in. */
 const KEY = `MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA${"AbCdEf01234+/".repeat(
   28
 )}IDAQAB`;
@@ -99,8 +90,6 @@ describe("expectations in storage", () => {
   });
 
   it("stamps configChangedAt at registration", async () => {
-    // Registration *is* the config being set, and this column is what the
-    // fast-pending window is measured from.
     const { sending, tenantId } = await tenantAndProfiles();
 
     const created = await registerDomain(db, {
@@ -115,13 +104,6 @@ describe("expectations in storage", () => {
   });
 
   it("reads back a row that predates the columns without throwing", async () => {
-    /**
-     * Every existing domain, at migration time.
-     *
-     * Both columns are nullable with no backfill, and null must mean "nothing
-     * supplied, nothing needed" rather than an error — a default of `{}` later
-     * read as a fault would break every row that already existed.
-     */
     const { sending, tenantId } = await tenantAndProfiles();
     const [row] = await db
       .insert(domains)
@@ -135,14 +117,6 @@ describe("expectations in storage", () => {
   });
 
   it("ignores expectations on a re-registration rather than rewriting them", async () => {
-    /**
-     * The `existing` branch writes nothing, deliberately.
-     *
-     * It is there so a partner's retry or a re-run import is harmless. Letting it
-     * update values would turn a replayed bulk import into a silent rewrite of
-     * live expectations — so rotating a key is `PATCH`, and this test is named
-     * for the behaviour so nobody "fixes" it later.
-     */
     const { sending, tenantId } = await tenantAndProfiles();
     await registerDomain(db, {
       expectations: { dkim: { expectedPublicKey: "original" } },
@@ -167,8 +141,6 @@ describe("expectations in storage", () => {
   });
 
   it("keeps expectations off the list, where the page budget lives", async () => {
-    // 389 bytes a domain, two hundred a page. One key would roughly double that
-    // for a field nothing on the list renders.
     const { sending, tenantId } = await tenantAndProfiles();
     await registerDomain(db, {
       expectations: { dkim: { expectedPublicKey: KEY } },
@@ -184,7 +156,6 @@ describe("expectations in storage", () => {
   });
 });
 
-/** A registered domain and the `configChangedAt` a check would have read. */
 async function registered(): Promise<{
   configChangedAt: Date | null;
   id: string;
@@ -234,15 +205,6 @@ describe("saveCheck", () => {
   });
 
   it("refuses to write a result computed before a configuration change", async () => {
-    /**
-     * The race a rotation opens. A check reads the domain, spends up to ten
-     * seconds on DNS, and a `PATCH` lands in the middle.
-     *
-     * Without the compare-and-set this write wins: the row goes `verified` for a
-     * key nothing has ever checked, the pending reset the customer asked for is
-     * gone, and `expectationsFingerprint` records a value the row no longer holds.
-     * The check is simply answering a question nobody is asking any more.
-     */
     const { configChangedAt, id, tenantId } = await registered();
 
     await updateDomainConfig(db, tenantId, id, {
@@ -250,7 +212,6 @@ describe("saveCheck", () => {
     });
 
     const saved = await saveCheck(db, {
-      // As it was read, before the PATCH.
       configChangedAt,
       consecutiveFailures: 0,
       domainId: id,
@@ -268,7 +229,6 @@ describe("saveCheck", () => {
 
     const after = await domainById(db, tenantId, id);
 
-    // The reset stands, and the domain is still due, so the next tick asks again.
     expect(after?.state).toBe("pending");
     expect(after?.lastResult).toBeNull();
     expect(after?.expectations).toEqual({
@@ -277,8 +237,6 @@ describe("saveCheck", () => {
   });
 
   it("writes against a row that predates the column", async () => {
-    // `null` is not a value SQL equality matches, so the guard needs the other
-    // spelling for every domain that existed before the column did.
     const { sending, tenantId } = await tenantAndProfiles();
     const [row] = await db
       .insert(domains)
@@ -330,14 +288,6 @@ describe("updateDomainConfig", () => {
   }
 
   it("resets to pending and clears the failure run when values change", async () => {
-    /**
-     * The whole reason this function exists.
-     *
-     * Without the reset, the next check compares a freshly issued key against a
-     * zone that has not been updated yet, hysteresis reads one definite failure,
-     * and a `domain.degraded` webhook goes out claiming the customer's DNS broke.
-     * Across a fleet rotation that is one false page per domain.
-     */
     const { id, tenantId } = await verified();
 
     const updated = await updateDomainConfig(db, tenantId, id, {
@@ -353,15 +303,6 @@ describe("updateDomainConfig", () => {
   });
 
   it("makes the domain due, so the reset is not merely cosmetic", async () => {
-    /**
-     * A verified domain is scheduled a day out.
-     *
-     * Without moving `next_check_at`, going back to `pending` changes a word in
-     * the row and nothing else: the sweeper would not look at the rotated key for
-     * up to twenty-four hours, and a fleet rotation would leave every domain
-     * unverified for a day while the dashboard showed `pending`. Registration
-     * makes a new domain immediately due for exactly this reason.
-     */
     const { id, tenantId } = await verified();
     const before = await domainById(db, tenantId, id);
 
@@ -379,8 +320,6 @@ describe("updateDomainConfig", () => {
   });
 
   it("re-points to another profile version and resets the same way", async () => {
-    // A tenant moving a customer to a different profile is saying "judge this
-    // against something else now", exactly as a rotation does.
     const { id, other, tenantId } = await verified();
 
     const updated = await updateDomainConfig(db, tenantId, id, {
@@ -393,8 +332,6 @@ describe("updateDomainConfig", () => {
   });
 
   it("leaves values alone when only the profile moves", async () => {
-    // Stale values are retained rather than pruned: the merge already ignores
-    // anything the profile did not ask for, and pruning makes going back lossy.
     const { id, other, tenantId } = await verified();
 
     const updated = await updateDomainConfig(db, tenantId, id, {

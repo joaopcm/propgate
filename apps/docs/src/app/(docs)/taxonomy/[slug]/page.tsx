@@ -3,14 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { allEntries, entryBySlug } from "@/lib/taxonomy";
 
-/**
- * One page per code, addressed by slug.
- *
- * The slug is not decoration: the API and the CLI put it on every finding so a
- * consumer can link straight here without shipping a copy of the taxonomy. This
- * is the other end of that link.
- */
-
 const SEVERITY_STYLE = {
   error: "text-[var(--color-destructive)]",
   info: "text-muted-foreground",

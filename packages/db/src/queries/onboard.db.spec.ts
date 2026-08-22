@@ -5,16 +5,6 @@ import { tenants } from "../schema/tenants";
 import { truncateAll } from "../test/truncate";
 import { findOrCreateAccountForEmail } from "./onboard";
 
-/**
- * The account behind a confirmed address.
- *
- * `signup.db.spec.ts` in `apps/api` covers this through the route it serves. What
- * is here is the property that route cannot reach: what happens when two calls
- * arrive for one address at once. A single-use code means the route only ever
- * makes one call, which is exactly why the guarantee underneath it needs testing
- * directly rather than being assumed.
- */
-
 const db = createDb(process.env.DATABASE_URL ?? "", { maxConnections: 4 });
 
 const EMAIL = "someone@example.com";
@@ -35,8 +25,6 @@ describe("findOrCreateAccountForEmail", () => {
 
     const [member] = await db.select().from(tenantMembers);
 
-    // A tenant with no member is a tenant nobody can be shown to own, which is
-    // why both inserts share one transaction.
     expect(member?.email).toBe(EMAIL);
     expect(member?.tenantId).toBe(account.tenantId);
     expect(member?.id).toBe(account.memberId);
@@ -53,10 +41,6 @@ describe("findOrCreateAccountForEmail", () => {
   });
 
   it("cannot build two accounts for one address concurrently", async () => {
-    // Asserted on the outcome rather than on who won, because the interleaving is
-    // the database's to choose: either both calls see the same row, or one aborts
-    // on the unique index. Both are correct. Two tenants for one address is not,
-    // and that is the only thing worth pinning.
     await Promise.allSettled([
       findOrCreateAccountForEmail(db, { email: EMAIL }),
       findOrCreateAccountForEmail(db, { email: EMAIL }),
@@ -67,8 +51,6 @@ describe("findOrCreateAccountForEmail", () => {
   });
 
   it("treats an address as one account regardless of who normalised it", async () => {
-    // The caller lowercases; this asserts nothing here re-introduces a second
-    // account for a different casing by writing the raw value somewhere.
     const first = await findOrCreateAccountForEmail(db, { email: EMAIL });
     const second = await findOrCreateAccountForEmail(db, {
       email: EMAIL.toLowerCase(),

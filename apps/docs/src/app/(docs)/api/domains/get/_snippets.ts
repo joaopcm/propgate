@@ -1,20 +1,5 @@
-/**
- * The request is quoted verbatim from QUICKSTART.md ("Read it back, and
- * watch it change"), a real command against the live API. QUICKSTART.md
- * pipes the output straight to a formatter and never prints the body, so the
- * response is a shape read off `serialise` in `apps/api/src/routes/domains.ts`
- * with `includeLookups: true`.
- *
- * The `lookups` shape is `StoredLookup` from `packages/db/src/schema/domains.ts`
- * — a flattened record. `server` is a formatted "address:port" string, not the
- * `ServerAddress` object the resolver itself uses, and `status` is the bare
- * `QueryOutcome.status` string with the rest of the outcome (the DNS message,
- * timing) discarded before storage. Both are collapsed in
- * `storedLookups()` in `apps/api/src/domains/check.ts` on the write path.
- */
-
 export const GET_CURL = `curl -s https://api.propgate.dev/v1/domains/019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a \\
-  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"          # stored, no re-check`;
+  -H "authorization: Bearer pg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
 
 export const GET_RESPONSE = `{
   "data": {
@@ -69,14 +54,6 @@ export const GET_RESPONSE = `{
   "meta": null
 }`;
 
-/**
- * The SDK calls assume a client constructed once, as `/sdk` shows:
- * `const propgate = new Propgate(process.env.PROPGATE_API_KEY)`. Every method
- * name and shape here is checked against `@propgate/sdk` itself by
- * `src/lib/sdk.spec.ts`, so a renamed method fails rather than shipping.
- */
-
 export const GET_SDK = `const { data, error } = await propgate.domains.get("019fcf7a-2b3c-7d4e-9f5a-6b7c8d9e0f1a");
 
-// Stored, not re-checked. data.lookups is the derivation behind the verdict.
 data?.lookups;`;

@@ -21,7 +21,6 @@ const SENDING: ProfileDefinition = {
   ],
 };
 
-/** A profile that defers its DKIM key, which is the case the split exists for. */
 const PER_DOMAIN_KEY: ProfileDefinition = {
   requirements: [
     {
@@ -33,7 +32,6 @@ const PER_DOMAIN_KEY: ProfileDefinition = {
   ],
 };
 
-/** Unwrap a compile that must be runnable, and fail loudly rather than cast. */
 function runnable(
   definition: ProfileDefinition,
   expectations: DomainExpectations | null = null,
@@ -63,15 +61,6 @@ function fingerprint(
   return compiled.fingerprint;
 }
 
-/**
- * A run, shaped the way `runChecks` shapes one.
- *
- * The per-label kinds always come back with `records`, even unlabelled — one
- * entry keyed by the empty string — so a hand-written outcome that omits them is
- * a shape the resolver cannot produce, and a spec built on it would pass while
- * the real attribution path returned `indeterminate`. Filled in here rather than
- * at each call site so no spec can forget.
- */
 const PER_LABEL: readonly string[] = ["spf", "mx", "ownership", "cname"];
 
 function result(checks: CheckResult["checks"]): CheckResult {
@@ -111,8 +100,6 @@ describe("rejectDefinition", () => {
   });
 
   it("refuses two requirements sharing a key", () => {
-    // The key is how a result is filed. Two requirements with one key means one
-    // of them is unreportable for the life of the profile.
     expect(
       rejectDefinition({
         requirements: [
@@ -163,22 +150,12 @@ describe("rejectDefinition", () => {
   });
 
   it("refuses a caa requirement with no issuer", () => {
-    // The evaluator skips CAA without an issuer, so this would be a requirement
-    // with no outcome to report against, forever.
     expect(
       rejectDefinition({ requirements: [{ check: "caa", key: "caa" }] })
     ).toContain("must name an issuer");
   });
 
   it("accepts a caa requirement whose issuer comes from the domain", () => {
-    /**
-     * A deliberate change to what this function promises.
-     *
-     * The rule was "a requirement with no outcome to report against is a promise
-     * the API cannot keep". Deferring the issuer keeps the promise somewhere else:
-     * registration refuses a domain that does not supply one, so the requirement
-     * is answerable for every domain that exists.
-     */
     expect(
       rejectDefinition({
         requirements: [
@@ -199,8 +176,6 @@ describe("rejectDefinition", () => {
   });
 
   it("refuses a field that is both set here and required per domain", () => {
-    // Two answers and no rule for which wins. The type cannot express the
-    // precedence, so the write is refused rather than resolved by convention.
     expect(
       rejectDefinition({
         requirements: [
@@ -217,7 +192,6 @@ describe("rejectDefinition", () => {
   });
 
   it("refuses a per-domain field the check kind never looks at", () => {
-    // A value the caller would supply forever and nothing would ever compare.
     expect(
       rejectDefinition({
         requirements: [
@@ -243,19 +217,12 @@ describe("rejectDefinition", () => {
   });
 
   it("refuses an ownership requirement with no token", () => {
-    // Nothing to compare against, so the requirement would read indeterminate
-    // for the life of the profile. Worse than the DKIM case: an empty token
-    // matches an empty TXT record, which is a false pass rather than a false
-    // fail.
     expect(
       rejectDefinition({ requirements: [{ check: "ownership", key: "own" }] })
     ).toContain("must name a token");
   });
 
   it("accepts an ownership requirement whose token comes from the domain", () => {
-    // The case the whole per-domain mechanism exists for. A token is minted for
-    // one domain and means nothing on another, so a profile carrying one as a
-    // literal is a profile with exactly one domain in it.
     expect(
       rejectDefinition({
         requirements: [
@@ -316,10 +283,6 @@ describe("rejectDefinition", () => {
   });
 
   it("refuses two ownership requirements at the apex", () => {
-    // An absent label is the apex, which is a name like any other. Allowing both
-    // would query one name twice and attribute one outcome to two requirements —
-    // a correct answer to the wrong question, which is the failure this file's
-    // header is about.
     expect(
       rejectDefinition({
         requirements: [
@@ -333,15 +296,6 @@ describe("rejectDefinition", () => {
 
 describe("compileProfile", () => {
   it("compiles an unlabelled profile to a single apex entry per kind", () => {
-    /**
-     * The back-compat guard, restated for the labelled shape.
-     *
-     * Every profile written before labels existed asks about exactly one name,
-     * so each per-label kind compiles to a one-entry list carrying no label —
-     * which is what `nameAt` reads as the apex. The assertion is the whole
-     * object rather than a field, because the failure worth catching is an
-     * extra entry appearing from somewhere.
-     */
     expect(runnable(SENDING)).toEqual({
       checks: ["spf", "dkim", "dmarc", "mx"],
       dkimSelectors: ["pg1", "pg2"],
@@ -375,8 +329,6 @@ describe("compileProfile", () => {
   });
 
   it("identifies the profile by version, not by key", () => {
-    // A result has to carry the exact definition it was produced against. That
-    // is the entire reason a domain pins a version.
     expect(runnable(SENDING).id).toBe("version-1");
   });
 
@@ -388,8 +340,6 @@ describe("compileProfile", () => {
   });
 
   it("passes a stated expectsMail of false through rather than dropping it", () => {
-    // `false` is an assertion, not an absence. Dropping it reports every
-    // sending-only domain as broken.
     expect(runnable(SENDING).mx).toEqual([{ expectsMail: false }]);
   });
 });
@@ -404,14 +354,6 @@ describe("compileProfile with per-domain values", () => {
   });
 
   it("is incomplete, never runnable, when a required value is absent", () => {
-    /**
-     * The regression test for the entire feature.
-     *
-     * Before the split, a missing `expectedPublicKey` collapsed into the bare
-     * selector spelling — which asks "is *a* valid key published here" and
-     * answers `pass`. "We never received the key" and "any key is acceptable"
-     * were the same object, so forgetting a value shipped as a green domain.
-     */
     const compiled = compileProfile(PER_DOMAIN_KEY, "version-1", null);
 
     expect(compiled.kind).toBe("incomplete");
@@ -421,8 +363,6 @@ describe("compileProfile with per-domain values", () => {
   });
 
   it("treats a blank value as absent rather than as an expectation", () => {
-    // An empty expectation would be compared against every published value and
-    // match none of them: a fail nobody can act on.
     expect(
       compileProfile(PER_DOMAIN_KEY, "version-1", {
         dkim: { expectedPublicKey: "   " },
@@ -431,8 +371,6 @@ describe("compileProfile with per-domain values", () => {
   });
 
   it("names every missing value, not just the first", () => {
-    // An integrator fixing these one round trip at a time is an integrator we
-    // made do the work our error message could have done once.
     const compiled = compileProfile(
       {
         requirements: [
@@ -482,23 +420,18 @@ describe("compileProfile with per-domain values", () => {
   });
 
   it("ignores a value naming a requirement the profile does not have", () => {
-    // The profile is the contract. Nothing a domain sends may widen it.
     expect(
       runnable(SENDING, { nonesuch: { include: "evil.example" } })
     ).toEqual(runnable(SENDING));
   });
 
   it("ignores a value for a field the profile did not defer", () => {
-    // `spf` here carries a literal include. A domain overriding it would be
-    // choosing what it is checked against, which is the tenant's decision.
     expect(runnable(SENDING, { spf: { include: "evil.example" } }).spf).toEqual(
       [{ include: "_spf.partner.example" }]
     );
   });
 
   it("does not let a stale value enable a check the profile dropped", () => {
-    // What a re-point leaves behind. Retained, because pruning makes going back
-    // lossy — but inert.
     const compiled = runnable(
       { requirements: [{ check: "dmarc", key: "dmarc" }] },
       { caa: { caaIssuer: "letsencrypt.org" } }
@@ -527,13 +460,6 @@ describe("the expectations fingerprint", () => {
   });
 
   it("moves when a profile literal changes with the values held constant", () => {
-    /**
-     * The re-point case, and why the digest is over the merged set.
-     *
-     * A domain pointed at a new profile version whose `include` differs is being
-     * judged against something else, with nothing written to the domain row. A
-     * timestamp on the domain would not notice; this does.
-     */
     const before: ProfileDefinition = {
       requirements: [{ check: "spf", include: "a.example", key: "spf" }],
     };
@@ -566,8 +492,6 @@ describe("the expectations fingerprint", () => {
   });
 
   it("ignores values the profile did not ask for", () => {
-    // Otherwise a stale key left behind by a re-point would keep changing the
-    // digest of a check that never looked at it.
     expect(fingerprint(SENDING, { nonesuch: { include: "x" } })).toBe(
       fingerprint(SENDING)
     );
@@ -576,8 +500,6 @@ describe("the expectations fingerprint", () => {
 
 describe("attributeMissing", () => {
   it("reports every requirement as indeterminate, not just the incomplete one", () => {
-    // No check ran, so nothing is known about any of them. A `pass` here would
-    // be reporting on a question nobody asked.
     const attributed = attributeMissing(SENDING, [
       { field: "expectedPublicKey", requirementKey: "dkim-one" },
     ]);
@@ -590,8 +512,6 @@ describe("attributeMissing", () => {
   });
 
   it("gives the affected requirement the path to set", () => {
-    // The reader is usually an agent. "EXPECTATION_MISSING" is not fixable;
-    // a JSON path is.
     const attributed = attributeMissing(PER_DOMAIN_KEY, [
       { field: "expectedPublicKey", requirementKey: "dkim" },
     ]);
@@ -615,7 +535,6 @@ describe("attributeMissing", () => {
   });
 
   it("folds to indeterminate overall, so nothing transitions", () => {
-    // Invariant 2 read backwards: a domain we could not judge must not move.
     expect(
       overallVerdict(
         attributeMissing(PER_DOMAIN_KEY, [
@@ -702,13 +621,6 @@ describe("attributeResults", () => {
   });
 
   it("matches an apex token against the empty label the resolver reports", () => {
-    /**
-     * The two spellings of "no label" have to agree. `ownershipLabel` in
-     * `@propgate/dns` reports an apex token as `""`; reading `requirement.label`
-     * here would compare `undefined` against it, match nothing, and file a
-     * passing check as indeterminate — leaving the domain unverifiable forever,
-     * which is the exact failure the DKIM selector case documents.
-     */
     const attributed = attributeResults(
       { requirements: [{ check: "ownership", key: "own", token: "abc" }] },
       result([
@@ -757,18 +669,6 @@ describe("attributeResults", () => {
   });
 
   it("refuses to guess when two requirements resolve to one label", () => {
-    /**
-     * The regression. Two requirements deferring their label, a domain supplying
-     * the same label for both, and different tokens behind them. `find` took the
-     * first record for both, so the second requirement was reported against a
-     * token it never asked about — `satisfied: true` for a value nobody
-     * published, which is the worst thing attribution can produce.
-     *
-     * `rejectExpectations` refuses this domain at registration. This is the
-     * backstop for a profile stored before that rule existed: unattributable,
-     * so `indeterminate`, which leaves the domain's state alone rather than
-     * transitioning it on a guess.
-     */
     const definition: ProfileDefinition = {
       requirements: [
         { check: "ownership", key: "a", requiredPerDomain: ["label", "token"] },
@@ -825,9 +725,6 @@ describe("attributeResults", () => {
   });
 
   it("counts indeterminate as neither met nor failed", () => {
-    // The distinction the whole stack preserves. A requirement we could not
-    // evaluate must not read as a failure, or milestone 2 pages a customer over
-    // a resolver blip.
     const attributed = attributeResults(
       { requirements: [{ check: "spf", key: "spf" }] },
       result([
@@ -853,7 +750,6 @@ describe("attributeResults", () => {
   });
 
   it("keeps what was observed against what was expected", () => {
-    // "What is wrong or missing", without an instruction renderer.
     const attributed = attributeResults(
       { requirements: [{ check: "spf", include: "a.example", key: "spf" }] },
       result([
@@ -883,8 +779,6 @@ describe("attributeResults", () => {
   });
 
   it("carries the DNS name a missing record should have been at", () => {
-    // The most actionable part of an absence. Without it a partner can tell
-    // their customer something is missing but not where it goes.
     const attributed = attributeResults(
       { requirements: [{ check: "dkim", key: "dkim", selector: "pg1" }] },
       result([
@@ -919,16 +813,6 @@ describe("attributeResults", () => {
   });
 
   it("finds a deferred selector's outcome by the resolved name", () => {
-    /**
-     * The requirement carries no selector; the domain supplies `acme-1`, so that
-     * is the name the resolver reported an outcome under.
-     *
-     * Reading `requirement.selector` here compares `"acme-1" === undefined`,
-     * matches nothing, and files a *passing* check as `indeterminate` — a domain
-     * that can never reach `verified`, with nothing in the result explaining why.
-     * Compilation and attribution are inverses, and this is the drift the header
-     * of `compile.ts` warns about.
-     */
     const attributed = attributeResults(
       {
         requirements: [
@@ -953,8 +837,6 @@ describe("attributeResults", () => {
   });
 
   it("is indeterminate when a deferred selector resolves to something else", () => {
-    // The honest half of the rule above: matching by resolved name must still be
-    // a match, not a wildcard that files whatever outcome happens to be first.
     const attributed = attributeResults(
       {
         requirements: [

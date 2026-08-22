@@ -8,14 +8,6 @@ import {
   SITE_URL,
 } from "./site";
 
-/**
- * JSON-LD for the homepage.
- *
- * A graph so one script can carry both identities the audit looks for:
- * SoftwareApplication (the product) and Organization (the publisher), with
- * contactPoint so agents can answer "how do I reach propgate".
- */
-
 export function homepageJsonLd(): Record<string, unknown> {
   return {
     "@context": "https://schema.org",

@@ -2,14 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Spine } from "./spine";
 
-/**
- * The two-column reading frame: the rail on the left, the unit on the right.
- *
- * The rail is hidden below `lg` rather than collapsed behind a disclosure. A
- * course is read in order, so on a phone the useful navigation is "what comes
- * next", which the quiz's footer already provides — a hamburger holding nine
- * links the reader is walking through anyway is chrome for its own sake.
- */
 export function CourseFrame({
   children,
   currentSlug,

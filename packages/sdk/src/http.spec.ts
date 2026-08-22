@@ -2,14 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { Propgate } from "./client";
 import { callAt, envelope, json, refusal, silent, stub } from "./test/stub";
 
-/**
- * What goes on the wire, and what happens when it comes back wrong.
- *
- * Driven through the public client rather than through `send` directly: the
- * retry policy is only worth anything if a resource cannot opt out of it, and a
- * spec that calls the transport by hand cannot tell whether one did.
- */
-
 const KEY = "pg_test_key";
 const BASE = "https://api.example.test";
 
@@ -133,12 +125,6 @@ describe("what may be retried", () => {
   });
 
   it("gives up on a rate limit that outlasts the wait it is allowed", async () => {
-    /**
-     * `Retry-After: 47` is a real answer from `POST /v1/domains/:id/checks`, and
-     * honouring it inside the call would be a 47-second stall the caller never
-     * asked for. The limit comes back instead, carrying the number, so the
-     * caller can schedule against it.
-     */
     const transport = stub([
       refusal("rate limit of 100 checks per minute exceeded", 429, {
         "retry-after": "47",
@@ -167,11 +153,6 @@ describe("what may be retried", () => {
   });
 
   it("never repeats a POST that may already have been applied", async () => {
-    /**
-     * The whole reason the policy is per method rather than per status. A second
-     * `POST /v1/api-keys` after a timeout is a second key nobody knows about,
-     * and no amount of backoff makes that safe.
-     */
     const transport = stub([
       () => {
         throw new TypeError("fetch failed");
@@ -212,11 +193,6 @@ describe("what may be retried", () => {
   });
 
   it("stops backing off before the wait grows past what a caller would accept", async () => {
-    /**
-     * The ceiling applies to the backoff and not only to `Retry-After`. Without
-     * it, `maxRetries: 10` waits 250ms, 500ms, 1s, 2s, 4s, 8s… — two minutes
-     * inside one `await`, on something the caller thought was a quick GET.
-     */
     const transport = stub([refusal("Internal server error", 500)]);
 
     vi.useFakeTimers();
@@ -228,9 +204,6 @@ describe("what may be retried", () => {
 
       const { error } = await pending;
 
-      // 250, 500, 1000, 2000, 4000 — and then 8000, which is past the ceiling.
-      // Six attempts rather than eleven, and 7.75 seconds of waiting rather
-      // than two minutes.
       expect(transport.calls).toHaveLength(6);
       expect(error?.statusCode).toBe(500);
     } finally {
@@ -239,8 +212,6 @@ describe("what may be retried", () => {
   });
 
   it("reports a body that never arrived as a connection error", async () => {
-    // Headers, then a dropped connection. A rejection escaping here would be
-    // the one place this package throws.
     const transport = stub([
       () =>
         new Response(
@@ -314,16 +285,10 @@ describe("giving up", () => {
     const { error } = await pending;
 
     expect(error?.code).toBe("aborted");
-    // One attempt, and no second one against a signal that is already aborted.
     expect(transport.calls).toHaveLength(1);
   });
 
   it("reports an unusable timeout instead of throwing out of the call", async () => {
-    /**
-     * `AbortSignal.timeout` throws a `TypeError` on `NaN`, and it does so before
-     * anything this package can catch — which would make a mistyped option the
-     * one way to get an exception out of a client that promises never to throw.
-     */
     const transport = stub([envelope([])]);
 
     for (const timeoutMs of [Number.NaN, -1, 0, Number.POSITIVE_INFINITY]) {
