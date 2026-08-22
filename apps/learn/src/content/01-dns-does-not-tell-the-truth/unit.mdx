@@ -4,8 +4,8 @@ import { Callout } from "@/components/mdx/callout";
 import { Lookup } from "@/components/lookup";
 
 DNS is a caching, inconsistent, occasionally lying distributed system. Not
-because anyone built it badly, but because the alternative — a single
-authoritative answer available everywhere at once — is not a thing that exists
+because anyone built it badly, but because the alternative, a single
+authoritative answer available everywhere at once, is not a thing that exists
 at internet scale.
 
 Every failure in the previous unit is a consequence of that. This unit goes
@@ -20,7 +20,7 @@ most often.
 under any type.
 
 `NODATA` means the name exists, and there is nothing of the type you asked for.
-It is not a separate response code — it is `NOERROR` with an empty answer
+It is not a separate response code. It is `NOERROR` with an empty answer
 section and a SOA record in the authority section.
 
 <Lookup
@@ -30,7 +30,7 @@ section and a SOA record in the authority section.
       <p>
         The status line says <code>NOERROR</code>, the answer section is empty,
         and there is a SOA in the authority section. That is NODATA. Now ask for
-        an <code>A</code> record at the same name and you will get an address —
+        an <code>A</code> record at the same name and you will get an address:
         the name exists, it simply has no TXT.
       </p>
       <p>
@@ -47,7 +47,7 @@ section and a SOA record in the authority section.
 Why it matters: the remedies are different. NXDOMAIN usually means the record
 was never added, or was added at the wrong name. NODATA usually means something
 else is already configured at that name and will need removing or merging
-first — a CNAME where you want a TXT, most often, since a name with a CNAME
+first, most often a CNAME where you want a TXT, since a name with a CNAME
 cannot legally hold anything else.
 
 A verifier that reports both as "not found" throws away the more useful half of
@@ -89,7 +89,7 @@ This is the reason interactive verification and background monitoring are
 different code paths with different behaviour. When somebody is sitting at an
 onboarding screen having just clicked Verify, you want to bypass caches and ask
 the authoritative servers directly. When you are sweeping ten thousand domains
-in the background, you want the cache — it is the whole reason the cost model
+in the background, you want the cache. It is the whole reason the cost model
 works.
 
 ## The record that makes everything pass
@@ -115,7 +115,7 @@ with a wildcard, whether or not the customer added anything.
         The nastier case is on the same zone. Ask for{" "}
         <code>anything._domainkey.wildcard.test</code> and you get a{" "}
         <em>well-formed DKIM key</em>. A verifier that parses records rather
-        than testing presence is immune to a wildcard serving junk — but not to
+        than testing presence is immune to a wildcard serving junk, but not to
         one serving something valid. Every selector anyone asks for publishes a
         working key, and nothing in the record says the customer never added it.
       </p>
@@ -141,7 +141,7 @@ with a wildcard, whether or not the customer added anything.
 You tell a customer to add `track.acme.com CNAME track.yourplatform.com`. They
 do. You query for a CNAME and get nothing.
 
-Some providers — Cloudflare most visibly — resolve the alias when it is saved
+Some providers, Cloudflare most visibly, resolve the alias when it is saved
 and serve address records in its place. The customer did exactly what you asked.
 `dig CNAME` returns an empty answer.
 
@@ -176,7 +176,7 @@ answer: compare how?
   notice={
     <>
       <p>
-        Two addresses. One is the platform's, one belongs to somebody else —
+        Two addresses. One is the platform's, one belongs to somebody else:
         what a customer produces by <em>adding</em> your record next to the one
         their previous vendor left behind, instead of replacing it.
       </p>
@@ -232,7 +232,7 @@ one zone deeper than intended.
 />
 
 The fault has more shapes than you would guess. The same zone carries it applied
-to an ownership token, where it costs the most — the token is opaque, so nothing
+to an ownership token, where it costs the most: the token is opaque, so nothing
 about the value hints that the name is wrong, and the correct name is NXDOMAIN
 with no other clue. It also carries the fault applied to a CNAME's *target*
 rather than its owner name, in two spellings: the target with its own zone
@@ -268,7 +268,7 @@ places, and a few rejoin it wrongly.
         Then look at <code>s3._domainkey.txt-split.test</code>, where the
         provider re-emitted the whole tag prefix on every chunk. That one really
         is broken. And <code>s5._domainkey.txt-split.test</code>, which differs
-        from the expected key only in case — DNS names fold case, base64 payloads
+        from the expected key only in case. DNS names fold case, base64 payloads
         do not, so this must not be treated as a match.
       </p>
     </>
@@ -309,7 +309,7 @@ to.
       </p>
       <p>
         Now try <code>big._domainkey.tcp.test</code> the same way. That is a real
-        2048-bit key at 483 bytes — under 512, so it does <em>not</em> truncate.
+        2048-bit key at 483 bytes, under 512, so it does <em>not</em> truncate.
         The first draft of this fixture assumed it would. A verifier that reports
         truncation for the 2048-bit case is as broken as one that misses it for
         the 4096-bit case.
@@ -322,7 +322,7 @@ to.
 />
 
 There is a worse version of this in the wild. Some middleboxes drop TCP port 53
-entirely, without rejecting it — the UDP response arrives with `TC` set, the
+entirely, without rejecting it: the UDP response arrives with `TC` set, the
 TCP retry opens, and then nothing comes back. From the resolver's side that is
 indistinguishable from a slow server, and the record is both correct and
 unreadable.
@@ -350,9 +350,9 @@ wrong. Most of the internet is here.
 resolver returns SERVFAIL. A non-validating one returns the records happily.
 
 That last one is the interesting failure. Somebody botches a key rollover, and
-their mail breaks for every recipient behind a validating resolver — which is a
-large and growing share — while resolving perfectly from wherever the person
-debugging it happens to be sitting.
+their mail breaks for every recipient behind a validating resolver (a large and
+growing share) while resolving perfectly from wherever the person debugging it
+happens to be sitting.
 
 <Lookup
   name="bogus-zone.test"
@@ -360,7 +360,7 @@ debugging it happens to be sitting.
     <>
       <p>
         SERVFAIL, from the validating resolver. Now ask{" "}
-        <code>dig @127.0.0.7 -p 53 TXT bogus-zone.test</code> — the permissive
+        <code>dig @127.0.0.7 -p 53 TXT bogus-zone.test</code>, the permissive
         resolver, which iterates without validating. Same zone, same moment, and
         the records come back.
       </p>
@@ -368,7 +368,7 @@ debugging it happens to be sitting.
         That difference is the whole point of running two resolver tiers. A
         SERVFAIL on its own proves something is broken; the differential proves
         it is the <em>signature</em>. And{" "}
-        <code>secure.test</code> is the control — it validates, with{" "}
+        <code>secure.test</code> is the control: it validates, with{" "}
         <code>ad</code> in the flags.
       </p>
     </>
@@ -399,7 +399,7 @@ record at the registrar.
       </p>
       <p>
         Worth noting what this must <em>not</em> report. At an organizational
-        domain — an unsigned zone directly under a public suffix — the same
+        domain (an unsigned zone directly under a public suffix) the same
         observation is true of most of the internet, so it is only a finding
         below that level. The fixture set has both cases precisely so the guard
         is tested rather than assumed.

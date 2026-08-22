@@ -29,10 +29,10 @@ export default function CoverPage() {
         </p>
         <p className="mt-5 max-w-[38rem] text-[1.0625rem] text-foreground/85 leading-[1.75]">
           This course is about that 20%. It works through a real implementation
-          — {diagnosisCodeCount()} diagnosis codes,{" "}
+          ({diagnosisCodeCount()} diagnosis codes,{" "}
           {applicableRequirementCount()} catalogued requirements across{" "}
           {rfcCount()} RFCs, of which {gapCount()} are openly recorded as not
-          done — and every query you run goes to {fixtureZoneCount()} real zones
+          done) and every query you run goes to {fixtureZoneCount()} real zones
           on a real authoritative server, because a mocked resolver agrees with
           whatever you believed when you wrote the mock.
         </p>

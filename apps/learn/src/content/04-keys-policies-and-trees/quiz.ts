@@ -23,7 +23,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "t=y puts the key in testing mode: receivers must ignore signature failures. The key is published and protecting nothing yet, which is a warning rather than a pass — a domain in this state believes it has DKIM and does not.",
+      "t=y puts the key in testing mode: receivers must ignore signature failures. The key is published and protecting nothing yet, which is a warning rather than a pass: a domain in this state believes it has DKIM and does not.",
     id: "unit4:testing-mode",
     options: [
       "The key is valid for testing domains only",
@@ -81,7 +81,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "A null MX is an MX with preference 0 whose exchange is the root. On a send-only domain it is exactly right. On a domain that receives mail, every message bounces — and nothing in DNS distinguishes the two cases.",
+      "A null MX is an MX with preference 0 whose exchange is the root. On a send-only domain it is exactly right. On a domain that receives mail, every message bounces, and nothing in DNS distinguishes the two cases.",
     id: "unit4:null-mx",
     options: [
       "It is always a misconfiguration",
@@ -95,7 +95,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 3,
     explanation:
-      "RFC 2181 §10.3 forbids it. Most senders follow the alias anyway, which is why the ones that refuse produce 'some of our mail gets through' rather than an outright failure — the worst shape of bug to diagnose.",
+      "RFC 2181 §10.3 forbids it. Most senders follow the alias anyway, which is why the ones that refuse produce 'some of our mail gets through' rather than an outright failure: the worst shape of bug to diagnose.",
     id: "unit4:mx-cname",
     options: [
       "It is allowed and works everywhere",
@@ -139,7 +139,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "The organizational domain is one label below the public suffix, and determining it needs the Public Suffix List — co.uk is a suffix while .uk alone is not. CAA's climb is a plain walk up the name and uses no list at all.",
+      "The organizational domain is one label below the public suffix, and determining it needs the Public Suffix List: co.uk is a suffix while .uk alone is not. CAA's climb is a plain walk up the name and uses no list at all.",
     id: "unit4:psl",
     options: [
       "Both use it, to find the organizational domain",

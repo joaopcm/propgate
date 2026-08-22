@@ -64,7 +64,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "With no strict majority there is nothing to believe, so indeterminate is the honest answer — and indeterminate deliberately moves no state at all.",
+      "With no strict majority there is nothing to believe, so indeterminate is the honest answer, and indeterminate deliberately moves no state at all.",
     id: "unit6:no-majority",
     options: [
       "The first vantage point's answer is used",
@@ -92,7 +92,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 0,
     explanation:
-      "Resolvers reached from one machine share an egress IP, so they catch cache state, propagation lag and one broken resolver. They cannot see GeoDNS, anycast, or a path that differs by geography — a domain answering differently in Frankfurt than in São Paulo looks identical from there.",
+      "Resolvers reached from one machine share an egress IP, so they catch cache state, propagation lag and one broken resolver. They cannot see GeoDNS, anycast, or a path that differs by geography: a domain answering differently in Frankfurt than in São Paulo looks identical from there.",
     id: "unit6:vantage-limit",
     options: [
       "GeoDNS and anycast, because the resolvers share an egress IP",
@@ -106,7 +106,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 2,
     explanation:
-      "A domain close to SPF's ten-lookup limit works today. Calling that degraded would train people to ignore the state, so warn is treated as a passing check — which makes a diagnosis code's severity a decision about the state machine rather than about presentation.",
+      "A domain close to SPF's ten-lookup limit works today. Calling that degraded would train people to ignore the state, so warn is treated as a passing check, which makes a diagnosis code's severity a decision about the state machine rather than about presentation.",
     id: "unit6:warn-is-pass",
     options: [
       "As a failure, incrementing the counter",
@@ -150,7 +150,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 0,
     explanation:
-      "A number nobody has measured does not need a production override — it needs the measurement. The hysteresis thresholds do get environment overrides, because being wrong there means a false alarm reaching a customer rather than a slightly wasteful poll.",
+      "A number nobody has measured does not need a production override: it needs the measurement. The hysteresis thresholds do get environment overrides, because being wrong there means a false alarm reaching a customer rather than a slightly wasteful poll.",
     id: "unit6:injectable",
     options: [
       "Because an unmeasured number needs a measurement rather than a runtime knob, and changing the policy is a code change",

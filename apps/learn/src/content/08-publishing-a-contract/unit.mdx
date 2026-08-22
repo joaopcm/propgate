@@ -11,7 +11,7 @@ import {
   unreproducibleCodeCount,
 } from "@/lib/counts";
 
-The last unit is not about DNS. It is about the seams — what changes when the
+The last unit is not about DNS. It is about the seams: what changes when the
 thing you built stops being yours and becomes something other people write code
 against.
 
@@ -38,7 +38,7 @@ their own support queue.
 So a code is a public contract, and there are {diagnosisCodeCount()} of them.
 Adding one is fine. Changing or removing one is a breaking change.
 
-That constraint is not a burden after the fact — it is what forces the taxonomy
+That constraint is not a burden after the fact: it is what forces the taxonomy
 to be designed rather than accumulated. A name you can never change is a name
 you think about before you publish.
 
@@ -81,7 +81,7 @@ gets worked around.
 reading in full because of what it contains:
 
 > A zone file cannot express it. **Measured:** `named-checkzone` silently
-> rewrites a mismatched TTL to the first one it saw, and `nsd-checkzone` warns —
+> rewrites a mismatched TTL to the first one it saw, and `nsd-checkzone` warns,
 > so a fixture would be normalised before it was served and the test would
 > assert nothing.
 
@@ -108,7 +108,7 @@ denominator you choose is a metric you can improve by cataloguing more of what
 somebody else's software does.
 
 So the ledger's denominator is *our reading* of which normative statements apply
-to something that inspects a domain's records and reports on them — and it says
+to something that inspects a domain's records and reports on them. It says
 so, at the top, in those words. A reader is meant to disagree with that reading,
 which is why every entry cites a section and why the gaps are listed rather than
 quietly excluded.
@@ -146,7 +146,7 @@ point: it is the same shape as the diagnosis coverage guard, a table joined to
 the test suite and enforced by the test suite.
 
 Adding a requirement is cheap and worth doing even when the answer is "we do not
-do this". The gap list is the part a consumer cannot get anywhere else — every
+do this". The gap list is the part a consumer cannot get anywhere else: every
 other vendor's compliance page lists what they support.
 
 ## Signing, and the ledger of what is owed
@@ -154,8 +154,8 @@ other vendor's compliance page lists what they support.
 Webhooks have the same shape of problem one layer out.
 
 The wire format is deliberately Svix-compatible: three headers, and
-`v1,<base64 HMAC-SHA256>` over `{id}.{timestamp}.{body}`. Not out of admiration —
-because it means every existing verification library and every published example
+`v1,<base64 HMAC-SHA256>` over `{id}.{timestamp}.{body}`. Not out of admiration:
+it means every existing verification library and every published example
 already works, and swapping in a hosted sender later changes nothing for anybody
 already integrated.
 
@@ -173,7 +173,7 @@ silently disagreeing with the documentation.
 
 And then there are four events, one of which was argued against: a webhook
 meaning "possibly nothing is wrong" trains people to ignore the channel. The
-answer was not to drop it but to fire it once per episode — which the state
+answer was not to drop it but to fire it once per episode, which the state
 machine from unit 6 already guarantees, because a transition is only recorded
 when the state actually moved.
 
@@ -194,15 +194,15 @@ The failure worth catching is specific: a customer who cannot do from the SDK
 what they can do with curl writes their own client, and then there are two
 clients and the one you did not write is the one they will report bugs against.
 
-It costs almost nothing to run. The app is constructed only to be *read* — no
-handler executes — and the SDK talks to a `fetch` that records the request and
+It costs almost nothing to run. The app is constructed only to be *read* (no
+handler executes) and the SDK talks to a `fetch` that records the request and
 answers from memory. So it lives in the ungated test project rather than beside
 the end-to-end spec that needs three container tiers.
 
 <Callout>
   One detail worth stealing. The app is constructed *with* a mailer specifically
   so the signup routes are mounted and have to be excluded by name. Leaving the
-  mailer out would unmount them and the exclusion would become invisible — which
+  mailer out would unmount them and the exclusion would become invisible, which
   is the difference between "the SDK deliberately omits signup" and "nobody
   noticed signup exists".
 </Callout>
@@ -215,8 +215,8 @@ useful list is the other one.
 **Delegation.** The long-term differentiator: instead of six copy-pasted
 records, the customer adds one NS delegation and the platform owns the subtree.
 Key rotation and new selectors need zero customer action. It is not built,
-because it requires enormous trust — nameservers going down breaks customers'
-customers' mail — and that trust has to be earned by shipping something
+because it requires enormous trust (nameservers going down breaks customers'
+customers' mail) and that trust has to be earned by shipping something
 lower-risk first.
 
 **A dashboard, and originally the SDK.** Both were in scope and both were
@@ -248,7 +248,7 @@ roughly a month of real monitored domains before it is anything more than a
 defensible guess.
 
 Reading those comments is a reasonable next step, and so is disagreeing with
-them. The generated references — the taxonomy and the RFC ledger — are built from
+them. The generated references (the taxonomy and the RFC ledger) are built from
 the code rather than written by hand, so they are the current answer rather than
 the answer as of when this course was written.
 

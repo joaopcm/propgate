@@ -34,7 +34,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 3,
     explanation:
-      "One asks whether a fixture can produce the code. The other asks whether any evaluator emits it. A code can be perfectly reproducible and still unreachable because nothing looks for it — which is how nine codes came to be published ahead of their evaluators.",
+      "One asks whether a fixture can produce the code. The other asks whether any evaluator emits it. A code can be perfectly reproducible and still unreachable because nothing looks for it, which is how nine codes came to be published ahead of their evaluators.",
     id: "unit8:two-lists",
     options: [
       "They are the same list under two names",
@@ -52,7 +52,7 @@ const AUTHORED: readonly Question[] = [
       "The entry records that named-checkzone silently rewrites a mismatched TTL to the first one it saw and nsd-checkzone warns, so a fixture would be normalised before being served and the test would assert nothing. That is the result of trying, not an assertion that it is hard.",
     id: "unit8:measured-exemption",
     options: [
-      "A measurement showing why a fixture cannot work — the zone tooling normalises the fault away",
+      "A measurement showing why a fixture cannot work: the zone tooling normalises the fault away",
       "A promise to add the fixture in a later phase",
       "A link to the RFC section it comes from",
       "The name of the engineer who signed it off",
@@ -69,7 +69,7 @@ const AUTHORED: readonly Question[] = [
     options: [
       "Because the RFCs are updated too often",
       "Because counting requirements is subjective",
-      "Because most of an RFC instructs senders and receivers, so the denominator would be meaningless — and one you choose can be gamed",
+      "Because most of an RFC instructs senders and receivers, so the denominator would be meaningless, and one you choose can be gamed",
       "Because the ledger is hand-curated",
     ],
     prompt:
@@ -79,7 +79,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "Every entry marked implemented names a test by the exact text of its it(...), and a spec fails the build otherwise. So an entry cannot be marked covered by writing the word — and renaming the test fails the ledger until somebody updates it.",
+      "Every entry marked implemented names a test by the exact text of its it(...), and a spec fails the build otherwise. So an entry cannot be marked covered by writing the word, and renaming the test fails the ledger until somebody updates it.",
     id: "unit8:ledger-claim",
     options: [
       "That the implementation is complete",
@@ -121,7 +121,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 2,
     explanation:
-      "A customer who cannot do from the SDK what they can do with curl writes their own client — and then there are two clients, and the one you did not write is the one they report bugs against.",
+      "A customer who cannot do from the SDK what they can do with curl writes their own client, and then there are two clients, and the one you did not write is the one they report bugs against.",
     id: "unit8:sdk-coverage",
     options: [
       "The SDK's types drifting from the API's responses",
@@ -164,7 +164,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 0,
     explanation:
-      "It requires enormous trust — the platform's nameservers going down breaks its customers' customers' mail — and that trust has to be earned by shipping something lower-risk first. Read-only verification earns it.",
+      "It requires enormous trust (the platform's nameservers going down breaks its customers' customers' mail) and that trust has to be earned by shipping something lower-risk first. Read-only verification earns it.",
     id: "unit8:delegation-deferred",
     options: [
       "It needs trust that read-only verification has to earn first",

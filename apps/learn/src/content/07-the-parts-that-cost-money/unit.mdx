@@ -30,7 +30,7 @@ reads: the only rows anyone ever looks at are the ones where something changed.
 
 ## Store changes, never observations
 
-So the current state is updated in place — `last_checked_at`, `last_result` —
+So the current state is updated in place (`last_checked_at`, `last_result`)
 and a history row is appended only when a value actually changed.
 
 ```ts
@@ -43,7 +43,7 @@ per sweep, forever.
 
 The customer-facing feature this buys is a timeline: "the DKIM record was
 deleted on Tuesday at 14:02". That is exactly the question a support engineer
-asks, and it is answerable from a table that only contains changes — the
+asks, and it is answerable from a table that only contains changes: the
 unchanged rows would have added nothing to it.
 
 <Callout>
@@ -58,8 +58,8 @@ unchanged rows would have added nothing to it.
 
 A subtle and load-bearing detail: the thing compared is not the record.
 
-A requirement is satisfied by a *property* of the zone — "our include is
-authorised", "this selector publishes a valid key" — and several different
+A requirement is satisfied by a *property* of the zone ("our include is
+authorised", "this selector publishes a valid key") and several different
 record texts satisfy it identically. Comparing texts would append a timeline
 entry every time a customer reordered the mechanisms in their SPF record.
 
@@ -82,7 +82,7 @@ The reason is the shape of the population. Most monitored domains are in
 `verified` and have been for weeks. Under a uniform five-minute sweep, they are
 the overwhelming majority of the queries and essentially all of the waste. Move
 them to daily and the bill collapses, while the domains that actually need
-attention — someone mid-onboarding, someone degraded — get checked *more* often
+attention (someone mid-onboarding, someone degraded) get checked *more* often
 than a uniform interval would allow.
 
 Cheaper and better at the same time, which is rare enough to be worth noticing
@@ -103,7 +103,7 @@ path.
 <Callout kind="warning">
   With one caveat that has to be designed for: not every provider bumps the
   serial reliably. Cloudflare and Route 53 do. Some do not. So the fast path is
-  an optimisation with a full verify daily regardless — which means a provider
+  an optimisation with a full verify daily regardless, which means a provider
   that never bumps its serial costs a little more and is never *wrong*.
 </Callout>
 
@@ -122,11 +122,11 @@ and the resolver.
 The nuance worth stating, because it is easy to read the rule too broadly: this
 bans per-invocation *billing*, not queues. A queue against a Redis container in
 the same compose stack is exactly the long-running process the rule asks for.
-What stays banned is paying per tick — and specifically a hosted Redis with
+What stays banned is paying per tick: specifically a hosted Redis with
 per-command pricing, which against a sweeper waking every sixty seconds is the
 failure mode the rule exists to prevent.
 
-Request-driven surfaces are a different question. A dashboard, an API — those are
+Request-driven surfaces are a different question. A dashboard, an API: those are
 genuinely request-shaped and serverless is a reasonable fit. The rule is about
 the sweep path.
 
@@ -137,7 +137,7 @@ a single rule: nothing may live only in Redis.
 
 `domains.next_check_at` decides what is due. `webhook_deliveries` records what is
 owed. Both are Postgres. So a flushed Redis costs in-flight attempts and never
-obligations — the next tick re-derives the same list of due domains from the
+obligations: the next tick re-derives the same list of due domains from the
 same column, and a reconcile pass re-derives the deliveries.
 
 The split shows up in the tick itself. The tick claims due rows and hands them
@@ -147,7 +147,7 @@ scheduler rather than of the worst zone in the batch.
 
 Claiming uses `select ... for update skip locked` with a lease. A claimed row is
 not due again until the lease expires, which has to comfortably exceed the check
-budget — otherwise a slow-but-healthy check gets claimed a second time while the
+budget, otherwise a slow-but-healthy check gets claimed a second time while the
 first is still running. Five minutes over a ten-second budget is a wide margin.
 
 <Callout>
@@ -185,13 +185,13 @@ another tenant finds nothing instead of finding it.
 The last cost is one you impose on other people.
 
 One verification aims up to twenty queries at authoritative servers the *caller*
-names. That is not your infrastructure being spent — it is somebody else's, at a
+names. That is not your infrastructure being spent: it is somebody else's, at a
 rate a caller chooses.
 
 Which is why the quotas came down when signup became self-serve. Every key used
 to be handed out deliberately; now anybody with an email address gets one. The
-request limit went from 30,000 a minute to 250 a second — the same order of
-magnitude on average, a very different burst — and verifications went from 600 a
+request limit went from 30,000 a minute to 250 a second (the same order of
+magnitude on average, a very different burst) and verifications went from 600 a
 minute to 100.
 
 That second number is the one that matters, and the reasoning behind it is not

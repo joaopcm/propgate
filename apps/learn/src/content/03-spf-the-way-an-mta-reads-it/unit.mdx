@@ -69,7 +69,7 @@ match that produces the outcome.
 | `?` | neutral | No opinion at all |
 
 The default is the trap. `include:_spf.example.net` is `+include:...`, and a
-record ending in `all` rather than `-all` or `~all` ends in `+all` — which
+record ending in `all` rather than `-all` or `~all` ends in `+all`, which
 authorises the entire internet.
 
 <Lookup
@@ -84,7 +84,7 @@ authorises the entire internet.
       <p>
         Compare <code>noall.spf.test</code>, which has no <code>all</code> and no{" "}
         <code>redirect</code>, so an unlisted sender defaults to neutral. And{" "}
-        <code>neutral.spf.test</code>, which says <code>?all</code> — the domain
+        <code>neutral.spf.test</code>, which says <code>?all</code>: the domain
         explicitly has no opinion, so the record protects nothing.
       </p>
     </>
@@ -97,7 +97,7 @@ authorises the entire internet.
 ## Ten lookups, and which terms spend one
 
 Section 4.6.4 caps the number of DNS-querying terms an evaluation may use at
-ten. Not per record — per evaluation, across the entire expanded tree.
+ten. Not per record: per evaluation, across the entire expanded tree.
 
 The terms that cost a lookup are `include`, `a`, `mx`, `ptr`, `exists`, and the
 `redirect` modifier. The ones that do not are `ip4`, `ip6`, and `all`, because
@@ -120,7 +120,7 @@ failure.
       </p>
       <p>
         Two things worth checking in an implementation. The failure is on the
-        eleventh, not the tenth — the tenth is legal. And the lookup that would
+        eleventh, not the tenth: the tenth is legal. And the lookup that would
         exceed the limit is never performed: a receiver stops, so a verifier that
         keeps expanding is measuring something the receiver never sees.
       </p>
@@ -137,7 +137,7 @@ failure.
     <>
       <p>
         Eight lookups. Entirely legal today, and the state actually worth
-        warning about — because the next sending service the customer adds is
+        warning about, because the next sending service the customer adds is
         what breaks it, and by then the symptom is failing mail rather than a
         bad record.
       </p>
@@ -168,8 +168,8 @@ working domain as broken or a broken one as fine, and nobody notices until a
 customer argues.
 
 The way to be sure is a fixture sized to land exactly on each side of the
-boundary — one record at ten lookups that must pass, one at eleven that must
-fail — rather than a record at fifteen, which passes any implementation that is
+boundary (one record at ten lookups that must pass, one at eleven that must
+fail) rather than a record at fifteen, which passes any implementation that is
 roughly right.
 
 ## Two void lookups
@@ -182,7 +182,7 @@ Section 4.6.4 permits two. The third is a permanent error.
 Almost nobody knows this, and it is the shape of failure where each individual
 piece looks harmless. Three retired `include:` terms pointing at services the
 customer stopped using is a broken SPF record, and reading the record does not
-reveal it — you have to resolve each term to find out that nothing is there.
+reveal it: you have to resolve each term to find out that nothing is there.
 
 <Lookup
   name="void3.spf.test"
@@ -226,7 +226,7 @@ query for every connection.
       <p>
         Which means the verdict depends on <em>who is sending</em>. A checker
         with no sender to evaluate against cannot answer this, and the honest
-        result is not "fail" — it is that the question was not answerable.
+        result is not "fail": it is that the question was not answerable.
       </p>
     </>
   }
@@ -243,7 +243,7 @@ mechanism.
 
 The honest answer for both is that the term is unevaluable, reported as such,
 rather than a guess in either direction. That is a stated gap in the conformance
-ledger rather than an omission — the difference being that a gap has a reason
+ledger rather than an omission: the difference is that a gap has a reason
 written next to it.
 
 <Callout kind="warning">
@@ -296,7 +296,7 @@ it is unreachable.
     <>
       <p>
         <code>v=spf1 -all include:one.spf.test</code>. It reads as though it
-        authorises something. It does not — evaluation stops at{" "}
+        authorises something. It does not. Evaluation stops at{" "}
         <code>-all</code>.
       </p>
       <p>
@@ -314,7 +314,7 @@ it is unreachable.
 
 Two more accounting rules, and then the list is done.
 
-**More than one SPF record is a permanent error.** Not the union of the two —
+**More than one SPF record is a permanent error.** Not the union of the two:
 RFC 7208 §4.5 makes the domain authorise nothing. The subtlety is that records
 not beginning with `v=spf1` have to be discarded *before* any are counted, or
 every domain with a verification token published as TXT gets reported as having

@@ -49,7 +49,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "A mocked resolver returns whatever you thought the answer was when you wrote the mock. The bugs a diagnosis taxonomy exists to catch — mangled splits, wildcard synthesis, truncation, bogus DNSSEC — live exactly in the gap between what you believed and what servers do.",
+      "A mocked resolver returns whatever you thought the answer was when you wrote the mock. The bugs a diagnosis taxonomy exists to catch (mangled splits, wildcard synthesis, truncation, bogus DNSSEC) live exactly in the gap between what you believed and what servers do.",
     id: "unit0:never-mock",
     options: [
       "Mocks are slower than real queries",
@@ -63,7 +63,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 0,
     explanation:
-      "Consumers write switch statements over the codes, so a rename breaks their integration silently — their default branch starts catching a case they used to handle. That constraint is the reason a code cannot be added without a fixture proving it, or a written reason no local fixture can produce it.",
+      "Consumers write switch statements over the codes, so a rename breaks their integration silently: their default branch starts catching a case they used to handle. That constraint is the reason a code cannot be added without a fixture proving it, or a written reason no local fixture can produce it.",
     id: "unit0:codes-contract",
     options: [
       "Renaming or removing a code is a breaking change for consumers",
