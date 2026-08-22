@@ -71,6 +71,7 @@ export function writeConfig(
     try {
       unlinkSync(temporary);
     } catch {
+      // temp already gone
     }
 
     throw cause;

@@ -114,5 +114,6 @@ function readStatus(text: string): string | undefined {
 
     return typeof body.status === "string" ? body.status : undefined;
   } catch {
+    // not JSON
   }
 }

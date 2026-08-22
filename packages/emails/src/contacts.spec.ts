@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { bounded, createRecordingContactList } from "./contacts";
 
 const NEVER = new Promise<string>(() => {
+  // never settles
 });
 
 const AFTER_THE_RACE_MS = 40;

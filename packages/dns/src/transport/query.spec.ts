@@ -158,6 +158,7 @@ describe("query — unreachable", () => {
 describe("query — timeout", () => {
   it("reports a timeout with the deadline it used", async () => {
     const port = await udpServer(() => {
+      // never answers
     });
 
     const outcome = await query({

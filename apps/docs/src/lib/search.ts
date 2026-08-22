@@ -139,18 +139,16 @@ export function search(
     }
   }
 
-  return (
-    bestPerDestination(scored)
-      .sort((a, b) => b.score - a.score || a.order - b.order)
-      .slice(0, MAX_RESULTS)
-      .map(({ record, score }) => ({
-        group: record.group,
-        heading: record.heading,
-        href: `${record.href}${record.hash ?? ""}`,
-        score,
-        section: record.section,
-        snippet: snippetFor(record, tokens),
-        title: record.title,
-      }))
-  );
+  return bestPerDestination(scored)
+    .sort((a, b) => b.score - a.score || a.order - b.order)
+    .slice(0, MAX_RESULTS)
+    .map(({ record, score }) => ({
+      group: record.group,
+      heading: record.heading,
+      href: `${record.href}${record.hash ?? ""}`,
+      score,
+      section: record.section,
+      snippet: snippetFor(record, tokens),
+      title: record.title,
+    }));
 }

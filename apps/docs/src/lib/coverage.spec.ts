@@ -13,6 +13,7 @@ function bodyOf(href: string): string {
     try {
       return readFileSync(join(APP, relative, name), "utf8");
     } catch {
+      // try the other filename
     }
   }
 

@@ -38,6 +38,7 @@ export async function startTcpBlackhole(options: {
   tcp.on("connection", (socket) => {
     swallowed.push(socket);
     socket.on("error", () => {
+      // expected: client hangs up
     });
   });
 

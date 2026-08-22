@@ -134,6 +134,7 @@ describe("deliver", () => {
 
   it("classifies a timeout as retryable, not as a refusal", async () => {
     const url = await serving(() => {
+      // no response
     });
 
     expect(await attempt(url, 150)).toMatchObject({ kind: "retryable" });

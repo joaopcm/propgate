@@ -14,7 +14,5 @@ export const tenantMembers = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
   },
-  (table) => [
-    uniqueIndex("tenant_members_email_idx").on(table.email),
-  ]
+  (table) => [uniqueIndex("tenant_members_email_idx").on(table.email)]
 );
