@@ -23,7 +23,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "ip4, ip6 and all decide without a query. Every other mechanism — include, a, mx, ptr, exists — and the redirect modifier each spend one of the ten.",
+      "ip4, ip6 and all decide without a query. Every other mechanism (include, a, mx, ptr, exists) and the redirect modifier each spend one of the ten.",
     id: "unit3:which-cost",
     options: [
       "include, a, mx and ip4",
@@ -37,7 +37,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 0,
     explanation:
-      "A void lookup is a DNS-querying term that resolves to nothing. RFC 7208 §4.6.4 permits two; the third is a permanent error. Three retired include: terms is a broken record, and reading the record does not reveal it — you have to resolve each term to find out nothing is there.",
+      "A void lookup is a DNS-querying term that resolves to nothing. RFC 7208 §4.6.4 permits two; the third is a permanent error. Three retired include: terms is a broken record, and reading the record does not reveal it: you have to resolve each term to find out nothing is there.",
     id: "unit3:void-limit",
     options: [
       "Two. The third is a permanent error",
@@ -81,7 +81,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 2,
     explanation:
-      "RFC 7208 §4.5 makes more than one SPF record a permanent error, so the domain authorises nothing. The subtlety is that records not beginning with v=spf1 must be discarded before any are counted — otherwise every domain with a verification token published as TXT is reported as having two.",
+      "RFC 7208 §4.5 makes more than one SPF record a permanent error, so the domain authorises nothing. The subtlety is that records not beginning with v=spf1 must be discarded before any are counted, otherwise every domain with a verification token published as TXT is reported as having two.",
     id: "unit3:multiple-records",
     options: [
       "The two records are merged and both sets of mechanisms apply",
@@ -95,7 +95,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 0,
     explanation:
-      "Macros expand per connection, so exists:%{ir}.%{v}._spf.example.com asks about a different name for every sending address. Without a sender to evaluate against, the honest answer is that the term could not be evaluated — not that it failed.",
+      "Macros expand per connection, so exists:%{ir}.%{v}._spf.example.com asks about a different name for every sending address. Without a sender to evaluate against, the honest answer is that the term could not be evaluated, not that it failed.",
     id: "unit3:macro-sender",
     options: [
       "The term is unevaluable, and reporting that is more honest than guessing either way",
@@ -110,7 +110,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "The threshold has a receipt: adding one mainstream sending service costs between one and three lookups — the include: term plus whatever its own record spends. A domain with fewer than three spare is one integration away from breaking, which is the moment to say something rather than after the mail stops.",
+      "The threshold has a receipt: adding one mainstream sending service costs between one and three lookups, the include: term plus whatever its own record spends. A domain with fewer than three spare is one integration away from breaking, which is the moment to say something rather than after the mail stops.",
     id: "unit3:headroom",
     options: [
       "Half the limit, because that is a natural midpoint",
@@ -125,7 +125,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 2,
     explanation:
-      "A receiver stops at the term that would exceed the limit, so a verifier that keeps expanding is measuring something the receiver never sees — and spending queries against somebody else's servers to do it.",
+      "A receiver stops at the term that would exceed the limit, so a verifier that keeps expanding is measuring something the receiver never sees, and spending queries against somebody else's servers to do it.",
     id: "unit3:never-exceed",
     options: [
       "To keep the check fast",

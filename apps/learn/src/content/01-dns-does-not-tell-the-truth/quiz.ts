@@ -5,7 +5,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "NODATA is NOERROR with an empty answer section and a SOA in authority: the name exists, the type does not. NXDOMAIN is a distinct response code meaning no such name. The remedies differ — NODATA usually means something else is already configured at that name, and a CNAME cannot legally coexist with other types.",
+      "NODATA is NOERROR with an empty answer section and a SOA in authority: the name exists, the type does not. NXDOMAIN is a distinct response code meaning no such name. The remedies differ: NODATA usually means something else is already configured at that name, and a CNAME cannot legally coexist with other types.",
     id: "unit1:nodata",
     options: [
       "NODATA is response code 3 and NXDOMAIN is response code 0",
@@ -33,7 +33,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 0,
     explanation:
-      "Probing a label nobody would configure is the behavioural test: if a random name answers too, the specific record was never added. In a signed zone there is also an authoritative signal — the RRSIG's Labels field is smaller than the answer owner's label count, because the signature was made over the wildcard name.",
+      "Probing a label nobody would configure is the behavioural test: if a random name answers too, the specific record was never added. In a signed zone there is also an authoritative signal: the RRSIG's Labels field is smaller than the answer owner's label count, because the signature was made over the wildcard name.",
     id: "unit1:wildcard-detect",
     options: [
       "Query a label nobody would configure and see whether it answers too",
@@ -63,7 +63,7 @@ const AUTHORED: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "The customer added your record beside the one their previous vendor left behind rather than replacing it. Resolvers hand out the whole set, so some requests reach you and some do not. An overlap test — 'is our address among them?' — passes this configuration, which is why the comparison has to be a subset test.",
+      "The customer added your record beside the one their previous vendor left behind rather than replacing it. Resolvers hand out the whole set, so some requests reach you and some do not. An overlap test ('is our address among them?') passes this configuration, which is why the comparison has to be a subset test.",
     id: "unit1:partial-subset",
     options: [
       "An overlap test, because any matching address proves the record was added",

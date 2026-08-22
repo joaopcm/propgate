@@ -9,7 +9,7 @@ means.
 
 ## A DKIM record is a key, not a string
 
-A DKIM record is a tag list, and the tag that matters is `p=` — the public half
+A DKIM record is a tag list, and the tag that matters is `p=`: the public half
 of the signing key, base64-encoded.
 
 Parsing it as a key rather than comparing it as text buys three things a string
@@ -24,7 +24,7 @@ either of those from "not a key at all".
       <p>
         A real 512-bit RSA key. It parses, it is syntactically perfect, and
         receivers are already rejecting signatures made with it. Nothing about
-        the record text says so — the length is a property of the parsed key.
+        the record text says so: the length is a property of the parsed key.
       </p>
       <p>
         Compare <code>ed25519._domainkey.dkim.test</code>, which is 32 raw bytes
@@ -51,12 +51,12 @@ purpose.
   notice={
     <>
       <p>
-        <code>v=DKIM1; k=rsa; p=</code> — complete, correct, and deliberate.
+        <code>v=DKIM1; k=rsa; p=</code>: complete, correct, and deliberate.
       </p>
       <p>
         Two more worth reading in the same zone. <code>t=y</code> on{" "}
         <code>testing._domainkey</code> means receivers must ignore signature
-        failures, so the key is published and protecting nothing yet — which is
+        failures, so the key is published and protecting nothing yet, which is
         a warning, not a pass. And <code>vlast._domainkey</code> puts{" "}
         <code>v=</code> second, which the RFC says MUST be first.
       </p>
@@ -109,7 +109,7 @@ DMARC is published at `_dmarc.<domain>`, and RFC 7489 §6.6.3 defines discovery
 in two steps. A receiver queries the exact name first. Only if that returns
 nothing does it fall back to the *organizational* domain.
 
-The organizational domain is one label below the public suffix — `example.co.uk`
+The organizational domain is one label below the public suffix: `example.co.uk`
 for `mail.example.co.uk`, since `co.uk` is a suffix and `.uk` alone is not. That
 determination needs the Public Suffix List, which is why a DMARC evaluator ships
 one.
@@ -129,7 +129,7 @@ subdomain publishes nothing of its own.**
       <p>
         Now query <code>_dmarc.inherits.dmarc.test</code>, which has nothing.
         Then query <code>_dmarc.dmarc.test</code> and read its{" "}
-        <code>sp=</code>. That is the policy which applies to the subdomain — 
+        <code>sp=</code>. That is the policy which applies to the subdomain:{" "}
         <code>quarantine</code>, not the <code>p=reject</code> next to it.
       </p>
     </>
@@ -140,7 +140,7 @@ subdomain publishes nothing of its own.**
 />
 
 Two more DMARC facts that produce findings rather than booleans. `p=none` is
-monitoring only — a valid record enforcing nothing, which is a warning rather
+monitoring only: a valid record enforcing nothing, which is a warning rather
 than a pass. And `pct=20` applies the policy to a fifth of mail, delivering the
 rest regardless, which most people who set it do not realise.
 
@@ -171,7 +171,7 @@ RFC 7489 §7.1 closes that: the destination has to opt in by publishing
       <p>
         Compare <code>unauth-reports.test</code>, which is named as a
         destination and publishes no such record. Reports sent there will be
-        dropped by any receiver that checks — so the domain owner is getting
+        dropped by any receiver that checks, so the domain owner is getting
         fewer reports than they think, silently.
       </p>
     </>
@@ -198,7 +198,7 @@ mail, every message bounces.
   notice={
     <>
       <p>
-        <code>0 .</code> — preference zero, exchange is the root. That is the
+        <code>0 .</code>: preference zero, exchange is the root. That is the
         whole record.
       </p>
       <p>
@@ -234,7 +234,7 @@ exactly why the ones that refuse look intermittent rather than broken.
       </p>
       <p>
         Three more in the same zone. <code>literal.mx.test</code> holds an
-        address where a name belongs — the zone file accepts it, dig prints it,
+        address where a name belongs: the zone file accepts it, dig prints it,
         and senders look it up as a name and find nothing.{" "}
         <code>dangling.mx.test</code> points at a name with no address of either
         family. And <code>sixth.mx.test</code> has only AAAA, which is unusual,
@@ -269,7 +269,7 @@ the name.
       <p>
         Nothing here, so climb. Query <code>sub.caa.test</code> and you get{" "}
         <code>0 issue "digicert.com"</code>. That is the answer, and the apex
-        policy naming letsencrypt is <em>not</em> merged in — so letsencrypt is
+        policy naming letsencrypt is <em>not</em> merged in, so letsencrypt is
         not authorised at this name even though it is at the apex.
       </p>
       <p>
@@ -295,7 +295,7 @@ all.
   notice={
     <>
       <p>
-        Flag 128 — the critical bit — on a property no authority recognises.
+        Flag 128 (the critical bit) on a property no authority recognises.
         RFC 8659 §4.1 requires a CA that does not understand a critical property
         to refuse issuance, so this blocks everything <em>despite</em> also
         carrying a perfectly good <code>issue "letsencrypt.org"</code> next to
@@ -317,7 +317,7 @@ all.
 <Callout kind="warning">
   In a zone file, an unquoted `;` starts a comment. `@ IN CAA 0 issue ;` is a
   deny-all that silently becomes empty rdata. The fixture zones quote it, and
-  the reason is written next to it — this is the kind of detail that looks like a
+  the reason is written next to it: this is the kind of detail that looks like a
   typo until you know.
 </Callout>
 

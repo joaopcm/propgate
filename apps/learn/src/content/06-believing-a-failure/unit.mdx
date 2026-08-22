@@ -31,7 +31,7 @@ The first defence is not asking one resolver. Every authenticated check runs
 against a pool of them concurrently.
 
 The same pool for the interactive verify and for the background sweep,
-deliberately — a verify that consulted one resolver and a sweep that consulted
+deliberately: a verify that consulted one resolver and a sweep that consulted
 another could disagree about the same domain a minute apart, and the customer
 would have no way to tell which was right.
 
@@ -47,7 +47,7 @@ not three times, which is what makes consensus affordable on a button press.
         <code>v=spf1 include:one.spf.test -all</code>. Now ask the divergent
         server the same question:{" "}
         <code>dig @127.0.0.8 -p 53 TXT split.test</code>. Different answer, same
-        moment, and both servers are listed in the delegation — so a resolver
+        moment, and both servers are listed in the delegation, so a resolver
         may legitimately pick either.
       </p>
       <p>
@@ -68,7 +68,7 @@ sorted finding codes.
 
 Deliberately not the raw records. Two resolvers legitimately return an RRset in
 different orders and with different remaining TTLs, and calling that a
-divergence would fire on every healthy domain — which is the failure mode this
+divergence would fire on every healthy domain, which is the failure mode this
 whole codebase is most careful about.
 
 Three outcomes:
@@ -83,13 +83,13 @@ because a customer mid-propagation should be told that rather than left
 wondering why the answer changed.
 
 **No majority.** Two that disagree, or a three-way split. There is nothing to
-believe, so the verdict is `indeterminate` — which is exactly the verdict unit 5
+believe, so the verdict is `indeterminate`, which is exactly the verdict unit 5
 built for this.
 
 <Callout>
   Every lookup from every vantage point is kept in the result, not just the
-  winner's. A query made and not shown is a cost the caller pays and cannot see —
-  and when the question is "why do you say this is uncertain", the losing vantage
+  winner's. A query made and not shown is a cost the caller pays and cannot see.
+  When the question is "why do you say this is uncertain", the losing vantage
   point's lookups are the entire answer.
 </Callout>
 
@@ -108,7 +108,7 @@ identical from here.
 
 The fixture tier has the same limitation and says so. Real GeoDNS is out of
 reach from one host, so the divergence fixture is two authoritative servers
-serving different content for the same name — which exercises the reconciliation
+serving different content for the same name, which exercises the reconciliation
 logic exactly, and is not a simulation of geography.
 
 ## Counting failures
@@ -133,7 +133,7 @@ justify them named next to them.
 That honesty is the point. One for a warning is the conservative choice: it
 costs a possibly-noisy event and buys the shortest time to notice. Three for a
 failure, at the five-minute cadence a degraded domain gets, is roughly ten
-minutes of sustained failure before anyone says so — long enough to outlast a
+minutes of sustained failure before anyone says so: long enough to outlast a
 resolver restart or a zone reload, short enough to be useful.
 
 <Callout kind="warning">
@@ -178,7 +178,7 @@ notification saying "this used to work" about something that never did.
 
 So a failing domain only becomes `degraded` if it was `verified` or already
 `degraded`. Otherwise it stays `pending` until it has failed enough times to be
-`failed` outright — which is the honest reading of a customer who has not
+`failed` outright, which is the honest reading of a customer who has not
 finished adding their records.
 
 <Callout>
@@ -197,8 +197,8 @@ A transition is reported only when the state actually moved. A domain that stays
 `degraded` for a week produces one transition, not two thousand.
 
 That is the same shape as "store changes, never observations" from unit 0, and
-getting the once-per-episode property out of it — rather than out of a separate
-suppression rule somewhere else — is why there is nothing here to forget. There
+getting the once-per-episode property out of it (rather than out of a separate
+suppression rule somewhere else) is why there is nothing here to forget. There
 is no code path that emits an event without a state change, because emitting is
 downstream of the change.
 
@@ -225,7 +225,7 @@ the observed distribution of time-to-first-success at onboarding, and of how
 often a stable domain's records actually move.
 
 They are injectable rather than environment-tunable, deliberately. A number
-nobody has measured does not need a production override — it needs the
+nobody has measured does not need a production override: it needs the
 measurement. The thresholds that *do* get overrides are the hysteresis ones,
 where being wrong means a false alarm reaching a customer rather than a slightly
 wasteful poll.
@@ -243,7 +243,7 @@ make onboarding feel broken.
 
 So the floor applies to `verified` and nothing else. The resolver's own cache may
 still delay a pending check by up to the TTL, which is acceptable because it
-self-corrects — unlike a scheduling decision, which stays wrong until the state
+self-corrects, unlike a scheduling decision, which stays wrong until the state
 changes.
 
 That is the whole of regression detection. Consensus for one bad resolver,

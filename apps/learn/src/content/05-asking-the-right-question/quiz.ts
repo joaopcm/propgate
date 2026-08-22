@@ -4,7 +4,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 2,
     explanation:
-      "A null MX is correct on a send-only domain and means every message bounces on one that receives mail. Nothing in DNS distinguishes them, so the caller has to say — which is what expectsMail on the profile is for.",
+      "A null MX is correct on a send-only domain and means every message bounces on one that receives mail. Nothing in DNS distinguishes them, so the caller has to say, which is what expectsMail on the profile is for.",
     id: "unit5:why-profile",
     options: [
       "Because DNS providers format records differently",
@@ -21,7 +21,7 @@ export const QUESTIONS: readonly Question[] = [
       "Anything absent from a profile's checks produces no outcome at all, not a green one. A dashboard showing eight ticks for a domain that was only asked about two is lying about what was verified.",
     id: "unit5:unasked",
     options: [
-      "No DKIM outcome at all — the check was not asked, which is different from passing",
+      "No DKIM outcome at all: the check was not asked, which is different from passing",
       "A passing DKIM outcome, since nothing was found to be wrong",
       "An indeterminate DKIM outcome",
       "A failing DKIM outcome, since no key was found",
@@ -33,7 +33,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "A DKIM key is issued per domain but the field holding it was on the profile, which is a versioned template many domains pin to. Asserting 'this domain publishes the key we issued it' therefore cost one profile version per domain — at ten thousand domains, versioning stops meaning anything.",
+      "A DKIM key is issued per domain but the field holding it was on the profile, which is a versioned template many domains pin to. Asserting 'this domain publishes the key we issued it' therefore cost one profile version per domain: at ten thousand domains, versioning stops meaning anything.",
     id: "unit5:expectations-moved",
     options: [
       "Profiles could not be serialised to JSON",
@@ -48,7 +48,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 3,
     explanation:
-      "A value the profile did not defer is ignored rather than honoured, so nothing a domain sends can widen what it is checked against. A value the profile asked for and did not get makes the domain indeterminate — the absence of an answer, not the absence of a problem.",
+      "A value the profile did not defer is ignored rather than honoured, so nothing a domain sends can widen what it is checked against. A value the profile asked for and did not get makes the domain indeterminate: the absence of an answer, not the absence of a problem.",
     id: "unit5:expectation-rules",
     options: [
       "Ignored, and the domain passes",
@@ -63,7 +63,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 2,
     explanation:
-      "The definition is fetched by key after the body is parsed, so a schema cannot know which fields are valid. Worse, a validator that strips unknown keys would silently drop a typo like expectedPublickey, leaving the domain monitored against no expectation at all — the exact failure the mechanism exists to prevent.",
+      "The definition is fetched by key after the body is parsed, so a schema cannot know which fields are valid. Worse, a validator that strips unknown keys would silently drop a typo like expectedPublickey, leaving the domain monitored against no expectation at all: the exact failure the mechanism exists to prevent.",
     id: "unit5:not-a-schema",
     options: [
       "Because the values are encrypted at rest",
@@ -78,7 +78,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 0,
     explanation:
-      "All three are properties of the zone. Asking them at a label either means nothing or asks the same question twice — a subdomain nobody delegated has no NS records, which is a failure no customer can act on.",
+      "All three are properties of the zone. Asking them at a label either means nothing or asks the same question twice: a subdomain nobody delegated has no NS records, which is a failure no customer can act on.",
     id: "unit5:not-repeatable",
     options: [
       "delegation, dmarc and caa, because all three are properties of the zone",
@@ -107,7 +107,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 3,
     explanation:
-      "rejectDefinition claims discriminators at profile-write time, but only the ones written as literals — a deferred discriminator has no value yet, so uniqueness is not decidable there. It becomes decidable when a domain supplies its expectations, which is where the collision check has to run.",
+      "rejectDefinition claims discriminators at profile-write time, but only the ones written as literals: a deferred discriminator has no value yet, so uniqueness is not decidable there. It becomes decidable when a domain supplies its expectations, which is where the collision check has to run.",
     id: "unit5:collision-when",
     options: [
       "Because profile writes are not transactional",
@@ -150,7 +150,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 0,
     explanation:
-      "A shared context would have been simpler until attributing a finding to a check meant slicing an array by index, which stops working the moment anything runs in parallel — and they do run in parallel, because an interactive check's wall clock should be the slowest evaluator rather than the sum of all of them.",
+      "A shared context would have been simpler until attributing a finding to a check meant slicing an array by index, which stops working the moment anything runs in parallel, and they do run in parallel, because an interactive check's wall clock should be the slowest evaluator rather than the sum of all of them.",
     id: "unit5:concurrent",
     options: [
       "Each check gets its own context, so findings stay attributable when they run in parallel",

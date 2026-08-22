@@ -39,7 +39,7 @@ None of these are hard to look up. That is the trap.
 Query the name. Compare the answer to what you expected. Show a tick.
 
 For most domains that works, and it keeps working long enough to ship. The
-system does not fail on the happy path — it fails on a long tail of specific,
+system does not fail on the happy path. It fails on a long tail of specific,
 unrelated-looking cases, each of which arrives as a support ticket rather than
 as an exception in your logs.
 
@@ -66,7 +66,7 @@ Some real ones, in no order:
   deleted it. Nothing told anyone.
 
 Each of these is a couple of days of work once you understand it. The problem is
-that you do not understand it — you understand "the record is missing", because
+that you do not understand it: you understand "the record is missing", because
 that is what your check returned. The customer says they added it. You are both
 right.
 
@@ -85,8 +85,8 @@ deflects it. The customer fixes it in the provider's UI in about a minute.
 That difference is why the implementation this course works through treats its
 diagnosis codes as the product rather than as error strings. There are currently
 {diagnosisCodeCount()} of them, and adding one requires a fixture that produces
-it — a real zone, on a real authoritative server, {fixtureZoneCount()} of them
-in total — or a written explanation of why no local fixture can. A code without
+it (a real zone, on a real authoritative server, {fixtureZoneCount()} of them
+in total) or a written explanation of why no local fixture can. A code without
 one fails the build.
 
 <Callout kind="warning">

@@ -58,7 +58,7 @@ export function ProgressNote() {
         {settledCount(progress)} of {CURRICULUM.length} units settled. It is
         stored in this browser under one key and sent nowhere. There is no
         account, which means nothing to sign up for and nothing to lose if this
-        site disappears — and it also means clearing site data clears this.
+        site disappears, and it also means clearing site data clears this.
       </p>
 
       <div className="mt-8 border-border border-t pt-6">

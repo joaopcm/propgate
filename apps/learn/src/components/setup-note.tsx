@@ -38,7 +38,7 @@ export function SetupNote() {
       <p className="mt-2 text-muted-foreground">
         The addresses printed below assume Linux. On macOS only{" "}
         <code className="font-mono text-foreground">127.0.0.1</code> is up, so
-        the compose override publishes high ports on it instead — use{" "}
+        the compose override publishes high ports on it instead, use{" "}
         <code className="font-mono text-foreground">
           docker-compose.darwin.yml
         </code>{" "}

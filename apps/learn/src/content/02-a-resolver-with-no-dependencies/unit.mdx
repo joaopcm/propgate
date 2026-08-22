@@ -7,7 +7,7 @@ Node ships a DNS client. `dns.Resolver` wraps c-ares, it is fast, and it is
 correct. For most programs it is the right answer.
 
 It cannot do this job. Not because it is bad, but because it hands you the
-*answer* and throws away the *response* — and every finding in the previous
+*answer* and throws away the *response*. Every finding in the previous
 unit lives in the parts it discards.
 
 | What a verifier needs | What `node:dns` gives you |
@@ -19,8 +19,8 @@ unit lives in the parts it discards.
 | REFUSED vs SERVFAIL vs NXDOMAIN | Collapsed into error codes that lose the distinction |
 | The AA flag | Not exposed, so a lame delegation is invisible |
 
-Add a promise of zero runtime dependencies — the library is the thing that has
-to be credible on its own — and there is exactly one option left. Encode and
+Add a promise of zero runtime dependencies (the library is the thing that has
+to be credible on its own) and there is exactly one option left. Encode and
 decode DNS messages yourself, over `node:dgram` and `node:net`.
 
 That is about two thousand lines. This unit is what they do.
@@ -49,21 +49,21 @@ Every DNS message, query or response, starts with the same twelve bytes.
 Six sixteen-bit fields. The second one is where the flags live, packed as bits,
 and it is the interesting one:
 
-- **QR** — is this a response? Set on the way back.
-- **AA** — Authoritative Answer. The responding server owns this zone. Absent
+- **QR**: is this a response? Set on the way back.
+- **AA**: Authoritative Answer. The responding server owns this zone. Absent
   from a delegated server's answer, this is a lame delegation.
-- **TC** — TrunCation. Unit 1's invisible flag.
-- **RD** / **RA** — recursion desired, recursion available.
-- **AD** — Authentic Data. The resolver validated DNSSEC for this answer.
-- **CD** — Checking Disabled. The client asked the resolver not to validate.
-- **RCODE** — 0 NOERROR, 2 SERVFAIL, 3 NXDOMAIN, 5 REFUSED.
+- **TC**: TrunCation. Unit 1's invisible flag.
+- **RD** / **RA**: recursion desired, recursion available.
+- **AD**: Authentic Data. The resolver validated DNSSEC for this answer.
+- **CD**: Checking Disabled. The client asked the resolver not to validate.
+- **RCODE**: 0 NOERROR, 2 SERVFAIL, 3 NXDOMAIN, 5 REFUSED.
 
 The four counts say how many records follow, in four sections: question,
 answer, authority, additional.
 
 <Callout>
   `RCODE` 0 with `ANCOUNT` 0 is NODATA. There is no dedicated code for it,
-  which is exactly why so much software reports it as "not found" — the
+  which is exactly why so much software reports it as "not found": the
   distinction is in a count, not in a status.
 </Callout>
 
@@ -89,7 +89,7 @@ Two hard limits, both from RFC 1035 §2.3.4: a label is at most 63 bytes, and th
 whole name is at most 255 bytes on the wire. The 63-byte cap is why the top two
 bits of a length byte are free, which matters in the next section.
 
-Type is a number — `A` is 1, `NS` is 2, `CNAME` is 5, `SOA` is 6, `MX` is 15,
+Type is a number: `A` is 1, `NS` is 2, `CNAME` is 5, `SOA` is 6, `MX` is 15,
 `TXT` is 16, `AAAA` is 28, `OPT` is 41, `RRSIG` is 46, `DS` is 43, `DNSKEY` is
 48, `CAA` is 257. Class is almost always 1, for `IN`.
 
@@ -113,7 +113,7 @@ pointers without a bound loops forever on eleven bytes of input.
 
 <Callout kind="warning">
   Every read in the parser is bounds-checked against the end of the buffer. That
-  is not defensive habit — a truncated or malformed response is a routine
+  is not defensive habit: a truncated or malformed response is a routine
   observation for a tool like this, and reading past the end should surface as a
   diagnosable finding rather than as an out-of-range error from Node.
 </Callout>
@@ -136,7 +136,7 @@ Worth doing once. `dig` will show you the bytes it sent and received.
       <p>
         For the actual bytes, add <code>+hexl</code>. Find the twelve header
         bytes, then the length-prefixed labels of the question name, then look
-        for a byte with its top two bits set — <code>0xc0</code> — where a name
+        for a byte with its top two bits set (<code>0xc0</code>) where a name
         appears a second time. That is the pointer.
       </p>
     </>
@@ -152,7 +152,7 @@ The original protocol caps a UDP response at 512 bytes. That was generous in
 1987 and is not now: a single 4096-bit DKIM key does not fit.
 
 EDNS0 (RFC 6891) extends it by smuggling a pseudo-record into the additional
-section. Type 41, `OPT`, and its fields are repurposed — the class field carries
+section. Type 41, `OPT`, and its fields are repurposed: the class field carries
 the buffer size the client can accept, and part of the TTL field carries the DO
 bit that asks for DNSSEC records.
 
@@ -174,7 +174,7 @@ one row of the table at the top of this unit.
       <p>
         RRSIG records alongside the answer, and an OPT pseudo-record in the
         additional section with <code>flags: do</code>. Drop{" "}
-        <code>+dnssec</code> and the signatures vanish — the server has them and
+        <code>+dnssec</code> and the signatures vanish: the server has them and
         does not send them unless asked.
       </p>
       <p>
@@ -193,8 +193,8 @@ one row of the table at the top of this unit.
 Everything so far assumed you knew which server to ask. A recursive resolver
 does not.
 
-It starts with root hints — a small list of addresses that are not discovered,
-because there is nowhere to discover them from. It asks a root server for the
+It starts with root hints (a small list of addresses that are not discovered,
+because there is nowhere to discover them from). It asks a root server for the
 name it wants. The root does not know, but it knows who does, and returns a
 referral: NS records in the authority section, and often their addresses in the
 additional section as glue.
@@ -229,7 +229,7 @@ serving a root zone that delegates `test.`, an authoritative server for
 />
 
 Two failures you can now name precisely. A delegated server that answers
-without `AA` set is a **lame delegation** — it was named as authoritative and
+without `AA` set is a **lame delegation**: it was named as authoritative and
 does not think it is. A delegated server that does not answer at all is
 unreachable, and the two are different problems with different owners.
 
@@ -239,7 +239,7 @@ unreachable, and the two are different problems with different owners.
   notice={
     <>
       <p>
-        REFUSED, not a timeout. This server exists and is answering — it simply
+        REFUSED, not a timeout. This server exists and is answering: it simply
         does not serve this zone, despite the parent's delegation naming it.
       </p>
       <p>
@@ -263,7 +263,7 @@ assumed.
 This reads as pedantry until you try to build the tier above. Root hints have to
 be injectable, because a test root server is not the real root. And if the code
 that follows a delegation hardcodes 53, then a test tier on high ports needs a
-shim between the resolver and the socket — at which point the thing under test
+shim between the resolver and the socket, at which point the thing under test
 is no longer the thing that ships.
 
 The fixture tier solves it the other way. Six servers, each on its own loopback
@@ -296,7 +296,7 @@ lookups waited five is a check nobody runs from a button.
 is what turns a verdict into an explanation, and it is why a result can show its
 own working.
 
-There is also a backstop on total lookups, set generously — fifty, where a good
+There is also a backstop on total lookups, set generously: fifty, where a good
 domain uses a handful. That number is a tripwire rather than a design
 constraint: it exists so a pathological zone cannot make one check run forever,
 and if a legitimate domain ever touched it, the number would be wrong and would

@@ -4,7 +4,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 3,
     explanation:
-      "c-ares hands back the answer and discards the response. The TC bit, RRSIGs and the DO bit, the authority-section SOA of an NXDOMAIN, the advertised EDNS buffer, the difference between REFUSED and SERVFAIL, and the AA flag are all unavailable — and each one is load-bearing for at least one diagnosis code.",
+      "c-ares hands back the answer and discards the response. The TC bit, RRSIGs and the DO bit, the authority-section SOA of an NXDOMAIN, the advertised EDNS buffer, the difference between REFUSED and SERVFAIL, and the AA flag are all unavailable, and each one is load-bearing for at least one diagnosis code.",
     id: "unit2:why-not-node-dns",
     options: [
       "It is too slow for interactive verification",
@@ -18,7 +18,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 1,
     explanation:
-      "NODATA has no dedicated response code. It is RCODE 0 with ANCOUNT 0 and a SOA in the authority section — the distinction lives in a count rather than in a status, which is exactly why so much software reports it as 'not found'.",
+      "NODATA has no dedicated response code. It is RCODE 0 with ANCOUNT 0 and a SOA in the authority section: the distinction lives in a count rather than in a status, which is exactly why so much software reports it as 'not found'.",
     id: "unit2:nodata-header",
     options: [
       "RCODE 3 with ANCOUNT 0",
@@ -32,7 +32,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 0,
     explanation:
-      "A label is capped at 63 bytes by RFC 1035 §2.3.4, which leaves the top two bits of a length byte unused. A length byte with both set is not a length at all — it is the high six bits of a fourteen-bit offset into the message, and the next byte carries the rest.",
+      "A label is capped at 63 bytes by RFC 1035 §2.3.4, which leaves the top two bits of a length byte unused. A length byte with both set is not a length at all: it is the high six bits of a fourteen-bit offset into the message, and the next byte carries the rest.",
     id: "unit2:compression",
     options: [
       "Labels are capped at 63 bytes, leaving the top two bits free to mark a compression pointer",
@@ -75,7 +75,7 @@ export const QUESTIONS: readonly Question[] = [
   {
     correct: 2,
     explanation:
-      "A server named in a parent's delegation that answers without the AA flag does not believe it is authoritative for the zone. That is a lame delegation, and it is a different problem from a server that never answers at all — different owner, different fix.",
+      "A server named in a parent's delegation that answers without the AA flag does not believe it is authoritative for the zone. That is a lame delegation, and it is a different problem from a server that never answers at all: different owner, different fix.",
     id: "unit2:lame",
     options: [
       "The server timed out",

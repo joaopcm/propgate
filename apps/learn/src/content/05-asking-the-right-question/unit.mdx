@@ -16,7 +16,7 @@ rest of this unit exists to handle.
   notice={
     <>
       <p>
-        <code>0 .</code> — this domain accepts no mail and says so. Is that
+        <code>0 .</code>: this domain accepts no mail and says so. Is that
         right?
       </p>
       <p>
@@ -34,7 +34,7 @@ rest of this unit exists to handle.
 The same shape appears everywhere once you look for it. Does a missing DKIM
 selector matter? Only if the platform issued one. Does an unauthorised
 certificate authority matter? Only if certificates are being issued at all. Does
-a missing SPF record matter? Not if nobody sends as the domain — and reporting
+a missing SPF record matter? Not if nobody sends as the domain, and reporting
 it as broken is how a checker teaches people to ignore its output.
 
 So a checker needs to be told what a domain is *for*. That statement of intent
@@ -60,7 +60,7 @@ information the platform has and DNS does not.
 Two properties of this are load-bearing.
 
 **Anything absent is unasked, not passing.** A profile that says nothing about
-DKIM produces no DKIM outcome at all — not a green one. A dashboard showing
+DKIM produces no DKIM outcome at all, not a green one. A dashboard showing
 eight ticks for a domain that was only asked about two is lying.
 
 **`expectsMail` is optional, not defaulted.** Omit it and the answer is that
@@ -85,7 +85,7 @@ makes "we changed the requirements" a controlled event rather than a surprise.
 
 But some of what a platform expects is issued *per domain*. The DKIM key for
 `acme.com` is not the one for `globex.com`. An ownership token is unique by
-definition — it would be worthless otherwise.
+definition: it would be worthless otherwise.
 
 Put those values on the profile and asserting "this domain publishes the key we
 issued it" costs one profile version per domain. Ten thousand domains, ten
@@ -114,7 +114,7 @@ problem; it is the absence of an answer.
 
 <Callout kind="warning">
   This validation cannot be a schema on the request body. The profile definition
-  is not known when the body is parsed — it is fetched by key afterwards — and a
+  is not known when the body is parsed (it is fetched by key afterwards) and a
   schema validator that strips unknown keys would silently drop a typo like
   `expectedPublickey`, leaving the domain monitored against no expectation at
   all. Which is the exact failure the mechanism exists to prevent.
@@ -141,7 +141,7 @@ moved where a value lives.
 Some checks are asked once per domain. Some are asked once per *name*.
 
 DKIM repeats per selector, obviously. Ownership tokens, tracking CNAMEs, SPF and
-MX repeat per label — they are the checks that answer a question about a name
+MX repeat per label: they are the checks that answer a question about a name
 rather than about the domain as a whole.
 
 Three kinds are deliberately not repeatable: `delegation`, `dmarc`, and `caa`.
@@ -152,7 +152,7 @@ Now the fault this produced, which is worth understanding in detail because it
 is the most interesting bug in the codebase.
 
 Results are attributed back to the requirement that asked for them, keyed by the
-thing that distinguishes one repetition from its siblings — the selector, the
+thing that distinguishes one repetition from its siblings: the selector, the
 label. Two requirements resolving to the *same* key produce two outcomes under
 one key, attribution can only take one, and the second requirement gets reported
 against the first one's result.
@@ -161,7 +161,7 @@ If the first token is published and the second is not, the domain reads
 **verified for a token nobody ever published.**
 
 <Callout kind="warning">
-  The subtlety is that uniqueness was already checked — at profile-write time,
+  The subtlety is that uniqueness was already checked: at profile-write time,
   across the discriminators written as literals. A deferred discriminator has no
   value yet, so uniqueness is not decidable there. A check that repeats needs a
   discriminator that is unique *after* per-domain values are resolved, not just
@@ -185,7 +185,7 @@ is the one that gets dropped in careless implementations.
 | Verdict | Meaning |
 |---|---|
 | `pass` | The requirement is satisfied |
-| `warn` | Satisfied, with something worth saying — an SPF record near the lookup limit |
+| `warn` | Satisfied, with something worth saying: an SPF record near the lookup limit |
 | `fail` | Definitely not satisfied |
 | `indeterminate` | The check could not run, or could not decide |
 
@@ -195,7 +195,7 @@ sender nobody supplied. An expectation was missing. Two requirements collided.
 None of those are failures. Collapsing them into `fail` produces false alarms,
 and collapsing them into `pass` produces false confidence. The whole four-valued
 discipline exists so that "we could not tell" survives all the way from a socket
-timeout to a webhook payload — and the next unit is about what happens when it
+timeout to a webhook payload. The next unit is about what happens when it
 does not.
 
 ## The worst of the parts
@@ -213,7 +213,7 @@ check did not run, so there could be anything behind it.
 
 It loses to `fail` because a failure you actually observed is more actionable
 than uncertainty about the rest. A domain with one definite failure and one
-timeout should report the failure — that is the thing somebody can go and fix.
+timeout should report the failure: that is the thing somebody can go and fix.
 
 ## A skipped check is not a passing check
 
